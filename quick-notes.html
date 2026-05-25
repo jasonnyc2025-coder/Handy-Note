@@ -347,17 +347,17 @@
     align-items: center;
     gap: 7px;
     border: none;
-    background: var(--accent);
+    background: var(--accent-soft);
     font-family: inherit;
     cursor: pointer;
     padding: 5px 14px 5px 11px;
     margin-top: 14px;
     border-radius: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 4px var(--shadow);
   }
   .cg-arrow {
     font-size: 0.75rem;
-    color: rgba(255,255,255,0.85);
+    color: var(--accent);
     transition: transform 0.2s;
   }
   .cat-group-head.collapsed .cg-arrow { transform: rotate(-90deg); }
@@ -366,13 +366,13 @@
     font-size: 1rem;
     font-weight: 700;
     letter-spacing: 0.01em;
-    color: #fff;
+    color: var(--accent);
   }
   .cg-count {
     font-size: 0.68rem;
-    color: rgba(255,255,255,0.9);
-    background: rgba(255,255,255,0.25);
-    border: 1px solid rgba(255,255,255,0.4);
+    color: var(--accent);
+    background: rgba(0,0,0,0.06);
+    border: 1px solid var(--accent-soft);
     padding: 1px 7px;
     border-radius: 20px;
   }
