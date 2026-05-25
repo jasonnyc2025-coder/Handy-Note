@@ -523,7 +523,7 @@
   }
   .remind-tag.past { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
 
-  .text[data-act="edit"] { cursor: text; }
+  .empty-text[data-act="edit"] { cursor: text; }
   .text.empty-text { color: var(--ink-soft); opacity: 0.6; font-style: italic; }
   .edit-btn {
     border: 1px solid var(--line);
@@ -2200,7 +2200,7 @@ function renderItem(n) {
     <div class="item ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:4px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;"></div>`}
       <div class="body">
-        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text" data-act="edit">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
         ${renderAtts(n.atts)}
         ${renderSubs(n)}
         <div class="meta">
