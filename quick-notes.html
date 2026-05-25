@@ -479,6 +479,14 @@
     border-top: 1px dashed var(--line);
   }
   .meta-actions.show { display: flex; }
+  .pin-badge {
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-right: 2px;
+  }
+  .item.pinned {
+    box-shadow: 0 0 0 2px var(--accent)33, 0 4px 16px var(--shadow);
+  }
   .badge {
     font-size: 0.66rem;
     padding: 2px 8px;
@@ -1922,6 +1930,7 @@ const I18N = {
     camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
     setReminder: '设置提醒', delReminder: '删除提醒', cancel: '取消', save: '保存', del: '删除', done: '完成',
     reminderNote: '提醒在此页面开着时会响铃并通知；完全关闭浏览器则不会响。',
+    pin: '📌 置顶', unpin: '📌 取消置顶',
     repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
     quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
     cloudTitle: '☁️ 云同步设置', cloudSub: '填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。',
@@ -1940,6 +1949,7 @@ const I18N = {
     camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
     setReminder: 'Set reminder', delReminder: 'Remove reminder', cancel: 'Cancel', save: 'Save', del: 'Delete', done: 'Done',
     reminderNote: 'Rings and notifies while this page is open; won\'t ring if the browser is fully closed.',
+    pin: '📌 Pin', unpin: '📌 Unpin',
     repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
     quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
     cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your Supabase info to auto-sync across devices. Use the same info on both phones.',
@@ -2182,14 +2192,14 @@ function catColor(id) {
 
 function renderItem(n) {
   return `
-    <div class="item ${n.done?'done':''}" data-id="${n.id}">
+    <div class="item ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:4px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;"></div>`}
       <div class="body">
         ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text" data-act="edit">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
         ${renderAtts(n.atts)}
         ${renderSubs(n)}
         <div class="meta">
-          <span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
+          ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
           <span>${fullDate(n.ts)}</span>
           ${n.subs && n.subs.length ? `<span class="sub-count">${n.subs.filter(s=>s.done).length}/${n.subs.length}</span>` : ''}
           ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
@@ -2200,6 +2210,7 @@ function renderItem(n) {
           ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
           <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
+          <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
         </div>
       </div>
       <button class="del" data-act="del">×</button>
@@ -2209,6 +2220,7 @@ function renderItem(n) {
 function render() {
   const list = document.getElementById('list');
   let items = notes.slice().sort((a,b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
     return b.ts - a.ts;
   });
@@ -2614,6 +2626,8 @@ document.getElementById('list').addEventListener('click', async e => {
     }
   } else if (act === 'toggle') {
     if (n) { n.done = !n.done; save(); render(); }
+  } else if (act === 'pin') {
+    if (n) { n.pinned = !n.pinned; save(); render(); }
   } else if (act === 'view') {
     const att = n && n.atts[+actEl.dataset.idx];
     if (att) openLightbox(await getAttData(att));
