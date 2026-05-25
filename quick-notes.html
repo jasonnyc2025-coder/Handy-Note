@@ -259,6 +259,7 @@
     white-space: nowrap;
   }
   .tab-add { font-size: 1.1rem; padding: 4px 12px; color: var(--accent); }
+  .tab-edit-hint { font-size: 0.65rem; opacity: 0.7; margin-left: 1px; }
   .tab.dragging {
     background: var(--accent);
     color: #fff;
@@ -2168,7 +2169,8 @@ function renderTabs() {
   }
   cats.forEach(c => {
     const cnt = notes.filter(n => n.cat === c.id).length;
-    html += `<button class="tab ${filter===c.id?'active':''}" data-filter="${c.id}">${esc(c.name)} <span class="count">${cnt||''}</span></button>`;
+    const isActive = filter === c.id;
+    html += `<button class="tab ${isActive?'active':''}" data-filter="${c.id}">${esc(c.name)}${isActive?' <span class="tab-edit-hint">✏️</span>':''} <span class="count">${cnt||''}</span></button>`;
   });
   html += `<button class="tab tab-add" data-filter="__add">＋</button>`;
   tabs.innerHTML = html;
@@ -2997,6 +2999,9 @@ document.getElementById('tabs').addEventListener('click', e => {
   if (tabDragging) return;            // 拖动中不触发切换
   const f = t.dataset.filter;
   if (f === '__add') { addCategory(); return; }
+  if (f !== 'all' && f !== '__overdue' && f === filter) {
+    manageCategory(f); return;        // 再次点击已选中的类别 → 管理/重命名
+  }
   filter = f;
   render();
 });
