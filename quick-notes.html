@@ -557,7 +557,7 @@
   }
   .sub-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 9px;
     padding: 4px 0;
     flex-wrap: wrap;
@@ -571,6 +571,7 @@
     display: grid;
     place-items: center;
     transition: all 0.2s;
+    margin-top: 2px;
   }
   .sub-check:hover { border-color: var(--accent); }
   .sub-check.on { background: var(--accent); border-color: var(--accent); }
