@@ -2314,7 +2314,7 @@ function renderItem(n) {
         <div class="meta">
           ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
           <span>${fullDate(n.ts)}</span>
-          ${n.subs && n.subs.length ? `<span class="sub-count">${n.subs.filter(s=>s.done).length}/${n.subs.length}</span>` : ''}
+          ${n.subs && n.subs.length ? `<span class="sub-count">${n.type==='todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : n.subs.length}</span>` : ''}
           ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
           ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
           <button class="more-btn" data-act="more">⋯</button>
@@ -2417,7 +2417,7 @@ function renderSubs(n) {
     <div class="subs-wrap">
       <button class="subs-toggle ${collapsed?'collapsed':''}" data-act="subtoggle-all" data-id="${n.id}">
         <span class="st-arrow">▾</span>
-        <span class="st-label">${lang==='en'?'Sub-items':'子项'} ${doneCount}/${n.subs.length}</span>
+        <span class="st-label">${lang==='en'?'Sub-items':'子项'} ${isTodo ? `${doneCount}/${n.subs.length}` : n.subs.length}</span>
       </button>
       <div class="subs" ${collapsed?'style="display:none"':''}>${rows}</div>
     </div>`;
