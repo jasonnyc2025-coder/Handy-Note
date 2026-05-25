@@ -2935,8 +2935,8 @@ function startEditSub(span, n, s) {
 
   // toolbar (🎨 + 附件) first → checkbox aligns with this row
   wrap.appendChild(toolbar);
-  wrap.appendChild(colorBar);  // expands below toolbar when 🎨 toggled
   wrap.appendChild(rich);
+  wrap.appendChild(colorBar);  // expands below text input, away from selection menu
   wrap.appendChild(attList);
   wrap.appendChild(actions);
   main.innerHTML = '';
