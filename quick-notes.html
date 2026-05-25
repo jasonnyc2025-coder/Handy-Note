@@ -1599,6 +1599,31 @@
 </style>
 </head>
 <body>
+<div id="lock-screen" class="hidden">
+  <div class="lock-inner">
+    <div class="lock-brand">随手<em>记</em></div>
+    <div class="lock-dots" id="lock-dots">
+      <span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span>
+    </div>
+    <div class="lock-msg" id="lock-msg"></div>
+    <div class="lock-pad">
+      <button class="lk" data-d="1">1</button>
+      <button class="lk" data-d="2">2</button>
+      <button class="lk" data-d="3">3</button>
+      <button class="lk" data-d="4">4</button>
+      <button class="lk" data-d="5">5</button>
+      <button class="lk" data-d="6">6</button>
+      <button class="lk" data-d="7">7</button>
+      <button class="lk" data-d="8">8</button>
+      <button class="lk" data-d="9">9</button>
+      <button class="lk lk-del" data-d="del">⌫</button>
+      <button class="lk" data-d="0">0</button>
+      <button class="lk lk-ok" data-d="ok">✓</button>
+    </div>
+    <div class="lock-footer" id="lock-forgot">忘记密码？</div>
+  </div>
+</div>
+<script>try{if(localStorage.getItem('quicknotes.lock'))document.getElementById('lock-screen').classList.remove('hidden');}catch(e){}</script>
 <div class="wrap">
   <header>
     <div class="titlebar">
@@ -4056,30 +4081,5 @@ document.addEventListener('visibilitychange', () => {
   } catch {}
 });
 </script>
-
-<div id="lock-screen" class="hidden">
-  <div class="lock-inner">
-    <div class="lock-brand">随手<em>记</em></div>
-    <div class="lock-dots" id="lock-dots">
-      <span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span>
-    </div>
-    <div class="lock-msg" id="lock-msg"></div>
-    <div class="lock-pad">
-      <button class="lk" data-d="1">1</button>
-      <button class="lk" data-d="2">2</button>
-      <button class="lk" data-d="3">3</button>
-      <button class="lk" data-d="4">4</button>
-      <button class="lk" data-d="5">5</button>
-      <button class="lk" data-d="6">6</button>
-      <button class="lk" data-d="7">7</button>
-      <button class="lk" data-d="8">8</button>
-      <button class="lk" data-d="9">9</button>
-      <button class="lk lk-del" data-d="del">⌫</button>
-      <button class="lk" data-d="0">0</button>
-      <button class="lk lk-ok" data-d="ok">✓</button>
-    </div>
-    <div class="lock-footer" id="lock-forgot">忘记密码？</div>
-  </div>
-</div>
 </body>
 </html>
