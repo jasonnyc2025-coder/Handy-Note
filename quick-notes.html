@@ -2934,9 +2934,9 @@ function startEditSub(span, n, s) {
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
   // toolbar (🎨 + 附件) first → checkbox aligns with this row
-  wrap.appendChild(toolbar);
   wrap.appendChild(rich);
-  wrap.appendChild(colorBar);  // expands below text input, away from selection menu
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
   wrap.appendChild(attList);
   wrap.appendChild(actions);
   main.innerHTML = '';
