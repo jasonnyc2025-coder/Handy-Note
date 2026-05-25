@@ -2390,7 +2390,7 @@ function renderSubs(n) {
     <div class="sub-row ${s.done?'done':''}" data-sub="${s.id}">
       <div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>
       <div class="sub-main">
-        <span class="sub-text" data-sub="${s.id}">${highlight(s.text)}</span>
+        <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
         ${renderSubAtts(s)}
         <div class="sub-meta">
           ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
@@ -2492,7 +2492,7 @@ function plainOf(htmlOrText) {
 let searchQuery = '';
 function escForRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function highlight(n) {
-  // n 可能是记录对象（富文本）或纯字符串（子项文字）
+  // n 可以是记录对象、子项对象（均含 rich 标志），或纯字符串
   const isObj = (typeof n === 'object' && n !== null);
   const raw = isObj ? (n.text || '') : (n || '');
   const rich = isObj && n.rich;
@@ -2511,7 +2511,7 @@ function matchSearch(n) {
   if (!searchQuery) return true;
   const q = searchQuery.toLowerCase();
   if (plainOf(n.text).toLowerCase().includes(q)) return true;
-  if (n.subs && n.subs.some(s => (s.text||'').toLowerCase().includes(q))) return true;
+  if (n.subs && n.subs.some(s => plainOf(s.text).toLowerCase().includes(q))) return true;
   const cat = cats.find(c => c.id === n.cat);
   if (cat && cat.name.toLowerCase().includes(q)) return true;
   return false;
@@ -2886,18 +2886,24 @@ function pickSubFile(kind, subAtts, attBtn, inp) {
 // 编辑某个子项文字
 function startEditSub(span, n, s) {
   const row = span.closest('.sub-row');
-  if (!row || row.querySelector('.edit-area')) return;
-  // 隐藏原有内容，插入编辑区
+  if (!row || row.querySelector('.sub-rich-edit')) return;
   const main = row.querySelector('.sub-main') || row;
 
   let editAtts = (s.atts || []).map(a => Object.assign({}, a));
 
   const wrap = document.createElement('div');
   wrap.className = 'edit-wrap';
-  const ta = document.createElement('textarea');
-  ta.className = 'edit-area';
-  ta.value = s.text || '';
-  ta.rows = Math.max(1, (s.text || '').split('\n').length);
+
+  // Rich contenteditable editor
+  const rich = document.createElement('div');
+  rich.className = 'sub-rich-edit edit-area';
+  rich.contentEditable = 'true';
+  rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;';
+  rich.innerHTML = s.rich ? sanitizeRich(s.text || '') : esc(s.text || '');
+
+  // Color bar
+  const colorWrap = buildColorBar(rich);
+  colorWrap.style.marginBottom = '4px';
 
   const attBox = document.createElement('div');
   attBox.className = 'edit-atts';
@@ -2915,13 +2921,22 @@ function startEditSub(span, n, s) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
-  wrap.appendChild(ta);
+  wrap.appendChild(colorWrap);
+  wrap.appendChild(rich);
   wrap.appendChild(attBox);
   wrap.appendChild(actions);
   main.innerHTML = '';
   main.appendChild(wrap);
-  ta.focus();
-  ta.setSelectionRange(ta.value.length, ta.value.length);
+  rich.focus();
+  // Move cursor to end
+  try {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(rich);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch {}
 
   attBox.addEventListener('click', e => {
     const rm = e.target.closest('.edit-att-rm');
@@ -2940,14 +2955,20 @@ function startEditSub(span, n, s) {
     if (done) return;
     done = true;
     if (saveIt) {
-      const v = ta.value.trim();
-      if (v || editAtts.length) { s.text = v; s.atts = editAtts; save(); }
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain || editAtts.length) {
+        s.text = html;
+        s.rich = true;
+        s.atts = editAtts;
+        save();
+      }
     }
     render();
   };
   actions.querySelector('.edit-ok').onclick = () => fin(true);
   actions.querySelector('.edit-cancel').onclick = () => fin(false);
-  ta.addEventListener('keydown', ev => {
+  rich.addEventListener('keydown', ev => {
     if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); fin(true); }
     else if (ev.key === 'Escape') { ev.preventDefault(); fin(false); }
   });
