@@ -343,39 +343,37 @@
   /* 类别分组 */
   .cat-group { margin-bottom: 6px; }
   .cat-group-head {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    width: 100%;
+    gap: 7px;
     border: none;
-    background: var(--paper);
+    background: var(--accent);
     font-family: inherit;
-    color: var(--ink);
     cursor: pointer;
-    padding: 10px 14px;
-    margin-top: 10px;
-    border-radius: 12px;
-    box-shadow: inset 3px 0 0 var(--accent), 0 2px 8px var(--shadow);
+    padding: 5px 14px 5px 11px;
+    margin-top: 14px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
   .cg-arrow {
-    font-size: 0.8rem;
-    color: var(--ink-soft);
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.85);
     transition: transform 0.2s;
   }
   .cat-group-head.collapsed .cg-arrow { transform: rotate(-90deg); }
   .cg-name {
     font-family: 'Fraunces', serif;
-    font-size: 1.15rem;
+    font-size: 1rem;
     font-weight: 700;
     letter-spacing: 0.01em;
-    color: var(--ink);
+    color: #fff;
   }
   .cg-count {
-    font-size: 0.7rem;
-    color: var(--ink-soft);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    padding: 1px 8px;
+    font-size: 0.68rem;
+    color: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.4);
+    padding: 1px 7px;
     border-radius: 20px;
   }
   .cat-group-body { padding-top: 2px; }
