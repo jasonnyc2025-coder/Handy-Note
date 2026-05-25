@@ -3024,7 +3024,6 @@ let tabDragging = false;
     dragId = f; downX = e.clientX; downY = e.clientY; started = false;
     pressTimer = setTimeout(() => {
       started = true;                  // 进入"可拖动"准备状态
-      tabs.style.touchAction = 'none';
       const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
       if (el) el.classList.add('dragging');
       if (navigator.vibrate) navigator.vibrate(15);
@@ -3033,11 +3032,12 @@ let tabDragging = false;
 
   const onMove = e => {
     if (!started) {
-      if (pressTimer && (Math.abs(e.clientX - downX) > 12 || Math.abs(e.clientY - downY) > 12)) {
+      if (pressTimer && (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4)) {
         clearTimeout(pressTimer); pressTimer = null;
       }
       return;
     }
+    if (tabs.style.touchAction !== 'none') tabs.style.touchAction = 'none';
     e.preventDefault();
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     const draggable = [...tabs.querySelectorAll('.tab')].filter(el => {
