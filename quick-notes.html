@@ -109,6 +109,14 @@
     background-image: linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);
     background-attachment: fixed;
   }
+  body[data-bg="custom"] {
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    --paper: rgba(255,255,255,0.92);
+    --shadow: rgba(0,0,0,0.25);
+  }
 
   .wrap {
     max-width: 620px;
@@ -1054,6 +1062,20 @@
     display: grid;
     place-items: center;
   }
+  .bg-photo-swatch {
+    border-style: dashed;
+    flex-direction: column;
+    gap: 2px;
+    background-color: var(--paper);
+  }
+  .bg-photo-swatch.has-photo {
+    background-size: cover;
+    background-position: center;
+    border-style: solid;
+  }
+  .bg-photo-swatch.sel { border-style: solid; }
+  .bg-photo-icon { font-size: 1.5rem; line-height: 1; }
+  .bg-photo-add { font-size: 0.62rem; color: var(--ink-soft); }
   .modal-note {
     font-size: 0.7rem;
     color: var(--ink-soft);
@@ -1661,6 +1683,7 @@ function confirmDialog(message) {
     <div class="modal-title" data-i18n="bgTitle">🎨 背景主题</div>
     <div class="modal-sub" data-i18n="bgSub" style="white-space:normal;">点一下即可切换，自动保存</div>
     <div class="bg-grid" id="bg-grid"></div>
+    <input type="file" accept="image/*" id="bg-photo-input" style="display:none">
     <div class="modal-actions">
       <span style="flex:1"></span>
       <button class="m-cancel" id="bg-close" data-i18n="done">完成</button>
@@ -1899,7 +1922,7 @@ const I18N = {
     repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
     quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
     cloudTitle: '☁️ 云同步设置', cloudSub: '填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。',
-    disconnect: '断开', connect: '连接并同步', confirmDel: '确认删除', bgTitle: '🎨 背景主题', bgSub: '点一下即可切换，自动保存',
+    disconnect: '断开', connect: '连接并同步', confirmDel: '确认删除', bgTitle: '🎨 背景主题', bgSub: '点一下即可切换，自动保存', bgPhoto: '我的照片', bgPhotoAdd: '上传照片',
     addAttach: '添加附件', newCat: '+ 新建类别', all: '全部', overdue: '⏰ 已过期', uncat: '未分类',
     allCount: '全部', plusReminder: '+ 提醒', plusSub: '+ 子项', edit: '编辑', categorize: '📁 归类',
     plusAlarm: '+ 闹钟', subPlaceholder: '子项内容…', add: '添加', attachSub: '给子项加照片或 PDF',
@@ -1917,7 +1940,7 @@ const I18N = {
     repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
     quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
     cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your Supabase info to auto-sync across devices. Use the same info on both phones.',
-    disconnect: 'Disconnect', connect: 'Connect & sync', confirmDel: 'Confirm delete', bgTitle: '🎨 Background', bgSub: 'Tap to switch, saved automatically',
+    disconnect: 'Disconnect', connect: 'Connect & sync', confirmDel: 'Confirm delete', bgTitle: '🎨 Background', bgSub: 'Tap to switch, saved automatically', bgPhoto: 'My Photo', bgPhotoAdd: 'Upload Photo',
     addAttach: 'Add attachment', newCat: '+ New category', all: 'All', overdue: '⏰ Overdue', uncat: 'Uncategorized',
     allCount: 'All', plusReminder: '+ Reminder', plusSub: '+ Sub-item', edit: 'Edit', categorize: '📁 Category',
     plusAlarm: '+ Alarm', subPlaceholder: 'Sub-item…', add: 'Add', attachSub: 'Add photo or PDF to sub-item',
@@ -1968,6 +1991,7 @@ function save() {
 
 // ===== 背景主题 =====
 const BG_KEY = 'quicknotes.bg';
+const BG_PHOTO_KEY = 'quicknotes.bgphoto';
 const BG_LIST = [
   { id: 'paper',    name: '米黄',   css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
   { id: 'plain',    name: '纯白',   css: 'background:#fbfaf6;' },
@@ -1992,6 +2016,13 @@ const BG_LIST = [
 
 function applyBg(id) {
   document.body.setAttribute('data-bg', id || 'paper');
+  if (id === 'custom') {
+    let url = '';
+    try { url = localStorage.getItem(BG_PHOTO_KEY) || ''; } catch {}
+    document.body.style.backgroundImage = url ? `url(${JSON.stringify(url)})` : 'none';
+  } else {
+    document.body.style.backgroundImage = '';
+  }
 }
 function loadBg() {
   let id = 'paper';
@@ -2008,9 +2039,18 @@ function renderBgGrid() {
   if (!grid) return;
   let cur = 'paper';
   try { cur = localStorage.getItem(BG_KEY) || 'paper'; } catch {}
+  let photoUrl = '';
+  try { photoUrl = localStorage.getItem(BG_PHOTO_KEY) || ''; } catch {}
+  const isCurCustom = cur === 'custom';
+  const photoLabel = t(photoUrl ? 'bgPhoto' : 'bgPhotoAdd');
+  const photoStyle = photoUrl
+    ? `background-image:url(${JSON.stringify(photoUrl)});background-size:cover;background-position:center;`
+    : '';
+  const photoIcon = photoUrl ? '' : '<span class="bg-photo-icon">📷</span>';
+  const customSwatch = `<div class="bg-swatch bg-photo-swatch ${isCurCustom ? 'sel' : ''} ${photoUrl ? 'has-photo' : ''}" data-bg-id="custom" style="${photoStyle}">${photoIcon}<span class="nm">${photoLabel}</span></div>`;
   grid.innerHTML = BG_LIST.map(b =>
     `<div class="bg-swatch ${b.id===cur?'sel':''}" data-bg-id="${b.id}" style="${b.css}"><span class="nm">${b.name}</span></div>`
-  ).join('');
+  ).join('') + customSwatch;
 }
 function openBgModal() {
   renderBgGrid();
@@ -3425,10 +3465,51 @@ gearMenu.addEventListener('click', e => {
 // 背景选择弹窗事件
 (function setupBg() {
   const modal = document.getElementById('bg-modal');
+  const fileInput = document.getElementById('bg-photo-input');
+
   document.getElementById('bg-grid').addEventListener('click', e => {
     const sw = e.target.closest('[data-bg-id]');
-    if (sw) setBg(sw.dataset.bgId);
+    if (!sw) return;
+    if (sw.dataset.bgId === 'custom') {
+      let photoUrl = '';
+      try { photoUrl = localStorage.getItem(BG_PHOTO_KEY) || ''; } catch {}
+      let curBg = '';
+      try { curBg = localStorage.getItem(BG_KEY) || 'paper'; } catch {}
+      if (!photoUrl || curBg === 'custom') {
+        fileInput.click();
+      } else {
+        setBg('custom');
+      }
+    } else {
+      setBg(sw.dataset.bgId);
+    }
   });
+
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1400;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL('image/jpeg', 0.85);
+        try {
+          localStorage.setItem(BG_PHOTO_KEY, compressed);
+          setBg('custom');
+        } catch { /* storage full */ }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+    fileInput.value = '';
+  });
+
   document.getElementById('bg-close').addEventListener('click', () => modal.classList.remove('show'));
   modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
 })();
