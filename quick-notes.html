@@ -1,0 +1,3712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>随手记 · Quick Notes</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#f4f1ea">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="随手记">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #f4f1ea;
+    --paper: #fbfaf6;
+    --ink: #2b2722;
+    --ink-soft: #6b645a;
+    --line: #e3ddd0;
+    --accent: #c8553d;
+    --accent-soft: #f0d9d2;
+    --done: #a9a294;
+    --shadow: rgba(43, 39, 34, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image: radial-gradient(var(--line) 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+    transition: background-color 0.3s;
+  }
+
+  /* ===== 可选背景 ===== */
+  body[data-bg="paper"] { /* 默认米黄圆点，同上 */ }
+  body[data-bg="plain"] {
+    --bg: #fbfaf6;
+    background-image: none;
+  }
+  body[data-bg="gray"] {
+    --bg: #eceae6;
+    background-image: none;
+  }
+  body[data-bg="pink"] {
+    --bg: #f6ece8;
+    background-image: linear-gradient(160deg, #f7e3dc 0%, #f1e4ea 100%);
+    background-attachment: fixed;
+  }
+  body[data-bg="mint"] {
+    --bg: #e8f0ea;
+    background-image: linear-gradient(160deg, #e6f0ea 0%, #e4ecf1 100%);
+    background-attachment: fixed;
+  }
+  body[data-bg="grid"] {
+    --bg: #f4f1ea;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  body[data-bg="dark"] {
+    --bg: #23201c;
+    --paper: #2e2a25;
+    --ink: #ece7df;
+    --ink-soft: #a89f93;
+    --line: #423d36;
+    --accent-soft: #4a3530;
+    --shadow: rgba(0,0,0,0.3);
+    background-image: radial-gradient(#34302a 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+  }
+  body[data-bg="midnight"] {
+    --bg: #1a1d2b;
+    --paper: #242838;
+    --ink: #e6e8f0;
+    --ink-soft: #9aa0b8;
+    --line: #363b50;
+    --accent-soft: #3a3550;
+    --shadow: rgba(0,0,0,0.35);
+    background-image: linear-gradient(160deg, #1a1d2b 0%, #232036 100%);
+    background-attachment: fixed;
+  }
+
+  /* ===== 自然主题背景（浅色系，文字用默认深色）===== */
+  body[data-bg="sunrise"]  { background-image: linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b); background-attachment: fixed; }
+  body[data-bg="sunset"]   { background-image: linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e); background-attachment: fixed; }
+  body[data-bg="ocean"]    { background-image: linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5); background-attachment: fixed; }
+  body[data-bg="forest"]   { background-image: linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b); background-attachment: fixed; }
+  body[data-bg="sky"]      { background-image: linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb); background-attachment: fixed; }
+  body[data-bg="lavender"] { background-image: linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd); background-attachment: fixed; }
+  body[data-bg="sakura"]   { background-image: linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd); background-attachment: fixed; }
+  body[data-bg="autumn"]   { background-image: linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a); background-attachment: fixed; }
+
+  /* 深色系自然主题，文字提亮 */
+  body[data-bg="aurora"] {
+    --paper: rgba(255,255,255,0.92);
+    --shadow: rgba(0,0,0,0.3);
+    background-image: linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);
+    background-attachment: fixed;
+  }
+  body[data-bg="dusk"] {
+    --paper: rgba(255,255,255,0.93);
+    --shadow: rgba(0,0,0,0.25);
+    background-image: linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);
+    background-attachment: fixed;
+  }
+
+  .wrap {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 0 18px;
+    padding-bottom: var(--composer-h, 140px);
+  }
+
+  header {
+    padding: 16px 0 14px;
+    position: sticky;
+    top: 0;
+    background: linear-gradient(var(--bg) 80%, transparent);
+    z-index: 10;
+  }
+
+  .titlebar {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .gear {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    line-height: 1;
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    cursor: pointer;
+    align-self: center;
+    transition: all 0.2s;
+  }
+  .gear:hover { border-color: var(--accent); color: var(--accent); }
+
+  .gear-menu {
+    position: absolute;
+    right: 0;
+    top: 52px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 10px 36px rgba(43,39,34,0.2);
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 40;
+    min-width: 210px;
+    animation: rise 0.18s ease both;
+  }
+  .gear-menu.show { display: flex; }
+  .gear-menu button {
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--ink);
+    text-align: left;
+    padding: 10px 13px;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .gear-menu button:hover { background: var(--accent-soft); }
+  .gear-sep { height: 1px; background: var(--line); margin: 4px 8px; }
+  .cloud-status {
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 4px 13px 6px;
+    line-height: 1.4;
+  }
+  .cloud-status.on { color: #4a6b48; }
+
+  .cloud-label {
+    display: block;
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin: 13px 0 5px;
+  }
+  #cloud-url, #cloud-key, #cloud-room {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--ink);
+    outline: none;
+    box-sizing: border-box;
+  }
+  #cloud-url:focus, #cloud-key:focus, #cloud-room:focus { border-color: var(--accent); }
+
+  .title {
+    font-family: 'Fraunces', serif;
+    font-size: 2.1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .title em { font-style: italic; color: var(--accent); }
+
+  .sub {
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.02em;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    padding: 6px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab-add { font-size: 1.1rem; padding: 4px 12px; color: var(--accent); }
+  .tab.dragging {
+    background: var(--accent);
+    color: #fff;
+    transform: scale(1.08);
+    box-shadow: 0 4px 14px rgba(200,85,61,0.4);
+    opacity: 0.92;
+  }
+  .tabs { touch-action: pan-x; }
+  .tabs .tab {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .tab-overdue { color: var(--accent); }
+  .tab-overdue.active { background: var(--accent); color: #fff; }
+  .tab-overdue .count { background: var(--accent); color:#fff; padding:0 6px; border-radius:10px; opacity:1; }
+  .tab-overdue.active .count { background: rgba(255,255,255,0.25); }
+
+  .cat-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cat-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tab.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .tab .count {
+    font-size: 0.72rem;
+    opacity: 0.6;
+    margin-left: 3px;
+  }
+
+  .list { margin-top: 8px; }
+
+  /* 搜索栏 */
+  .search-bar {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px 6px 4px 14px;
+  }
+  .search-bar.show { display: flex; }
+  #search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.92rem;
+    color: var(--ink);
+    outline: none;
+    padding: 7px 0;
+  }
+  #search-clear {
+    border: none;
+    background: var(--bg);
+    color: var(--ink-soft);
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  mark {
+    background: #ffe08a;
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 1px;
+  }
+  body[data-bg="dark"] mark, body[data-bg="midnight"] mark { background: #b8923a; color:#fff; }
+
+  /* 类别分组 */
+  .cat-group { margin-bottom: 6px; }
+  .cat-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    padding: 8px 4px;
+    margin-top: 6px;
+  }
+  .cg-arrow {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    transition: transform 0.2s;
+  }
+  .cat-group-head.collapsed .cg-arrow { transform: rotate(-90deg); }
+  .cg-name {
+    font-family: 'Fraunces', serif;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .cg-count {
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    padding: 1px 8px;
+    border-radius: 20px;
+  }
+  .cat-group-body { padding-top: 2px; }
+
+  .item {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 15px 16px;
+    margin-bottom: 11px;
+    display: flex;
+    gap: 13px;
+    align-items: flex-start;
+    box-shadow: 0 2px 8px var(--shadow);
+    animation: rise 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .check {
+    width: 22px; height: 22px;
+    border: 2px solid var(--line);
+    border-radius: 7px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s;
+  }
+  .check:hover { border-color: var(--accent); }
+  .check.on {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check.on::after {
+    content: '';
+    width: 6px; height: 10px;
+    border: solid var(--paper);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translateY(-1px);
+  }
+
+  .body { flex: 1; min-width: 0; }
+  .text {
+    font-size: var(--note-font, 0.97rem);
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .item.done .text {
+    color: var(--done);
+    text-decoration: line-through;
+    text-decoration-color: var(--done);
+  }
+  .meta {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    margin-top: 7px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  /* 类别小标签（常显，只读） */
+  .cat-tag {
+    font-size: 0.66rem;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: inline-block;
+    white-space: nowrap;
+    touch-action: manipulation;
+  }
+  .cat-tag * { pointer-events: none; }
+  .cat-tag-color { font-weight: 600; }
+  .cat-tag:hover { border-color: var(--accent); color: var(--accent); }
+  .cat-tag-empty { border-style: dashed; }
+  /* 更多按钮 */
+  .more-btn {
+    margin-left: auto;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    line-height: 1;
+    padding: 3px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .more-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  /* 操作按钮行：默认收起 */
+  .meta-actions {
+    display: none;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .meta-actions.show { display: flex; }
+  .badge {
+    font-size: 0.66rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+  .badge.idea { background: var(--accent-soft); color: var(--accent); }
+  .badge.todo { background: #e0e8df; color: #4a6b48; }
+
+  .remind-btn {
+    border: 1px dashed var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .remind-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .remind-tag {
+    font-size: 0.68rem;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: #eae3f0;
+    color: #6b4a8a;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .remind-tag.past { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
+
+  .text[data-act="edit"] { cursor: text; }
+  .text.empty-text { color: var(--ink-soft); opacity: 0.6; font-style: italic; }
+  .edit-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* 子项 */
+  .subs-wrap { margin: 8px 0 4px; }
+  .subs-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+  .subs-toggle:hover { border-color: var(--accent); }
+  .subs-toggle * { pointer-events: none; }
+  .subs-toggle .st-arrow { font-size: 0.7rem; color: var(--accent); transition: transform 0.2s; }
+  .subs-toggle.collapsed .st-arrow { transform: rotate(-90deg); }
+  .st-label { font-weight: 600; }
+  .subs {
+    margin: 4px 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+  }
+  .sub-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 4px 0;
+    flex-wrap: wrap;
+  }
+  .sub-check {
+    width: 17px; height: 17px;
+    border: 2px solid var(--line);
+    border-radius: 5px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s;
+  }
+  .sub-check:hover { border-color: var(--accent); }
+  .sub-check.on { background: var(--accent); border-color: var(--accent); }
+  .sub-check.on::after {
+    content: '';
+    width: 4px; height: 8px;
+    border: solid var(--paper);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translateY(-1px);
+  }
+  .sub-text {
+    flex: 1;
+    font-size: calc(var(--note-font, 0.97rem) - 0.09rem);
+    line-height: 1.4;
+    color: var(--ink);
+    cursor: text;
+    word-break: break-word;
+  }
+  .sub-row.done .sub-text {
+    color: var(--done);
+    text-decoration: line-through;
+    text-decoration-color: var(--done);
+  }
+  .sub-del {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    cursor: pointer;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    line-height: 1;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s;
+  }
+  .sub-del:hover, .sub-del:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .sub-add-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    padding: 2px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sub-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-count {
+    font-size: 0.66rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #e0e8df;
+    color: #4a6b48;
+    font-weight: 500;
+  }
+  .sub-input {
+    flex: 1;
+    border: 1px solid var(--accent);
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 5px 9px;
+    font-family: inherit;
+    font-size: 0.88rem;
+    color: var(--ink);
+    outline: none;
+  }
+  .sub-main { flex: 1; min-width: 0; }
+  .sub-date {
+    display: block;
+    font-size: 0.66rem;
+    color: var(--ink-soft);
+    opacity: 0.8;
+    margin-top: 3px;
+  }
+  .sub-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    margin-top: 4px;
+  }
+  .sub-meta .sub-date { display: inline; margin-top: 0; }
+  .sub-mini-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.64rem;
+    color: var(--ink-soft);
+    padding: 2px 8px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sub-mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-remind {
+    font-size: 0.64rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: #eae3f0;
+    color: #6b4a8a;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .sub-remind.past { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
+  .sub-att-btn, .sub-ok-btn {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .sub-ok-btn { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .sub-att-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-att-menu {
+    display: flex;
+    gap: 5px;
+    margin-top: 6px;
+    width: 100%;
+  }
+  .sub-att-menu button {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-family: inherit;
+    font-size: 0.74rem;
+    color: var(--ink);
+    padding: 5px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .sub-att-menu button:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-atts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+  }
+  .sub-att-img {
+    width: 48px; height: 48px;
+    object-fit: cover;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .sub-att-pdf {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    color: var(--ink);
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 5px 9px;
+    cursor: pointer;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 编辑态 */
+  .edit-area {
+    width: 100%;
+    border: 1px solid var(--accent);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 9px 11px;
+    font-family: inherit;
+    font-size: 0.97rem;
+    line-height: 1.5;
+    color: var(--ink);
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+  }
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .edit-actions button {
+    border: none;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .edit-ok { background: var(--ink); color: var(--paper); }
+  .edit-cancel { background: var(--bg); color: var(--ink-soft); border: 1px solid var(--line) !important; }
+
+  /* 编辑时的附件管理 */
+  .edit-atts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 9px;
+    align-items: center;
+  }
+  .edit-att {
+    position: relative;
+    border-radius: 9px;
+  }
+  .edit-att img {
+    width: 60px; height: 60px;
+    object-fit: cover;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    display: block;
+  }
+  .edit-att-pdf {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    padding: 0 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-size: 0.72rem;
+    color: var(--ink);
+    max-width: 150px;
+  }
+  .edit-att-rm {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 19px; height: 19px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    border: 2px solid var(--paper);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  .edit-att-add {
+    border: 1px dashed var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    height: 60px;
+    padding: 0 14px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .edit-att-add:hover { border-color: var(--accent); color: var(--accent); }
+  .edit-att-menu {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .edit-att-menu button {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-family: inherit;
+    font-size: 0.76rem;
+    color: var(--ink);
+    padding: 6px 11px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .edit-att-menu button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* 统一附件选择弹窗的大按钮 */
+  .attach-picker-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 16px 0 4px;
+  }
+  .ap-opt {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--ink);
+    padding: 16px 18px;
+    border-radius: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ap-opt:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .ap-opt:active { transform: scale(0.98); }
+  .ap-opt .ap-ic { font-size: 1.5rem; }
+
+  /* reminder modal */
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 15, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    padding: 24px;
+  }
+  .modal.show { display: flex; }
+  .modal-card {
+    background: var(--paper);
+    border-radius: 18px;
+    padding: 22px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: rise 0.25s ease both;
+  }
+  .modal-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+  .modal-sub {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin: 6px 0 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #remind-input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 11px;
+    padding: 11px 13px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--ink);
+    outline: none;
+  }
+  #remind-input:focus { border-color: var(--accent); }
+  .quick-times {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 13px;
+  }
+  .quick-times button {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.76rem;
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .quick-times button:hover { border-color: var(--accent); color: var(--accent); }
+  .repeat-label {
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin: 16px 0 8px;
+  }
+  .repeat-opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .repeat-opts button {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    padding: 6px 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .repeat-opts button.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .modal-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 20px;
+  }
+  .modal-actions button {
+    border: none;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 9px 16px;
+    border-radius: 11px;
+    cursor: pointer;
+  }
+  .m-del { background: transparent; color: var(--accent); padding: 9px 4px !important; }
+  .m-cancel { background: var(--bg); color: var(--ink-soft); }
+  .m-ok { background: var(--ink); color: var(--paper); }
+  .confirm-danger { background: var(--accent) !important; color: #fff !important; }
+
+  #prompt-input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    border-radius: 11px;
+    padding: 11px 13px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--ink);
+    outline: none;
+    box-sizing: border-box;
+    margin-top: 4px;
+  }
+  #prompt-input:focus { border-color: var(--accent); }
+
+  .catpick-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 14px 0 4px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  .catpick-item {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    font-family: inherit;
+    font-size: 0.92rem;
+    color: var(--ink);
+    text-align: left;
+    padding: 12px 14px;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .catpick-item:hover { border-color: var(--accent); }
+  .catpick-item.sel {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .catpick-item.danger { color: var(--accent); }
+
+  /* 背景选择 */
+  .bg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 14px 0 4px;
+  }
+  .bg-swatch {
+    border: 2px solid var(--line);
+    border-radius: 12px;
+    height: 70px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, border-color 0.2s;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .bg-swatch:active { transform: scale(0.95); }
+  .bg-swatch.sel { border-color: var(--accent); }
+  .bg-swatch .nm {
+    font-size: 0.68rem;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    width: 100%;
+    text-align: center;
+    padding: 2px 0;
+    backdrop-filter: blur(2px);
+  }
+  .bg-swatch.sel::after {
+    content: '✓';
+    position: absolute;
+    top: 4px; right: 6px;
+    color: #fff;
+    background: var(--accent);
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    display: grid;
+    place-items: center;
+  }
+  .modal-note {
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    margin-top: 14px;
+    line-height: 1.5;
+    opacity: 0.85;
+  }
+
+  /* reminder banner */
+  .remind-banner {
+    position: fixed;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 420px;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    z-index: 200;
+    transition: top 0.4s cubic-bezier(0.2,0.9,0.3,1);
+  }
+  .remind-banner.show { top: 16px; }
+  .remind-banner .rb-ic { font-size: 1.3rem; }
+  .remind-banner .rb-txt { flex: 1; font-size: 0.9rem; line-height: 1.4; }
+  .remind-banner .rb-x {
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: var(--paper);
+    font-family: inherit;
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .del {
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--ink-soft);
+    font-size: 1rem;
+    cursor: pointer;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    line-height: 1;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+  }
+  .del:hover, .del:active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* attachments on cards */
+  .atts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .att-img {
+    width: 76px; height: 76px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .att-img:active { transform: scale(0.95); }
+  .att-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 0.78rem;
+    color: var(--ink);
+    cursor: pointer;
+    max-width: 200px;
+    transition: transform 0.15s;
+  }
+  .att-pdf:active { transform: scale(0.97); }
+  .att-pdf .pic { font-size: 1.1rem; flex-shrink: 0; }
+  .att-pdf .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--ink-soft);
+  }
+  .empty .big {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+  }
+  .empty .small { font-size: 0.85rem; opacity: 0.8; }
+
+  /* composer */
+  .composer {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 20px;
+    width: calc(100% - 36px);
+    max-width: 584px;
+    background: var(--accent-soft);
+    border: 1.5px solid var(--accent);
+    border-radius: 18px;
+    box-shadow: 0 10px 40px rgba(200, 85, 61, 0.28);
+    padding: 12px;
+    z-index: 20;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  /* 收起：隐藏输入栏 */
+  .composer.collapsed {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(20px);
+  }
+  /* 收起按钮（向下箭头） */
+  .composer-hide {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px; height: 26px;
+    border: 1.5px solid var(--accent);
+    border-bottom: none;
+    background: var(--accent-soft);
+    border-radius: 13px 13px 0 0;
+    color: var(--accent);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 -3px 10px rgba(200,85,61,0.12);
+  }
+  /* 浮动展开按钮 */
+  .fab {
+    position: fixed;
+    right: 22px;
+    bottom: 24px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 1.9rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(200,85,61,0.45);
+    z-index: 19;
+    display: none;
+    transition: transform 0.15s;
+  }
+  .fab:active { transform: scale(0.9); }
+  .fab.show { display: block; }
+  .ctype {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 9px;
+  }
+  .ctype button {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    padding: 5px 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ctype button.sel.idea { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .ctype button.sel.todo { background: #4a6b48; color: #fff; border-color: #4a6b48; }
+  .creminder.set { background: #eae3f0; color: #6b4a8a; border-color: #d4c2e0; }
+
+  .crow { display: flex; gap: 9px; align-items: flex-end; }
+  textarea {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.97rem;
+    color: var(--ink);
+    resize: none;
+    outline: none;
+    line-height: 1.45;
+    max-height: 120px;
+    padding: 6px 4px;
+  }
+  textarea::placeholder { color: var(--ink-soft); opacity: 0.6; }
+
+  /* 富文本输入框 */
+  .rich-input {
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.97rem;
+    color: var(--ink);
+    outline: none;
+    line-height: 1.45;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 9px 11px;
+    min-height: 1.45em;
+    word-break: break-word;
+    background: var(--paper);
+    border-radius: 11px;
+    border: 1px solid var(--line);
+  }
+  .rich-input:empty::before {
+    content: attr(data-ph);
+    color: var(--ink-soft);
+    opacity: 0.6;
+  }
+  .color-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 4px 2px;
+    flex-wrap: wrap;
+  }
+  .color-toggle {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-size: 1rem;
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .color-toggle.on { border-color: var(--accent); background: var(--accent-soft); }
+  .color-bar {
+    display: none;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+  .color-bar.show { display: flex; }
+  .color-dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--paper);
+    box-shadow: 0 0 0 1px var(--line);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s;
+  }
+  .color-dot:active { transform: scale(0.85); }
+  .color-dot.cur { box-shadow: 0 0 0 2px var(--accent); }
+  .color-custom {
+    width: 24px; height: 24px;
+    display: grid;
+    place-items: center;
+    font-size: 0.95rem;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  .color-custom input[type="color"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+  .color-whole {
+    border: 1px solid var(--line);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    padding: 2px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  .color-whole:hover { border-color: var(--accent); color: var(--accent); }
+
+  .send {
+    border: none;
+    background: var(--ink);
+    color: var(--paper);
+    width: 42px; height: 42px;
+    border-radius: 13px;
+    font-size: 1.3rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    transition: transform 0.15s, background 0.2s;
+  }
+  .send:active { transform: scale(0.92); }
+  .send:disabled { opacity: 0.35; cursor: default; }
+
+  /* attach button in composer */
+  .attach {
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    width: 42px; height: 42px;
+    border-radius: 13px;
+    font-size: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    transition: all 0.2s;
+  }
+  .attach:hover { border-color: var(--accent); color: var(--accent); }
+
+  .attach-menu {
+    position: absolute;
+    left: 12px;
+    bottom: 64px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(43, 39, 34, 0.18);
+    padding: 6px;
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 30;
+    animation: rise 0.18s ease both;
+  }
+  .attach-menu.show { display: flex; }
+  .attach-menu button {
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.88rem;
+    color: var(--ink);
+    text-align: left;
+    padding: 9px 16px 9px 12px;
+    border-radius: 9px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .attach-menu button:hover { background: var(--accent-soft); }
+
+  /* pending attachment previews in composer */
+  .pending {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .pending:empty { display: none; }
+  .pend {
+    position: relative;
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .pend img {
+    width: 56px; height: 56px;
+    object-fit: cover;
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+  }
+  .pend .pdf-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 56px;
+    padding: 0 12px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    font-size: 0.72rem;
+    max-width: 150px;
+  }
+  .pend .pdf-chip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pend .rm {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 19px; height: 19px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: #fff;
+    border: 2px solid var(--paper);
+    font-size: 0.7rem;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+
+  /* lightbox */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 18, 15, 0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 24px;
+  }
+  .lightbox.show { display: flex; }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 10px;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+  }
+  .lightbox .close {
+    position: absolute;
+    top: 20px; right: 22px;
+    color: #fff;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="titlebar">
+      <div class="title">随手<em>记</em></div>
+      <div class="sub" data-i18n="subtitle">想到什么随时记 · 自动保存</div>
+      <span style="flex:1"></span>
+      <button class="gear" id="search-btn" data-i18n-title="search" title="搜索">🔍</button>
+      <button class="gear" id="gear" title="⋯">⋯</button>
+    </div>
+    <div class="search-bar" id="search-bar">
+      <input type="text" id="search-input" data-i18n-ph="searchPlaceholder" placeholder="搜索记录、子项、类别…" autocomplete="off">
+      <button id="search-clear">×</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="gear-menu" id="gear-menu">
+      <button data-menu="bg" data-i18n="menuBg">🎨 背景主题</button>
+      <button data-menu="fontsize" data-i18n="menuFont">🔤 字体大小</button>
+      <button data-menu="lang" data-i18n="menuLang">🌐 Language / 语言</button>
+      <div class="gear-sep"></div>
+      <button data-menu="export" data-i18n="menuExport">⬇️ 导出数据（备份）</button>
+      <button data-menu="import" data-i18n="menuImport">⬆️ 导入数据（恢复/合并）</button>
+      <div class="gear-sep"></div>
+      <button data-menu="cloud" data-i18n="menuCloud">☁️ 云同步设置</button>
+      <div class="cloud-status" id="cloud-status"></div>
+    </div>
+  </header>
+  <input type="file" id="import-file" accept="application/json,.json" style="display:none">
+
+  <div class="list" id="list"></div>
+</div>
+
+<button class="fab" id="fab" title="记一笔">＋</button>
+<div class="composer collapsed" id="composer">
+  <button class="composer-hide" id="composer-hide" title="收起">⌄</button>
+  <div class="ctype">
+    <button class="sel idea" data-t="idea" id="t-idea" data-i18n="tIdea">💡 想法</button>
+    <button data-t="todo" id="t-todo" data-i18n="tTodo">✓ 待办</button>
+    <span style="flex:1"></span>
+    <button class="creminder" id="creminder" data-i18n="cReminder">⏰ 提醒</button>
+  </div>
+  <div class="pending" id="pending"></div>
+  <div class="color-bar-holder" id="color-bar-holder"></div>
+  <div class="crow">
+    <button class="attach" id="attach" title="+">＋</button>
+    <div id="input" class="rich-input" contenteditable="true" role="textbox" data-ph="写点什么…"></div>
+    <button class="send" id="send" disabled>↑</button>
+  </div>
+  <div class="attach-menu" id="attach-menu">
+    <button data-pick="camera">📷 拍照</button>
+    <button data-pick="image">🖼️ 从相册选</button>
+    <button data-pick="pdf">📄 选 PDF</button>
+  </div>
+  <input type="file" id="file-camera" accept="image/*" capture="environment" style="display:none">
+  <input type="file" id="file-image" accept="image/*" multiple style="display:none">
+  <input type="file" id="file-pdf" accept="application/pdf" multiple style="display:none">
+</div>
+
+<div class="lightbox" id="lightbox">
+  <button class="close" id="lb-close">×</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<div class="modal" id="remind-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="setReminder">设置提醒</div>
+    <div class="modal-sub" id="remind-for"></div>
+    <input type="datetime-local" id="remind-input">
+    <div class="quick-times">
+      <button data-min="5" data-i18n="quick5">5 分钟后</button>
+      <button data-min="30" data-i18n="quick30">30 分钟后</button>
+      <button data-min="60" data-i18n="quick60">1 小时后</button>
+      <button data-min="1440" data-i18n="quickTmr">明天此时</button>
+    </div>
+    <div class="repeat-label" data-i18n="repeat">重复</div>
+    <div class="repeat-opts" id="repeat-opts">
+      <button class="sel" data-rep="none" data-i18n="repNone">不重复</button>
+      <button data-rep="daily" data-i18n="repDaily">每天</button>
+      <button data-rep="weekly" data-i18n="repWeekly">每周</button>
+      <button data-rep="monthly" data-i18n="repMonthly">每月</button>
+      <button data-rep="yearly" data-i18n="repYearly">每年</button>
+    </div>
+    <div class="modal-actions">
+      <button class="m-del" id="remind-del" data-i18n="delReminder">删除提醒</button>
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="remind-cancel" data-i18n="cancel">取消</button>
+      <button class="m-ok" id="remind-save" data-i18n="save">保存</button>
+    </div>
+    <div class="modal-note" data-i18n="reminderNote">提醒在此页面开着时会响铃并通知；完全关闭浏览器则不会响。</div>
+  </div>
+</div>
+
+<div class="modal" id="cloud-modal">
+  <div class="modal-card">
+    <div class="modal-title">☁️ 云同步设置</div>
+    <div class="modal-sub">填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。</div>
+    <label class="cloud-label">Project URL</label>
+    <input type="text" id="cloud-url" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="cloud-label">anon public key</label>
+    <input type="text" id="cloud-key" placeholder="eyJhbGci..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="cloud-label">同步代号（自己起个名，两台填一样）</label>
+    <input type="text" id="cloud-room" placeholder="例如 mynotes2026" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="modal-actions">
+      <button class="m-del" id="cloud-disconnect" data-i18n="disconnect">断开</button>
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="cloud-cancel" data-i18n="cancel">取消</button>
+      <button class="m-ok" id="cloud-connect" data-i18n="connect">连接并同步</button>
+    </div>
+    <div class="modal-note" id="cloud-modal-note">不知道这些是什么？关掉它继续用导出/导入也完全没问题。配置教程见我给你的说明。</div>
+  </div>
+</div>
+
+<div class="modal" id="confirm-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="confirmDel">确认删除</div>
+    <div class="modal-sub" id="confirm-msg" style="white-space:pre-line;"></div>
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="confirm-cancel" data-i18n="cancel">取消</button>
+      <button class="m-ok confirm-danger" id="confirm-ok" data-i18n="del">删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// 通用确认对话框，返回 Promise<boolean>
+let _confirmResolve = null;
+function confirmDialog(message) {
+  return new Promise(resolve => {
+    _confirmResolve = resolve;
+    document.getElementById('confirm-msg').textContent = message;
+    document.getElementById('confirm-modal').classList.add('show');
+  });
+}
+(function setupConfirm() {
+  const modal = document.getElementById('confirm-modal');
+  const done = (val) => { modal.classList.remove('show'); if (_confirmResolve) { _confirmResolve(val); _confirmResolve = null; } };
+  document.getElementById('confirm-ok').addEventListener('click', () => done(true));
+  document.getElementById('confirm-cancel').addEventListener('click', () => done(false));
+  modal.addEventListener('click', e => { if (e.target === modal) done(false); });
+})();
+</script>
+
+<div class="modal" id="prompt-modal">
+  <div class="modal-card">
+    <div class="modal-title" id="prompt-title">输入</div>
+    <div class="modal-sub" id="prompt-sub" style="white-space:pre-line;display:none;"></div>
+    <input type="text" id="prompt-input" autocomplete="off">
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="prompt-cancel" data-i18n="cancel">取消</button>
+      <button class="m-ok" id="prompt-ok" data-i18n="done">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="catpick-modal">
+  <div class="modal-card">
+    <div class="modal-title">选择类别</div>
+    <div class="modal-sub" id="catpick-sub" style="white-space:normal;"></div>
+    <div class="catpick-list" id="catpick-list"></div>
+    <div class="modal-actions">
+      <button class="m-del" id="catpick-new" data-i18n="newCat">+ 新建类别</button>
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="catpick-cancel" data-i18n="cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bg-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="bgTitle">🎨 背景主题</div>
+    <div class="modal-sub" data-i18n="bgSub" style="white-space:normal;">点一下即可切换，自动保存</div>
+    <div class="bg-grid" id="bg-grid"></div>
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="bg-close" data-i18n="done">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="lang-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="langTitle">🌐 语言 / Language</div>
+    <div class="modal-sub" data-i18n="langSub" style="white-space:normal;">选择界面语言</div>
+    <div class="catpick-list">
+      <button class="catpick-item" data-lang="zh">🇨🇳 中文</button>
+      <button class="catpick-item" data-lang="en">🇬🇧 English</button>
+    </div>
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="lang-close" data-i18n="cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="font-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="menuFont">🔤 字体大小</div>
+    <div class="modal-sub" style="white-space:normal;" data-i18n="fontSub">选择记录文字的大小</div>
+    <div class="catpick-list" id="font-list">
+      <button class="catpick-item" data-fs="small" style="font-size:0.9rem">A　<span data-i18n="fsSmall">小</span></button>
+      <button class="catpick-item" data-fs="normal" style="font-size:1.02rem">A　<span data-i18n="fsNormal">中（默认）</span></button>
+      <button class="catpick-item" data-fs="large" style="font-size:1.18rem">A　<span data-i18n="fsLarge">大</span></button>
+      <button class="catpick-item" data-fs="xlarge" style="font-size:1.34rem">A　<span data-i18n="fsXlarge">特大</span></button>
+    </div>
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="font-close" data-i18n="done">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="attach-picker-modal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="addAttach">添加附件</div>
+    <div class="attach-picker-opts">
+      <button class="ap-opt" data-pick="camera"><span class="ap-ic">📷</span><span data-i18n="camera">拍照</span></button>
+      <button class="ap-opt" data-pick="image"><span class="ap-ic">🖼️</span><span data-i18n="album">从相册选</span></button>
+      <button class="ap-opt" data-pick="pdf"><span class="ap-ic">📄</span><span data-i18n="pdf">选 PDF</span></button>
+    </div>
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="attach-picker-cancel" data-i18n="cancel">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// 统一的附件选择弹窗（居中 + 背景模糊），选好后回调实际文件
+let _apResolve = null;
+function attachPicker() {
+  return new Promise(resolve => {
+    _apResolve = resolve;
+    document.getElementById('attach-picker-modal').classList.add('show');
+  });
+}
+(function setupAttachPicker() {
+  const modal = document.getElementById('attach-picker-modal');
+  const finish = (kind) => {
+    modal.classList.remove('show');
+    if (_apResolve) { _apResolve(kind); _apResolve = null; }
+  };
+  modal.querySelectorAll('.ap-opt').forEach(b => {
+    b.addEventListener('click', () => finish(b.dataset.pick));
+  });
+  document.getElementById('attach-picker-cancel').addEventListener('click', () => finish(null));
+  modal.addEventListener('click', e => { if (e.target === modal) finish(null); });
+})();
+
+// 根据选择的种类，弹出系统文件选择并读取，返回附件数组
+function pickFilesByKind(kind) {
+  return new Promise(resolve => {
+    if (!kind) return resolve([]);
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    if (kind === 'camera') { picker.accept = 'image/*'; picker.capture = 'environment'; }
+    else if (kind === 'image') { picker.accept = 'image/*'; picker.multiple = true; }
+    else { picker.accept = 'application/pdf'; picker.multiple = true; }
+    picker.onchange = async ev => {
+      const out = [];
+      for (const file of Array.from(ev.target.files || [])) {
+        const att = await readFile(file);
+        if (att) out.push(att);
+      }
+      resolve(out);
+    };
+    picker.click();
+  });
+}
+</script>
+
+<script>
+// 输入弹窗，返回 Promise<string|null>
+let _promptResolve = null;
+function promptDialog(title, defaultVal, subText) {
+  return new Promise(resolve => {
+    _promptResolve = resolve;
+    document.getElementById('prompt-title').textContent = title;
+    const sub = document.getElementById('prompt-sub');
+    if (subText) { sub.textContent = subText; sub.style.display = ''; } else { sub.style.display = 'none'; }
+    const inp = document.getElementById('prompt-input');
+    inp.value = defaultVal || '';
+    document.getElementById('prompt-modal').classList.add('show');
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
+}
+(function setupPrompt() {
+  const modal = document.getElementById('prompt-modal');
+  const inp = document.getElementById('prompt-input');
+  const done = (val) => { modal.classList.remove('show'); if (_promptResolve) { _promptResolve(val); _promptResolve = null; } };
+  document.getElementById('prompt-ok').addEventListener('click', () => done(inp.value));
+  document.getElementById('prompt-cancel').addEventListener('click', () => done(null));
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); done(inp.value); }
+    else if (e.key === 'Escape') { e.preventDefault(); done(null); }
+  });
+  modal.addEventListener('click', e => { if (e.target === modal) done(null); });
+})();
+</script>
+
+
+<script>
+// 提醒铃声：用 Web Audio 合成，无需外部文件
+let audioCtx = null;
+function playChime() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    // 一组"叮咚"音调
+    const tune = [880, 1108, 880, 1108];
+    const rounds = 4;        // 重复几轮
+    const noteDur = 0.32;    // 每个音长
+    const roundGap = 0.5;    // 每轮之间的停顿
+    let beat = 0;
+    for (let r = 0; r < rounds; r++) {
+      tune.forEach(f => {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        o.connect(g); g.connect(audioCtx.destination);
+        const t = now + beat * noteDur + r * roundGap;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.5, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.001, t + noteDur - 0.02);
+        o.start(t); o.stop(t + noteDur);
+        beat++;
+      });
+    }
+  } catch (e) {}
+}
+</script>
+
+<script>
+// ===== IndexedDB 附件存储 =====
+// 大附件（照片/PDF）存这里，容量远大于 localStorage
+const IDB_NAME = 'quicknotes-db';
+const IDB_STORE = 'blobs';
+let _idb = null;
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    if (_idb) return resolve(_idb);
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => { _idb = req.result; resolve(_idb); };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbPut(key, value) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const r = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => resolve(null);
+  });
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((resolve) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror = () => resolve(false);
+  });
+}
+
+// 取附件的实际数据：新附件从 IndexedDB 取，老附件直接用内联 data（兼容）
+async function getAttData(att) {
+  if (!att) return null;
+  if (att.data) return att.data;            // 老格式：内联 base64
+  if (att.blobId) return await idbGet(att.blobId);  // 新格式：从 IDB 取
+  return null;
+}
+
+const KEY = 'quicknotes.v1';
+let notes = [];
+let filter = 'all';
+let curType = 'idea';
+let cats = []; // 自定义类别 [{id, name}]
+const CATS_KEY = 'quicknotes.cats';
+
+// ===== 多语言 =====
+const LANG_KEY = 'quicknotes.lang';
+let lang = 'zh';
+const I18N = {
+  zh: {
+    subtitle: '想到什么随时记 · 自动保存', search: '搜索', searchPlaceholder: '搜索记录、子项、类别…',
+    menuBg: '🎨 背景主题', menuFont: '🔤 字体大小', fontSub: '选择记录文字的大小', fsSmall: '小', fsNormal: '中（默认）', fsLarge: '大', fsXlarge: '特大', menuExport: '⬇️ 导出数据（备份）', menuImport: '⬆️ 导入数据（恢复/合并）',
+    menuCloud: '☁️ 云同步设置', menuLang: '🌐 Language / 语言',
+    idea: '想法', todo: '待办', tIdea: '💡 想法', tTodo: '✓ 待办', cReminder: '⏰ 提醒',
+    inputPlaceholder: '写点什么…', inputTodo: '要做什么…', inputIdea: '记录一个想法…',
+    camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
+    setReminder: '设置提醒', delReminder: '删除提醒', cancel: '取消', save: '保存', del: '删除', done: '完成',
+    reminderNote: '提醒在此页面开着时会响铃并通知；完全关闭浏览器则不会响。',
+    repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
+    quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
+    cloudTitle: '☁️ 云同步设置', cloudSub: '填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。',
+    disconnect: '断开', connect: '连接并同步', confirmDel: '确认删除', bgTitle: '🎨 背景主题', bgSub: '点一下即可切换，自动保存',
+    addAttach: '添加附件', newCat: '+ 新建类别', all: '全部', overdue: '⏰ 已过期', uncat: '未分类',
+    allCount: '全部', plusReminder: '+ 提醒', plusSub: '+ 子项', edit: '编辑', categorize: '📁 归类',
+    plusAlarm: '+ 闹钟', subPlaceholder: '子项内容…', add: '添加', attachSub: '给子项加照片或 PDF',
+    langTitle: '🌐 语言 / Language', langSub: '选择界面语言', noResult: '没有找到',
+  },
+  en: {
+    subtitle: 'Jot anything down · Auto-saved', search: 'Search', searchPlaceholder: 'Search notes, sub-items, categories…',
+    menuBg: '🎨 Background', menuFont: '🔤 Font size', fontSub: 'Choose note text size', fsSmall: 'Small', fsNormal: 'Normal', fsLarge: 'Large', fsXlarge: 'X-Large', menuExport: '⬇️ Export data (backup)', menuImport: '⬆️ Import data (restore/merge)',
+    menuCloud: '☁️ Cloud sync', menuLang: '🌐 Language / 语言',
+    idea: 'Idea', todo: 'Todo', tIdea: '💡 Idea', tTodo: '✓ Todo', cReminder: '⏰ Reminder',
+    inputPlaceholder: 'Write something…', inputTodo: 'What to do…', inputIdea: 'Jot an idea…',
+    camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
+    setReminder: 'Set reminder', delReminder: 'Remove reminder', cancel: 'Cancel', save: 'Save', del: 'Delete', done: 'Done',
+    reminderNote: 'Rings and notifies while this page is open; won\'t ring if the browser is fully closed.',
+    repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
+    quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
+    cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your Supabase info to auto-sync across devices. Use the same info on both phones.',
+    disconnect: 'Disconnect', connect: 'Connect & sync', confirmDel: 'Confirm delete', bgTitle: '🎨 Background', bgSub: 'Tap to switch, saved automatically',
+    addAttach: 'Add attachment', newCat: '+ New category', all: 'All', overdue: '⏰ Overdue', uncat: 'Uncategorized',
+    allCount: 'All', plusReminder: '+ Reminder', plusSub: '+ Sub-item', edit: 'Edit', categorize: '📁 Category',
+    plusAlarm: '+ Alarm', subPlaceholder: 'Sub-item…', add: 'Add', attachSub: 'Add photo or PDF to sub-item',
+    langTitle: '🌐 Language / 语言', langSub: 'Choose interface language', noResult: 'No results for',
+  }
+};
+function t(k) { return (I18N[lang] && I18N[lang][k]) || I18N.zh[k] || k; }
+function loadLang() {
+  try { lang = localStorage.getItem(LANG_KEY) || 'zh'; } catch { lang = 'zh'; }
+}
+function setLang(l) {
+  lang = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch {}
+  applyStaticI18n();
+  render();
+}
+// 把带 data-i18n 的固定元素填上当前语言文字
+function applyStaticI18n() {
+  document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  // 输入框占位符跟随类型
+  const inp = document.getElementById('input');
+  if (inp) inp.setAttribute('data-ph', curType === 'todo' ? t('inputTodo') : t('inputIdea'));
+  // REPEAT_LABEL 跟随语言
+  REPEAT_LABEL.daily = t('repDaily'); REPEAT_LABEL.weekly = t('repWeekly');
+  REPEAT_LABEL.monthly = t('repMonthly'); REPEAT_LABEL.yearly = t('repYearly');
+}
+
+
+function load() {
+  try { notes = JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { notes = []; }
+  try { cats = JSON.parse(localStorage.getItem(CATS_KEY)) || []; }
+  catch { cats = []; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
+  try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
+}
+
+// ===== 背景主题 =====
+const BG_KEY = 'quicknotes.bg';
+const BG_LIST = [
+  { id: 'paper',    name: '米黄',   css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'plain',    name: '纯白',   css: 'background:#fbfaf6;' },
+  { id: 'gray',     name: '浅灰',   css: 'background:#eceae6;' },
+  { id: 'grid',     name: '格纹',   css: 'background:#f4f1ea;background-image:linear-gradient(#e3ddd0 1px,transparent 1px),linear-gradient(90deg,#e3ddd0 1px,transparent 1px);background-size:10px 10px;' },
+  { id: 'pink',     name: '暖粉',   css: 'background:linear-gradient(160deg,#f7e3dc,#f1e4ea);' },
+  { id: 'mint',     name: '薄荷',   css: 'background:linear-gradient(160deg,#e6f0ea,#e4ecf1);' },
+  // 自然主题（渐变模拟）
+  { id: 'sunrise',  name: '🌅 日出', css: 'background:linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b);' },
+  { id: 'sunset',   name: '🌇 黄昏', css: 'background:linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e);' },
+  { id: 'ocean',    name: '🌊 海洋', css: 'background:linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5);' },
+  { id: 'forest',   name: '🌲 森林', css: 'background:linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b);' },
+  { id: 'sky',      name: '☁️ 晴空', css: 'background:linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb);' },
+  { id: 'lavender', name: '💜 薰衣草', css: 'background:linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd);' },
+  { id: 'sakura',   name: '🌸 樱花', css: 'background:linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd);' },
+  { id: 'autumn',   name: '🍂 秋叶', css: 'background:linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a);' },
+  { id: 'aurora',   name: '🌌 极光', css: 'background:linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);' },
+  { id: 'dusk',     name: '🌆 暮色', css: 'background:linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);' },
+  { id: 'dark',     name: '深棕',   css: 'background:#23201c;background-image:radial-gradient(#34302a 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'midnight', name: '夜空',   css: 'background:linear-gradient(160deg,#1a1d2b,#232036);' },
+];
+
+function applyBg(id) {
+  document.body.setAttribute('data-bg', id || 'paper');
+}
+function loadBg() {
+  let id = 'paper';
+  try { id = localStorage.getItem(BG_KEY) || 'paper'; } catch {}
+  applyBg(id);
+}
+function setBg(id) {
+  applyBg(id);
+  try { localStorage.setItem(BG_KEY, id); } catch {}
+  renderBgGrid();
+}
+function renderBgGrid() {
+  const grid = document.getElementById('bg-grid');
+  if (!grid) return;
+  let cur = 'paper';
+  try { cur = localStorage.getItem(BG_KEY) || 'paper'; } catch {}
+  grid.innerHTML = BG_LIST.map(b =>
+    `<div class="bg-swatch ${b.id===cur?'sel':''}" data-bg-id="${b.id}" style="${b.css}"><span class="nm">${b.name}</span></div>`
+  ).join('');
+}
+function openBgModal() {
+  renderBgGrid();
+  document.getElementById('bg-modal').classList.add('show');
+}
+
+// ===== 字体大小 =====
+const FONT_KEY = 'quicknotes.fontsize';
+const FONT_SIZES = { small: '0.88rem', normal: '0.97rem', large: '1.12rem', xlarge: '1.28rem' };
+let fontSize = 'normal';
+function applyFontSize(fs) {
+  const v = FONT_SIZES[fs] || FONT_SIZES.normal;
+  document.documentElement.style.setProperty('--note-font', v);
+}
+function loadFontSize() {
+  try { fontSize = localStorage.getItem(FONT_KEY) || 'normal'; } catch { fontSize = 'normal'; }
+  applyFontSize(fontSize);
+}
+function setFontSize(fs) {
+  fontSize = fs;
+  try { localStorage.setItem(FONT_KEY, fs); } catch {}
+  applyFontSize(fs);
+  markFontSel();
+}
+function markFontSel() {
+  document.querySelectorAll('#font-list [data-fs]').forEach(b => {
+    b.classList.toggle('sel', b.dataset.fs === fontSize);
+  });
+}
+function openFontModal() {
+  markFontSel();
+  document.getElementById('font-modal').classList.add('show');
+}
+
+// ===== 类别分组折叠状态 =====
+const COLLAPSE_KEY = 'quicknotes.collapsed';
+let collapsedGroups = {};
+function loadCollapsed() {
+  try { collapsedGroups = JSON.parse(localStorage.getItem(COLLAPSE_KEY)) || {}; } catch { collapsedGroups = {}; }
+}
+function isCollapsed(gid) { return !!collapsedGroups[gid]; }
+function toggleCollapse(gid) {
+  collapsedGroups[gid] = !collapsedGroups[gid];
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsedGroups)); } catch {}
+}
+
+// ===== 子项折叠状态（按记录 id） =====
+const SUBCOLLAPSE_KEY = 'quicknotes.subcollapsed';
+let collapsedSubs = {};
+function loadSubCollapsed() {
+  try { collapsedSubs = JSON.parse(localStorage.getItem(SUBCOLLAPSE_KEY)) || {}; } catch { collapsedSubs = {}; }
+}
+function isSubCollapsed(nid) { return !!collapsedSubs[nid]; }
+function toggleSubCollapse(nid) {
+  collapsedSubs[nid] = !collapsedSubs[nid];
+  try { localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs)); } catch {}
+}
+
+function timeAgo(ts) {
+  const d = Math.floor((Date.now() - ts) / 1000);
+  if (d < 60) return '刚刚';
+  if (d < 3600) return Math.floor(d/60) + ' 分钟前';
+  if (d < 86400) return Math.floor(d/3600) + ' 小时前';
+  const date = new Date(ts);
+  return `${date.getMonth()+1}月${date.getDate()}日`;
+}
+
+function fullDate(ts) {
+  const d = new Date(ts);
+  if (!ts || isNaN(d.getTime())) return '未知时间';
+  const now = new Date();
+  const p = n => String(n).padStart(2, '0');
+  const ymd = (d.getFullYear() === now.getFullYear())
+    ? `${d.getMonth()+1}月${d.getDate()}日`
+    : `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  return `${ymd} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// 判断一条记录是否"过期"：自身或任一子项设了非重复提醒且时间已过
+function isOverdue(n) {
+  const now = Date.now();
+  const exp = o => o && o.remindAt && o.remindAt < now && (!o.repeat || o.repeat === 'none');
+  if (exp(n)) return true;
+  if (n.subs && n.subs.some(exp)) return true;
+  return false;
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('tabs');
+  const allCount = notes.length;
+  const overdueCount = notes.filter(isOverdue).length;
+  let html = `<button class="tab ${filter==='all'?'active':''}" data-filter="all">${t('allCount')} <span class="count">${allCount||''}</span></button>`;
+  if (overdueCount > 0) {
+    html += `<button class="tab tab-overdue ${filter==='__overdue'?'active':''}" data-filter="__overdue">${t('overdue')} <span class="count">${overdueCount}</span></button>`;
+  }
+  cats.forEach(c => {
+    const cnt = notes.filter(n => n.cat === c.id).length;
+    html += `<button class="tab ${filter===c.id?'active':''}" data-filter="${c.id}">${esc(c.name)} <span class="count">${cnt||''}</span></button>`;
+  });
+  html += `<button class="tab tab-add" data-filter="__add">＋</button>`;
+  tabs.innerHTML = html;
+}
+
+// 根据类别 id 稳定地分配一个颜色（同一类别永远同色）
+const CAT_COLORS = [
+  ['#fbe4de', '#c8553d'], // 红
+  ['#fbe9d6', '#c47a1d'], // 橙
+  ['#f6f0d4', '#8a7a14'], // 黄
+  ['#e0efe0', '#3f7a3f'], // 绿
+  ['#d9efed', '#1f7a72'], // 青
+  ['#dde8f7', '#2f5bb0'], // 蓝
+  ['#e5e0f5', '#5a45a8'], // 紫
+  ['#f6dff0', '#a8408c'], // 粉
+  ['#ece2d6', '#8a6a40'], // 棕
+];
+function catColor(id) {
+  let h = 0;
+  const s = String(id || '');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return CAT_COLORS[h % CAT_COLORS.length];
+}
+
+function renderItem(n) {
+  return `
+    <div class="item ${n.done?'done':''}" data-id="${n.id}">
+      ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:4px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;"></div>`}
+      <div class="body">
+        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text" data-act="edit">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+        ${renderAtts(n.atts)}
+        ${renderSubs(n)}
+        <div class="meta">
+          <span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
+          <span>${fullDate(n.ts)}</span>
+          ${n.subs && n.subs.length ? `<span class="sub-count">${n.subs.filter(s=>s.done).length}/${n.subs.length}</span>` : ''}
+          ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
+          ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
+          <button class="more-btn" data-act="more">⋯</button>
+        </div>
+        <div class="meta-actions" data-actions="${n.id}">
+          ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
+          <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
+          <button class="edit-btn" data-act="edit">${t('edit')}</button>
+        </div>
+      </div>
+      <button class="del" data-act="del">×</button>
+    </div>`;
+}
+
+function render() {
+  const list = document.getElementById('list');
+  let items = notes.slice().sort((a,b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return b.ts - a.ts;
+  });
+  if (filter === '__overdue') items = items.filter(isOverdue);
+  else if (filter !== 'all') items = items.filter(n => n.cat === filter);
+
+  // 搜索过滤
+  if (searchQuery) items = items.filter(matchSearch);
+
+  renderTabs();
+
+  // 若当前停在"已过期"但已无过期项，自动回到全部
+  if (filter === '__overdue' && items.length === 0 && !searchQuery) { filter = 'all'; render(); return; }
+
+  if (items.length === 0) {
+    if (searchQuery) {
+      list.innerHTML = `<div class="empty"><div class="big">没有找到「${esc(searchQuery)}」</div><div class="small">换个关键词试试</div></div>`;
+      return;
+    }
+    const catName = filter === 'all' ? '' : (cats.find(c=>c.id===filter)?.name || '');
+    list.innerHTML = `<div class="empty"><div class="big">${filter==='all'?'空空如也':'「'+catName+'」还没有内容'}</div><div class="small">在下面输入框记录第一条吧</div></div>`;
+    return;
+  }
+
+  // 「全部」和「已过期」视图：按类别分组、可折叠；其他（具体类别）平铺
+  if (filter === 'all' || filter === '__overdue') {
+    // 分组：每个类别一组，外加"未分类"
+    const groups = [];
+    cats.forEach(c => {
+      const arr = items.filter(n => n.cat === c.id);
+      if (arr.length) groups.push({ id: c.id, name: c.name, arr });
+    });
+    const uncat = items.filter(n => !n.cat || !cats.find(c => c.id === n.cat));
+    if (uncat.length) groups.push({ id: '__uncat', name: t('uncat'), arr: uncat });
+
+    list.innerHTML = groups.map(g => {
+      const collapsed = searchQuery ? false : isCollapsed(g.id);
+      return `
+        <div class="cat-group">
+          <button class="cat-group-head ${collapsed?'collapsed':''}" data-group="${g.id}">
+            <span class="cg-arrow">▾</span>
+            <span class="cg-name">${esc(g.name)}</span>
+            <span class="cg-count">${g.arr.length}</span>
+          </button>
+          <div class="cat-group-body" ${collapsed?'style="display:none"':''}>
+            ${g.arr.map(renderItem).join('')}
+          </div>
+        </div>`;
+    }).join('');
+  } else {
+    list.innerHTML = items.map(renderItem).join('');
+  }
+  hydrateImages(list);
+}
+
+function renderSubs(n) {
+  if (!n.subs || !n.subs.length) return '';
+  const collapsed = isSubCollapsed(n.id);
+  const doneCount = n.subs.filter(s => s.done).length;
+  const rows = n.subs.map(s => `
+    <div class="sub-row ${s.done?'done':''}" data-sub="${s.id}">
+      <div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>
+      <div class="sub-main">
+        <span class="sub-text" data-act="subedit" data-sub="${s.id}">${highlight(s.text)}</span>
+        ${renderSubAtts(s)}
+        <div class="sub-meta">
+          ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
+          ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
+          <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
+        </div>
+      </div>
+      <button class="sub-del" data-act="subdel" data-sub="${s.id}">×</button>
+    </div>
+  `).join('');
+  return `
+    <div class="subs-wrap">
+      <button class="subs-toggle ${collapsed?'collapsed':''}" data-act="subtoggle-all" data-id="${n.id}">
+        <span class="st-arrow">▾</span>
+        <span class="st-label">${lang==='en'?'Sub-items':'子项'} ${doneCount}/${n.subs.length}</span>
+      </button>
+      <div class="subs" ${collapsed?'style="display:none"':''}>${rows}</div>
+    </div>`;
+}
+
+function imgSrcAttr(a) {
+  // 老格式有内联 data 直接用；新格式用 blobId 占位，稍后异步填充
+  if (a.data) return `src="${a.data}"`;
+  if (a.blobId) return `data-blobid="${a.blobId}"`;
+  return '';
+}
+
+function renderSubAtts(s) {
+  if (!s.atts || !s.atts.length) return '';
+  const html = s.atts.map((a, i) => {
+    if (a.kind === 'image') {
+      return `<img class="sub-att-img" ${imgSrcAttr(a)} data-act="subview" data-sub="${s.id}" data-idx="${i}" alt="">`;
+    }
+    return `<span class="sub-att-pdf" data-act="subpdf" data-sub="${s.id}" data-idx="${i}">📄 ${esc(a.name)}</span>`;
+  }).join('');
+  return `<div class="sub-atts">${html}</div>`;
+}
+
+function renderAtts(atts) {
+  if (!atts || !atts.length) return '';
+  const html = atts.map((a, i) => {
+    if (a.kind === 'image') {
+      return `<img class="att-img" ${imgSrcAttr(a)} data-act="view" data-idx="${i}" alt="${esc(a.name)}">`;
+    }
+    return `<span class="att-pdf" data-act="openpdf" data-idx="${i}"><span class="pic">📄</span><span class="nm">${esc(a.name)}</span></span>`;
+  }).join('');
+  return `<div class="atts">${html}</div>`;
+}
+
+// 渲染后，把所有带 data-blobid 的图片从 IndexedDB 填充实际数据
+async function hydrateImages(root) {
+  const imgs = (root || document).querySelectorAll('img[data-blobid]');
+  for (const img of imgs) {
+    const id = img.getAttribute('data-blobid');
+    img.removeAttribute('data-blobid');
+    const data = await idbGet(id);
+    if (data) img.src = data;
+  }
+}
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+// 富文本清洗：只保留颜色相关的 span/font，其余标签去掉，纯文本转义
+function sanitizeRich(html) {
+  const tpl = document.createElement('div');
+  tpl.innerHTML = html;
+  const walk = (node) => {
+    let out = '';
+    node.childNodes.forEach(ch => {
+      if (ch.nodeType === 3) { out += esc(ch.nodeValue); }       // 文本
+      else if (ch.nodeType === 1) {
+        const tag = ch.tagName.toLowerCase();
+        if (tag === 'br') { out += '<br>'; return; }
+        // 提取颜色
+        let color = ch.style && ch.style.color ? ch.style.color : (ch.getAttribute && ch.getAttribute('color'));
+        const inner = walk(ch);
+        if ((tag === 'span' || tag === 'font' || tag === 'div' || tag === 'p') && color) {
+          out += `<span style="color:${esc(color)}">${inner}</span>`;
+        } else {
+          if (tag === 'div' || tag === 'p') out += inner + '<br>';
+          else out += inner;
+        }
+      }
+    });
+    return out;
+  };
+  return walk(tpl).replace(/(<br>)+$/,'');
+}
+// 取纯文本（用于搜索、预览、判空）
+function plainOf(htmlOrText) {
+  const d = document.createElement('div');
+  d.innerHTML = htmlOrText || '';
+  return (d.textContent || '').trim();
+}
+
+// 搜索：先转义/取文本，再把匹配的关键词用 <mark> 高亮
+let searchQuery = '';
+function escForRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function highlight(n) {
+  // n 可能是记录对象（富文本）或纯字符串（子项文字）
+  const isObj = (typeof n === 'object' && n !== null);
+  const raw = isObj ? (n.text || '') : (n || '');
+  const rich = isObj && n.rich;
+  let display = rich ? sanitizeRich(raw) : esc(raw);
+  if (!searchQuery) return display;
+  // 高亮：在纯文本层面找词，简单处理——对显示串做不跨标签替换
+  try {
+    const re = new RegExp('(' + escForRegex(searchQuery) + ')', 'gi');
+    // 仅替换不在标签内的文本
+    display = display.replace(/(>[^<]*<)|(^[^<]*<)|(>[^<]*$)|(^[^<]*$)/g, m => m.replace(re, '<mark>$1</mark>'));
+  } catch (e) {}
+  return display;
+}
+// 判断一条记录是否匹配搜索词（正文/子项/类别名）
+function matchSearch(n) {
+  if (!searchQuery) return true;
+  const q = searchQuery.toLowerCase();
+  if (plainOf(n.text).toLowerCase().includes(q)) return true;
+  if (n.subs && n.subs.some(s => (s.text||'').toLowerCase().includes(q))) return true;
+  const cat = cats.find(c => c.id === n.cat);
+  if (cat && cat.name.toLowerCase().includes(q)) return true;
+  return false;
+}
+
+let pending = []; // 待发送的附件
+const MAX_IMG_DIM = 1400; // 图片压缩最大边长
+
+function refreshSendState() {
+  document.getElementById('send').disabled = !plainOf(document.getElementById('input').innerHTML) && pending.length === 0;
+}
+
+function renderPending() {
+  const box = document.getElementById('pending');
+  box.innerHTML = pending.map((a, i) => {
+    const inner = a.kind === 'image'
+      ? `<img ${imgSrcAttr(a)} alt="">`
+      : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name)}</span></span>`;
+    return `<div class="pend">${inner}<button class="rm" data-rm="${i}">×</button></div>`;
+  }).join('');
+  hydrateImages(box);
+}
+
+// 预设颜色（多一些）
+const PRESET_COLORS = [
+  '', '#c8553d', '#e0673a', '#d98324', '#e6a817', '#b5a700',
+  '#6b8e23', '#4a8c4a', '#2e9b8f', '#3a72c4', '#4455c4', '#6a40b8',
+  '#8a4fbf', '#b5479b', '#c43a6e', '#8c6d4a', '#5a5a5a'
+];
+// 生成一个颜色条元素，绑定到指定富文本编辑区
+function buildColorBar(richEl) {
+  const wrap = document.createElement('div');
+  wrap.className = 'color-wrap';
+
+  const toggle = document.createElement('button');
+  toggle.className = 'color-toggle';
+  toggle.type = 'button';
+  toggle.textContent = '🎨';
+  toggle.title = '文字颜色';
+
+  const bar = document.createElement('div');
+  bar.className = 'color-bar';
+  bar.innerHTML = PRESET_COLORS.map(c =>
+    `<button class="color-dot" data-color="${c}" style="background:${c||'var(--ink)'}" ${c===''?'title="默认"':''}></button>`
+  ).join('') +
+  `<label class="color-custom" title="自定义颜色">＋<input type="color" class="color-pick"></label>
+   <button class="color-whole" data-act="whole" title="整条变色">整条</button>`;
+
+  wrap.appendChild(toggle);
+  wrap.appendChild(bar);
+
+  // 点 🎨 展开/收起
+  toggle.addEventListener('mousedown', e => e.preventDefault());
+  toggle.addEventListener('click', () => {
+    bar.classList.toggle('show');
+    toggle.classList.toggle('on');
+  });
+
+  bar.addEventListener('mousedown', e => { if (e.target.closest('.color-pick')) return; e.preventDefault(); });
+  const applyColor = (color, whole) => {
+    richEl.focus();
+    try {
+      if (whole) {
+        const range = document.createRange();
+        range.selectNodeContents(richEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges(); sel.addRange(range);
+      }
+      const c = color || (getComputedStyle(document.body).getPropertyValue('--ink').trim() || '#2b2722');
+      document.execCommand('foreColor', false, c);
+    } catch (err) {}
+  };
+  bar.addEventListener('click', e => {
+    const dot = e.target.closest('.color-dot');
+    if (dot) { applyColor(dot.dataset.color, false); return; }
+    if (e.target.closest('[data-act="whole"]')) {
+      applyColor(bar._lastColor || '#c8553d', true);
+    }
+  });
+  const pick = bar.querySelector('.color-pick');
+  pick.addEventListener('input', () => { bar._lastColor = pick.value; applyColor(pick.value, false); });
+  return wrap;
+}
+
+function add() {
+  const input = document.getElementById('input');
+  const html = sanitizeRich(input.innerHTML);
+  const plain = plainOf(input.innerHTML);
+  if (!plain && pending.length === 0) return;
+  const note = {
+    id: Date.now()+''+Math.random().toString(36).slice(2,6),
+    text: html, rich: true, type: curType, done: false, ts: Date.now(),
+    atts: pending.slice()
+  };
+  // 当前正在某个类别下查看，新记录就归到该类别
+  if (filter !== 'all') note.cat = filter;
+  if (pendingRemind) {
+    note.remindAt = pendingRemind;
+    note.repeat = pendingRepeat;
+    note.remindFired = false;
+  }
+  notes.unshift(note);
+  input.innerHTML = '';
+  pending = [];
+  pendingRemind = null;
+  pendingRepeat = 'none';
+  if (typeof updateCReminderBtn === 'function') updateCReminderBtn();
+  renderPending();
+  refreshSendState();
+  save();
+  render();
+  if (typeof window.closeComposer === 'function') window.closeComposer();
+}
+
+// 读取并压缩文件为 base64
+// 把 base64 数据存进 IndexedDB，返回轻量附件对象
+async function storeBlob(kind, name, dataUrl) {
+  const blobId = 'b' + Date.now() + Math.random().toString(36).slice(2, 8);
+  try {
+    await idbPut(blobId, dataUrl);
+    return { kind, name, blobId };
+  } catch (e) {
+    // IndexedDB 失败兜底：退回内联存储
+    return { kind, name, data: dataUrl };
+  }
+}
+
+function readFile(file) {
+  return new Promise(resolve => {
+    const name = (file.name || '').toLowerCase();
+    const type = file.type || '';
+    const isPdf = type === 'application/pdf' || name.endsWith('.pdf');
+    const isImage = type.startsWith('image/') ||
+      /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/.test(name);
+
+    if (isPdf) {
+      const r = new FileReader();
+      r.onload = async () => resolve(await storeBlob('pdf', file.name || 'PDF文件', r.result));
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(file);
+      return;
+    }
+
+    if (isImage) {
+      const r = new FileReader();
+      r.onload = () => {
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (Math.max(w, h) > MAX_IMG_DIM) {
+              const s = MAX_IMG_DIM / Math.max(w, h);
+              w = Math.round(w * s); h = Math.round(h * s);
+            }
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(await storeBlob('image', file.name || '照片', c.toDataURL('image/jpeg', 0.82)));
+          } catch (err) {
+            resolve(await storeBlob('image', file.name || '照片', r.result));
+          }
+        };
+        img.onerror = async () => {
+          resolve(await storeBlob('image', file.name || '照片', r.result));
+        };
+        img.src = r.result;
+      };
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(file);
+      return;
+    }
+
+    // 未知类型：尝试当作通用文件存下来
+    const r = new FileReader();
+    r.onload = async () => resolve(await storeBlob('pdf', file.name || '文件', r.result));
+    r.onerror = () => resolve(null);
+    r.readAsDataURL(file);
+  });
+}
+
+// events
+document.getElementById('list').addEventListener('click', async e => {
+  // 类别分组折叠头
+  const head = e.target.closest('.cat-group-head');
+  if (head) {
+    toggleCollapse(head.dataset.group);
+    render();
+    return;
+  }
+  const item = e.target.closest('.item');
+  if (!item) return;
+  const id = item.dataset.id;
+  const actEl = e.target.closest('[data-act]');
+  const act = actEl ? actEl.dataset.act : e.target.dataset.act;
+  const n = notes.find(n => n.id === id);
+  if (act === 'more') {
+    const box = item.querySelector('.meta-actions');
+    if (box) box.classList.toggle('show');
+    e.target.classList.toggle('on');
+    return;
+  }
+  if (act === 'subtoggle-all') {
+    toggleSubCollapse(id);
+    render();
+    return;
+  }
+  if (act === 'del') {
+    if (!n) return;
+    const subN = n.subs ? n.subs.length : 0;
+    const preview = (n.text || '（无文字）').slice(0, 20);
+    const msg = subN > 0
+      ? `确定删除这条记录「${preview}」吗？\n它的 ${subN} 个子项也会一起删除，无法恢复。`
+      : `确定删除这条记录「${preview}」吗？此操作无法恢复。`;
+    if (await confirmDialog(msg)) {
+      notes = notes.filter(x => x.id !== id);
+      save(); render();
+    }
+  } else if (act === 'toggle') {
+    if (n) { n.done = !n.done; save(); render(); }
+  } else if (act === 'view') {
+    const att = n && n.atts[+actEl.dataset.idx];
+    if (att) openLightbox(await getAttData(att));
+  } else if (act === 'openpdf') {
+    const att = n && n.atts[+e.target.closest('[data-act="openpdf"]').dataset.idx];
+    if (att) openPdf(att);
+  } else if (act === 'setremind') {
+    if (n) openRemindModal(n.id);
+  } else if (act === 'edit') {
+    if (n) startEdit(item, n);
+  } else if (act === 'addsub') {
+    if (n) startAddSub(item, n);
+  } else if (act === 'setcat') {
+    if (n) chooseCat(n);
+  } else if (act === 'subtoggle') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s) { s.done = !s.done; save(); render(); }
+  } else if (act === 'subdel') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s) {
+      const preview = (s.text || '（无文字）').slice(0, 20);
+      if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
+        n.subs = n.subs.filter(x => x.id !== sid);
+        save(); render();
+      }
+    }
+  } else if (act === 'subedit') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s) startEditSub(e.target, n, s);
+  } else if (act === 'subview') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const att = s && s.atts && s.atts[+actEl.dataset.idx];
+    if (att) openLightbox(await getAttData(att));
+  } else if (act === 'subpdf') {
+    const el = e.target.closest('[data-act="subpdf"]');
+    const sid = el.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const att = s && s.atts && s.atts[+el.dataset.idx];
+    if (att) openPdf(att);
+  } else if (act === 'subremind') {
+    const sid = actEl.dataset.sub;
+    if (n && n.subs && n.subs.find(x => x.id === sid)) openRemindModal(n.id, sid);
+  } else if (act === 'subedit2') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const row = e.target.closest('.sub-row');
+    const span = row && row.querySelector('.sub-text');
+    if (s && span) startEditSub(span, n, s);
+  }
+});
+
+// 在卡片底部添加子项的输入框
+function startAddSub(item, n) {
+  if (item.querySelector('.sub-adding')) return;
+  const body = item.querySelector('.body');
+  let subsBox = body.querySelector('.subs');
+  if (!subsBox) {
+    subsBox = document.createElement('div');
+    subsBox.className = 'subs';
+    const meta = body.querySelector('.meta');
+    body.insertBefore(subsBox, meta);
+  }
+  const row = document.createElement('div');
+  row.className = 'sub-row sub-adding';
+  const inp = document.createElement('input');
+  inp.className = 'sub-input';
+  inp.placeholder = '子项内容…';
+  // 子项附件按钮
+  const attBtn = document.createElement('button');
+  attBtn.className = 'sub-att-btn';
+  attBtn.textContent = '📎';
+  attBtn.title = '给子项加照片或 PDF';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'sub-ok-btn';
+  okBtn.textContent = '添加';
+  row.appendChild(inp);
+  row.appendChild(attBtn);
+  row.appendChild(okBtn);
+  subsBox.appendChild(row);
+  inp.focus();
+
+  let subAtts = [];   // 本子项待加的附件
+  let committed = false;
+  let pickingAtt = false;   // 正在选附件时，不让 blur 提交
+
+  const commit = () => {
+    if (committed) return;          // 防止 blur + 回车 双触发
+    committed = true;
+    const v = inp.value.trim();
+    if (v || subAtts.length) {
+      if (!n.subs) n.subs = [];
+      n.subs.push({
+        id: Date.now()+''+Math.random().toString(36).slice(2,5),
+        text: v, done: false,
+        atts: subAtts.slice(),
+        ts: Date.now()
+      });
+      save();
+    }
+    render();
+  };
+
+  okBtn.addEventListener('mousedown', e => { e.preventDefault(); commit(); });
+  okBtn.addEventListener('click', e => { e.preventDefault(); commit(); });
+  inp.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); committed = true; render(); }
+  });
+  inp.addEventListener('blur', () => {
+    // 延迟一点，避免点附件/添加按钮时误触发
+    setTimeout(() => { if (!committed && !pickingAtt && document.activeElement !== inp) commit(); }, 200);
+  });
+
+  // 子项附件选择：弹出统一的居中选择弹窗
+  attBtn.addEventListener('mousedown', e => e.preventDefault());
+  attBtn.addEventListener('click', async e => {
+    e.preventDefault();
+    pickingAtt = true;
+    const kind = await attachPicker();
+    if (!kind) { pickingAtt = false; inp.focus(); return; }
+    const got = await pickFilesByKind(kind);
+    if (got.length) { subAtts.push(...got); attBtn.textContent = '📎' + subAtts.length; }
+    pickingAtt = false;
+    inp.focus();
+  });
+}
+
+// 为子项选择文件（拍照/相册/PDF）
+function pickSubFile(kind, subAtts, attBtn, inp) {
+  const picker = document.createElement('input');
+  picker.type = 'file';
+  if (kind === 'camera') { picker.accept = 'image/*'; picker.capture = 'environment'; }
+  else if (kind === 'image') { picker.accept = 'image/*'; picker.multiple = true; }
+  else { picker.accept = 'application/pdf'; picker.multiple = true; }
+  picker.onchange = async ev => {
+    for (const file of Array.from(ev.target.files || [])) {
+      const att = await readFile(file);
+      if (att) subAtts.push(att);
+    }
+    attBtn.textContent = subAtts.length ? '📎' + subAtts.length : '📎';
+    if (inp) inp.focus();
+  };
+  picker.click();
+}
+
+// 编辑某个子项文字
+function startEditSub(span, n, s) {
+  const row = span.closest('.sub-row');
+  if (!row || row.querySelector('.edit-area')) return;
+  // 隐藏原有内容，插入编辑区
+  const main = row.querySelector('.sub-main') || row;
+
+  let editAtts = (s.atts || []).map(a => Object.assign({}, a));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'edit-wrap';
+  const ta = document.createElement('textarea');
+  ta.className = 'edit-area';
+  ta.value = s.text || '';
+  ta.rows = Math.max(1, (s.text || '').split('\n').length);
+
+  const attBox = document.createElement('div');
+  attBox.className = 'edit-atts';
+  const renderEA = () => {
+    attBox.innerHTML = editAtts.map((a, i) =>
+      a.kind === 'image'
+        ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+    ).join('') + `<button class="edit-att-add" type="button">＋ 附件</button>`;
+    hydrateImages(attBox);
+  };
+  renderEA();
+
+  const actions = document.createElement('div');
+  actions.className = 'edit-actions';
+  actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
+
+  wrap.appendChild(ta);
+  wrap.appendChild(attBox);
+  wrap.appendChild(actions);
+  main.innerHTML = '';
+  main.appendChild(wrap);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+
+  attBox.addEventListener('click', e => {
+    const rm = e.target.closest('.edit-att-rm');
+    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); return; }
+    if (e.target.closest('.edit-att-add')) pickEA();
+  });
+  async function pickEA() {
+    const kind = await attachPicker();
+    if (!kind) return;
+    const got = await pickFilesByKind(kind);
+    if (got.length) { editAtts.push(...got); renderEA(); }
+  }
+
+  let done = false;
+  const fin = (saveIt) => {
+    if (done) return;
+    done = true;
+    if (saveIt) {
+      const v = ta.value.trim();
+      if (v || editAtts.length) { s.text = v; s.atts = editAtts; save(); }
+    }
+    render();
+  };
+  actions.querySelector('.edit-ok').onclick = () => fin(true);
+  actions.querySelector('.edit-cancel').onclick = () => fin(false);
+  ta.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); fin(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); fin(false); }
+  });
+}
+
+// 进入行内编辑
+function startEdit(item, n) {
+  if (item.querySelector('.edit-area')) return; // 已在编辑
+  const body = item.querySelector('.body');
+  const textEl = body.querySelector('.text');
+  const attsEl = body.querySelector('.atts'); // 原附件展示区（编辑时隐藏）
+  if (attsEl) attsEl.style.display = 'none';
+
+  // 编辑用的附件副本
+  let editAtts = (n.atts || []).map(a => Object.assign({}, a));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'edit-wrap';
+  const ta = document.createElement('div');
+  ta.className = 'edit-area rich-input';
+  ta.setAttribute('contenteditable', 'true');
+  ta.innerHTML = n.rich ? sanitizeRich(n.text || '') : esc(n.text || '');
+
+  // 颜色条（统一生成，含自定义取色 + 整条变色）
+  const colorBar = buildColorBar(ta);
+
+  // 附件编辑区
+  const attBox = document.createElement('div');
+  attBox.className = 'edit-atts';
+  const renderEditAtts = () => {
+    attBox.innerHTML = editAtts.map((a, i) =>
+      a.kind === 'image'
+        ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+    ).join('') + `<button class="edit-att-add" type="button">＋ 附件</button>`;
+    hydrateImages(attBox);
+  };
+  renderEditAtts();
+
+  const actions = document.createElement('div');
+  actions.className = 'edit-actions';
+  actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
+
+  wrap.appendChild(ta);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(attBox);
+  wrap.appendChild(actions);
+  if (textEl) textEl.replaceWith(wrap); else body.insertBefore(wrap, body.firstChild);
+  ta.focus();
+
+  // 删除附件
+  attBox.addEventListener('click', e => {
+    const rm = e.target.closest('.edit-att-rm');
+    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEditAtts(); return; }
+    if (e.target.closest('.edit-att-add')) { pickEditAtt(); }
+  });
+  // 添加附件：弹出统一的居中选择弹窗
+  async function pickEditAtt() {
+    const kind = await attachPicker();
+    if (!kind) return;
+    const got = await pickFilesByKind(kind);
+    if (got.length) { editAtts.push(...got); renderEditAtts(); }
+  }
+
+  const finish = (saveIt) => {
+    if (saveIt) {
+      const html = sanitizeRich(ta.innerHTML);
+      const plain = plainOf(ta.innerHTML);
+      if (plain || editAtts.length) {
+        n.text = html;
+        n.rich = true;
+        n.atts = editAtts;
+        save();
+      }
+    }
+    render();
+  };
+  actions.querySelector('.edit-ok').onclick = () => finish(true);
+  actions.querySelector('.edit-cancel').onclick = () => finish(false);
+  ta.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); finish(true); }
+    if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+  });
+}
+
+function openLightbox(src) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lightbox').classList.add('show');
+}
+async function openPdf(att) {
+  // 必须先同步打开窗口（避免被拦截），再异步取数据
+  const w = window.open('');
+  const data = await getAttData(att);
+  if (w && data) {
+    w.document.write(`<iframe src="${data}" style="border:0;position:fixed;inset:0;width:100%;height:100%"></iframe><title>${att.name}</title>`);
+  } else if (w) {
+    w.document.write('<p style="font-family:sans-serif;padding:20px">附件加载失败</p>');
+  }
+}
+document.getElementById('lb-close').addEventListener('click', () => document.getElementById('lightbox').classList.remove('show'));
+document.getElementById('lightbox').addEventListener('click', e => {
+  if (e.target.id === 'lightbox') e.target.classList.remove('show');
+});
+
+// 附件菜单
+const attachMenu = document.getElementById('attach-menu');
+document.getElementById('attach').addEventListener('click', async e => {
+  e.stopPropagation();
+  const kind = await attachPicker();
+  if (!kind) return;
+  const got = await pickFilesByKind(kind);
+  if (got.length) { pending.push(...got); renderPending(); refreshSendState(); }
+});
+
+async function handleFiles(e) {
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  const attach = document.getElementById('attach');
+  const origText = attach.textContent;
+  attach.textContent = '…';
+  let added = 0;
+  for (const f of files) {
+    try {
+      const att = await readFile(f);
+      if (att) { pending.push(att); added++; }
+    } catch (err) { /* 跳过该文件 */ }
+  }
+  attach.textContent = origText;
+  e.target.value = '';
+  renderPending();
+  refreshSendState();
+  if (added === 0) {
+    alert('没能读取所选文件，请换一个文件再试（支持常见图片和 PDF）。');
+  }
+}
+['file-camera', 'file-image', 'file-pdf'].forEach(id => {
+  document.getElementById(id).addEventListener('change', handleFiles);
+});
+document.getElementById('pending').addEventListener('click', e => {
+  if (e.target.dataset.rm !== undefined) {
+    pending.splice(+e.target.dataset.rm, 1);
+    renderPending();
+    refreshSendState();
+  }
+});
+
+document.getElementById('tabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab');
+  if (!t) return;
+  if (tabDragging) return;            // 拖动中不触发切换
+  const f = t.dataset.filter;
+  if (f === '__add') { addCategory(); return; }
+  filter = f;
+  render();
+});
+
+// 双击类别 → 管理（改名/删除/移动）
+document.getElementById('tabs').addEventListener('dblclick', e => {
+  const t = e.target.closest('.tab');
+  if (!t) return;
+  const f = t.dataset.filter;
+  if (f === 'all' || f === '__add' || f === '__overdue') return;
+  manageCategory(f);
+});
+
+// ===== 长按拖动给类别排序 =====
+let tabDragging = false;
+(function setupTabDrag() {
+  const tabs = document.getElementById('tabs');
+  const cssEsc = s => (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&');
+  let pressTimer = null, dragId = null, downX = 0, downY = 0, started = false;
+
+  const onDown = e => {
+    const t = e.target.closest('.tab');
+    if (!t) return;
+    const f = t.dataset.filter;
+    if (f === 'all' || f === '__add' || f === '__overdue') return;
+    dragId = f; downX = e.clientX; downY = e.clientY; started = false;
+    pressTimer = setTimeout(() => {
+      started = true;                  // 进入"可拖动"准备状态
+      tabs.style.touchAction = 'none';
+      const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
+      if (el) el.classList.add('dragging');
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 400);
+  };
+
+  const onMove = e => {
+    if (!started) {
+      if (pressTimer && (Math.abs(e.clientX - downX) > 12 || Math.abs(e.clientY - downY) > 12)) {
+        clearTimeout(pressTimer); pressTimer = null;
+      }
+      return;
+    }
+    e.preventDefault();
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const draggable = [...tabs.querySelectorAll('.tab')].filter(el => {
+      const f = el.dataset.filter;
+      return f !== 'all' && f !== '__add' && f !== '__overdue';
+    });
+    if (!draggable.length) return;
+    let targetCatId = null;
+    for (const el of draggable) {
+      const r = el.getBoundingClientRect();
+      if (x < r.left + r.width / 2) { targetCatId = el.dataset.filter; break; }
+    }
+    const i = cats.findIndex(c => c.id === dragId);
+    if (i < 0) return;
+    let j;
+    if (targetCatId === null) {
+      j = cats.length - 1;
+    } else if (targetCatId === dragId) {
+      return;
+    } else {
+      j = cats.findIndex(c => c.id === targetCatId);
+      if (j > i) j--;
+    }
+    if (j === i || j < 0) return;
+    tabDragging = true;               // 真正发生移动交换，才标记为拖动
+    const [moved] = cats.splice(i, 1);
+    cats.splice(j, 0, moved);
+    renderTabs();
+    const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
+    if (el) el.classList.add('dragging');
+  };
+
+  const onUp = () => {
+    clearTimeout(pressTimer); pressTimer = null;
+    tabs.style.touchAction = '';
+    const wasDragging = tabDragging;
+    if (started) {
+      const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
+      if (el) el.classList.remove('dragging');
+      if (wasDragging) { save(); renderTabs(); }
+    }
+    started = false; dragId = null;
+    // 拖动过才需要短暂拦截 click（防止松手误切换）；纯长按/轻点不拦截
+    if (wasDragging) {
+      setTimeout(() => { tabDragging = false; }, 60);
+    } else {
+      tabDragging = false;
+    }
+  };
+
+  tabs.addEventListener('pointerdown', onDown);
+  tabs.addEventListener('contextmenu', e => { if (e.target.closest('.tab')) e.preventDefault(); });
+  window.addEventListener('pointermove', onMove, { passive: false });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  // 触摸设备兜底
+  tabs.addEventListener('touchstart', e => onDown(e.touches[0]), { passive: true });
+  window.addEventListener('touchmove', e => { if (started) { e.preventDefault(); onMove(e); } }, { passive: false });
+  window.addEventListener('touchend', onUp);
+})();
+
+async function addCategory() {
+  const name = await promptDialog('新建类别', '', '给类别起个名字，比如 工作、家庭、2026 PRS');
+  if (name == null) return;
+  const nm = name.trim();
+  if (!nm) return;
+  const id = 'c' + Date.now() + Math.random().toString(36).slice(2,5);
+  cats.push({ id, name: nm });
+  filter = id;
+  save(); render();
+  return id;
+}
+
+async function manageCategory(id) {
+  const c = cats.find(x => x.id === id);
+  if (!c) return;
+  const choice = await catManageDialog(c);
+  if (choice === 'rename') {
+    const name = await promptDialog('重命名类别', c.name);
+    if (name == null) return;
+    const v = name.trim();
+    if (v) { c.name = v; save(); render(); }
+  } else if (choice === 'delete') {
+    if (await confirmDialog(`确定删除类别「${c.name}」吗？\n该类别下的记录不会被删除，会回到“全部”。`)) {
+      notes.forEach(n => { if (n.cat === id) delete n.cat; });
+      cats = cats.filter(x => x.id !== id);
+      if (filter === id) filter = 'all';
+      save(); render();
+    }
+  } else if (choice === 'left' || choice === 'right') {
+    const i = cats.findIndex(x => x.id === id);
+    const j = choice === 'left' ? i - 1 : i + 1;
+    if (i >= 0 && j >= 0 && j < cats.length) {
+      [cats[i], cats[j]] = [cats[j], cats[i]];   // 交换位置
+      save(); render();
+    }
+  }
+}
+
+// 类别管理小弹窗（改名/删除/移动），返回动作或 null
+let _catManageResolve = null;
+function catManageDialog(c) {
+  return new Promise(resolve => {
+    _catManageResolve = resolve;
+    document.getElementById('catpick-sub').textContent = `管理类别「${c.name}」`;
+    const list = document.getElementById('catpick-list');
+    const idx = cats.findIndex(x => x.id === c.id);
+    const canLeft = idx > 0;
+    const canRight = idx < cats.length - 1;
+    list.innerHTML = `
+      <button class="catpick-item" data-mc="rename">✏️ 重命名</button>
+      ${canLeft ? `<button class="catpick-item" data-mc="left">⬅️ 前移（往左）</button>` : ''}
+      ${canRight ? `<button class="catpick-item" data-mc="right">➡️ 后移（往右）</button>` : ''}
+      <button class="catpick-item danger" data-mc="delete">🗑️ 删除类别</button>`;
+    document.getElementById('catpick-new').style.display = 'none';
+    const modal = document.getElementById('catpick-modal');
+    document.querySelector('#catpick-modal .modal-title').textContent = '管理类别';
+    modal.classList.add('show');
+    const handler = (e) => {
+      const b = e.target.closest('[data-mc]');
+      if (!b) { if (e.target === modal) finish(null); return; }
+      finish(b.dataset.mc);
+    };
+    const cancelBtn = document.getElementById('catpick-cancel');
+    const finish = (val) => {
+      modal.classList.remove('show');
+      modal.removeEventListener('click', handler);
+      cancelBtn.removeEventListener('click', cancelH);
+      document.getElementById('catpick-new').style.display = '';
+      if (_catManageResolve) { _catManageResolve(val); _catManageResolve = null; }
+    };
+    const cancelH = () => finish(null);
+    modal.addEventListener('click', handler);
+    cancelBtn.addEventListener('click', cancelH);
+  });
+}
+
+// 给一条记录选择/更改类别（漂亮列表弹窗）
+function chooseCat(n) {
+  const modal = document.getElementById('catpick-modal');
+  document.querySelector('#catpick-modal .modal-title').textContent = '选择类别';
+  document.getElementById('catpick-sub').textContent = '把这条记录归到：';
+  const list = document.getElementById('catpick-list');
+  let html = `<button class="catpick-item ${!n.cat?'sel':''}" data-cat="">📋 全部（不分类）</button>`;
+  cats.forEach(c => {
+    html += `<button class="catpick-item ${n.cat===c.id?'sel':''}" data-cat="${c.id}">📁 ${esc(c.name)}</button>`;
+  });
+  list.innerHTML = html;
+  document.getElementById('catpick-new').style.display = '';
+  modal.classList.add('show');
+
+  const newBtn = document.getElementById('catpick-new');
+  const cancelBtn = document.getElementById('catpick-cancel');
+  const finish = () => {
+    modal.classList.remove('show');
+    list.removeEventListener('click', pick);
+    newBtn.removeEventListener('click', onNew);
+    cancelBtn.removeEventListener('click', finish);
+    modal.removeEventListener('click', onBg);
+  };
+  const pick = (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    const cid = b.dataset.cat;
+    if (cid) n.cat = cid; else delete n.cat;
+    save(); render(); finish();
+  };
+  const onNew = async () => { finish(); const id = await addCategory(); if (id) { n.cat = id; save(); render(); } };
+  const onBg = (e) => { if (e.target === modal) finish(); };
+  list.addEventListener('click', pick);
+  newBtn.addEventListener('click', onNew);
+  cancelBtn.addEventListener('click', finish);
+  modal.addEventListener('click', onBg);
+}
+
+document.querySelectorAll('.ctype button').forEach(b => {
+  b.addEventListener('click', () => {
+    if (!b.dataset.t) return;
+    curType = b.dataset.t;
+    document.getElementById('t-idea').className = curType==='idea' ? 'sel idea' : '';
+    document.getElementById('t-todo').className = curType==='todo' ? 'sel todo' : '';
+    document.getElementById('input').setAttribute('data-ph', curType==='todo' ? t('inputTodo') : t('inputIdea'));
+  });
+});
+
+const input = document.getElementById('input');
+input.addEventListener('input', () => {
+  refreshSendState();
+});
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); add(); }
+});
+document.getElementById('send').addEventListener('click', add);
+
+// 底部输入框的颜色条
+document.getElementById('color-bar-holder').appendChild(buildColorBar(input));
+
+// ===== 提醒功能 =====
+let remindTargetId = null;
+let remindTargetSubId = null;
+let pendingRemind = null; // 创建新记录时待设的提醒时间戳
+let pendingRepeat = 'none'; // 创建新记录时待设的重复方式
+const remindModal = document.getElementById('remind-modal');
+
+const REPEAT_LABEL = { none: '', daily: '每天', weekly: '每周', monthly: '每月', yearly: '每年' };
+
+function toLocalInputValue(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+// 设置弹窗里重复按钮的选中态
+function setRepeatUI(rep) {
+  document.querySelectorAll('#repeat-opts button').forEach(b => {
+    b.classList.toggle('sel', b.dataset.rep === (rep || 'none'));
+  });
+}
+function getRepeatUI() {
+  const sel = document.querySelector('#repeat-opts button.sel');
+  return sel ? sel.dataset.rep : 'none';
+}
+// 根据重复方式，把时间戳推进到下一个周期（直到晚于 now）
+function nextOccurrence(ts, repeat) {
+  if (!repeat || repeat === 'none') return null;
+  const now = Date.now();
+  let d = new Date(ts);
+  let guard = 0;
+  do {
+    if (repeat === 'daily') d.setDate(d.getDate() + 1);
+    else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
+    else if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+    else if (repeat === 'yearly') d.setFullYear(d.getFullYear() + 1);
+    else return null;
+    guard++;
+  } while (d.getTime() <= now && guard < 1000);
+  return d.getTime();
+}
+
+function openRemindModal(id, subId) {
+  remindTargetId = id;
+  remindTargetSubId = subId || null;
+  const input = document.getElementById('remind-input');
+  if (id === '__new__') {
+    // 创建模式：操作待创建记录的提醒
+    document.getElementById('remind-for').textContent = '新记录的提醒';
+    input.value = toLocalInputValue(pendingRemind || (Date.now() + 60*60*1000));
+    document.getElementById('remind-del').style.display = pendingRemind ? '' : 'none';
+    setRepeatUI(pendingRepeat);
+  } else {
+    const target = findRemindTarget(id, subId);
+    if (!target) return;
+    document.getElementById('remind-for').textContent = (subId ? '子项：' : '') + (target.text || '（附件记录）');
+    input.value = toLocalInputValue(target.remindAt || (Date.now() + 60*60*1000));
+    document.getElementById('remind-del').style.display = target.remindAt ? '' : 'none';
+    setRepeatUI(target.repeat || 'none');
+  }
+  input.min = toLocalInputValue(Date.now());
+  remindModal.classList.add('show');
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+// 找到提醒目标：顶层 note 或其子项
+function findRemindTarget(id, subId) {
+  const n = notes.find(x => x.id === id);
+  if (!n) return null;
+  if (subId) return (n.subs || []).find(s => s.id === subId) || null;
+  return n;
+}
+function closeRemindModal() { remindModal.classList.remove('show'); remindTargetId = null; remindTargetSubId = null; }
+
+// 重复选项点击切换
+document.querySelectorAll('#repeat-opts button').forEach(b => {
+  b.addEventListener('click', () => setRepeatUI(b.dataset.rep));
+});
+
+document.querySelectorAll('.quick-times button').forEach(b => {
+  b.addEventListener('click', () => {
+    const min = +b.dataset.min;
+    document.getElementById('remind-input').value = toLocalInputValue(Date.now() + min*60*1000);
+  });
+});
+document.getElementById('remind-save').addEventListener('click', () => {
+  const val = document.getElementById('remind-input').value;
+  if (!val) return;
+  const ts = new Date(val).getTime();
+  if (isNaN(ts)) return;
+  const repeat = getRepeatUI();
+  playChimeUnlock();
+  if (remindTargetId === '__new__') {
+    pendingRemind = ts;
+    pendingRepeat = repeat;
+    updateCReminderBtn();
+    closeRemindModal();
+    return;
+  }
+  const target = findRemindTarget(remindTargetId, remindTargetSubId);
+  if (!target) return closeRemindModal();
+  target.remindAt = ts;
+  target.repeat = repeat;
+  target.remindFired = false;
+  save(); render(); closeRemindModal();
+});
+document.getElementById('remind-del').addEventListener('click', () => {
+  if (remindTargetId === '__new__') {
+    pendingRemind = null;
+    pendingRepeat = 'none';
+    updateCReminderBtn();
+    closeRemindModal();
+    return;
+  }
+  const target = findRemindTarget(remindTargetId, remindTargetSubId);
+  if (target) { delete target.remindAt; delete target.remindFired; delete target.repeat; save(); render(); }
+  closeRemindModal();
+});
+document.getElementById('remind-cancel').addEventListener('click', closeRemindModal);
+remindModal.addEventListener('click', e => { if (e.target === remindModal) closeRemindModal(); });
+
+// 创建时的提醒按钮
+function updateCReminderBtn() {
+  const btn = document.getElementById('creminder');
+  if (pendingRemind) {
+    btn.classList.add('set');
+    const rep = REPEAT_LABEL[pendingRepeat] ? ' (' + REPEAT_LABEL[pendingRepeat] + ')' : '';
+    btn.textContent = '⏰ ' + fullDate(pendingRemind) + rep;
+  } else {
+    btn.classList.remove('set');
+    btn.textContent = '⏰ 提醒';
+  }
+}
+document.getElementById('creminder').addEventListener('click', () => openRemindModal('__new__'));
+
+// 解锁音频上下文（浏览器要求用户交互后才能播声音）
+function playChimeUnlock() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) {}
+}
+
+function fireReminder(n) {
+  playChime();
+  // 通知
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const notif = new Notification('⏰ 提醒', { body: n.text || '你有一条提醒', tag: n.id });
+      notif.onclick = () => { window.focus(); notif.close(); };
+    } catch (e) {}
+  }
+  // 页面内横幅
+  showReminderBanner(n);
+}
+
+function showReminderBanner(n) {
+  let banner = document.getElementById('remind-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'remind-banner';
+    banner.className = 'remind-banner';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `<span class="rb-ic">⏰</span><span class="rb-txt">${esc(n.text || '提醒时间到')}</span><button class="rb-x">知道了</button>`;
+  banner.classList.add('show');
+  banner.querySelector('.rb-x').onclick = () => banner.classList.remove('show');
+  setTimeout(() => banner.classList.remove('show'), 15000);
+}
+
+// 每 15 秒检查一次到期提醒
+function checkReminders() {
+  const now = Date.now();
+  let changed = false;
+  const handle = (obj, label) => {
+    if (obj.remindAt && !obj.remindFired && obj.remindAt <= now) {
+      changed = true;
+      fireReminder({ text: label });
+      const next = nextOccurrence(obj.remindAt, obj.repeat);
+      if (next) { obj.remindAt = next; obj.remindFired = false; }
+      else { obj.remindFired = true; }
+    }
+  };
+  notes.forEach(n => {
+    handle(n, n.text || '提醒');
+    (n.subs || []).forEach(s => handle(s, s.text || '子项提醒'));
+  });
+  if (changed) { save(); render(); }
+}
+setInterval(checkReminders, 15000);
+
+// ===== 设置菜单：导出 / 导入 =====
+const gearMenu = document.getElementById('gear-menu');
+document.getElementById('gear').addEventListener('click', e => {
+  e.stopPropagation();
+  gearMenu.classList.toggle('show');
+  updateCloudStatus();
+});
+document.addEventListener('click', () => gearMenu.classList.remove('show'));
+gearMenu.addEventListener('click', e => e.stopPropagation());
+
+// 搜索
+const searchBar = document.getElementById('search-bar');
+const searchInput = document.getElementById('search-input');
+document.getElementById('search-btn').addEventListener('click', () => {
+  const showing = searchBar.classList.toggle('show');
+  if (showing) { searchInput.focus(); }
+  else { searchQuery = ''; searchInput.value = ''; render(); }
+});
+searchInput.addEventListener('input', () => {
+  searchQuery = searchInput.value.trim();
+  render();
+});
+document.getElementById('search-clear').addEventListener('click', () => {
+  searchInput.value = ''; searchQuery = ''; searchInput.focus(); render();
+});
+
+gearMenu.addEventListener('click', e => {
+  const m = e.target.dataset.menu;
+  if (!m) return;
+  if (m === 'export') exportData();
+  else if (m === 'import') document.getElementById('import-file').click();
+  else if (m === 'cloud') { gearMenu.classList.remove('show'); openCloudModal(); }
+  else if (m === 'bg') { gearMenu.classList.remove('show'); openBgModal(); }
+  else if (m === 'lang') { gearMenu.classList.remove('show'); document.getElementById('lang-modal').classList.add('show'); }
+  else if (m === 'fontsize') { gearMenu.classList.remove('show'); openFontModal(); }
+});
+
+// 字体大小弹窗事件
+(function setupFont() {
+  const modal = document.getElementById('font-modal');
+  document.getElementById('font-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-fs]');
+    if (b) setFontSize(b.dataset.fs);
+  });
+  document.getElementById('font-close').addEventListener('click', () => modal.classList.remove('show'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+})();
+
+// 语言弹窗事件
+(function setupLang() {
+  const modal = document.getElementById('lang-modal');
+  modal.querySelectorAll('[data-lang]').forEach(b => {
+    b.addEventListener('click', () => { setLang(b.dataset.lang); modal.classList.remove('show'); });
+  });
+  document.getElementById('lang-close').addEventListener('click', () => modal.classList.remove('show'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+})();
+
+// 背景选择弹窗事件
+(function setupBg() {
+  const modal = document.getElementById('bg-modal');
+  document.getElementById('bg-grid').addEventListener('click', e => {
+    const sw = e.target.closest('[data-bg-id]');
+    if (sw) setBg(sw.dataset.bgId);
+  });
+  document.getElementById('bg-close').addEventListener('click', () => modal.classList.remove('show'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('show'); });
+})();
+
+// 导出/上传前：深拷贝 notes，并把 IndexedDB 里的附件数据内联进去
+async function notesWithInlineAtts() {
+  const clone = JSON.parse(JSON.stringify(notes));
+  const inlineList = async (atts) => {
+    if (!atts) return;
+    for (const a of atts) {
+      if (!a.data && a.blobId) {
+        const d = await idbGet(a.blobId);
+        if (d) a.data = d;
+      }
+    }
+  };
+  for (const n of clone) {
+    await inlineList(n.atts);
+    if (n.subs) for (const s of n.subs) await inlineList(s.atts);
+  }
+  return clone;
+}
+
+// 导入/下载后：把内联的 data 拆回 IndexedDB，notes 里只留 blobId（保持轻量）
+async function extractInlineAtts(list) {
+  const extract = async (atts) => {
+    if (!atts) return;
+    for (const a of atts) {
+      if (a.data && a.kind) {
+        // 已有 blobId 就复用，否则新建
+        const id = a.blobId || ('b' + Date.now() + Math.random().toString(36).slice(2,8));
+        try { await idbPut(id, a.data); a.blobId = id; delete a.data; } catch (e) { /* 留着 data 兜底 */ }
+      }
+    }
+  };
+  for (const n of list) {
+    await extract(n.atts);
+    if (n.subs) for (const s of n.subs) await extract(s.atts);
+  }
+}
+
+async function exportData() {
+  const exportNotes = await notesWithInlineAtts();
+  const blob = new Blob([JSON.stringify({ app: 'quicknotes', version: 10, exportedAt: Date.now(), notes: exportNotes, cats }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  a.href = url;
+  a.download = `随手记备份-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  gearMenu.classList.remove('show');
+}
+
+// 合并导入：按 id 去重，新数据补充进来，已存在的取较新的
+function mergeNotes(incoming) {
+  const byId = {};
+  notes.forEach(n => byId[n.id] = n);
+  incoming.forEach(n => {
+    if (!n || !n.id) return;
+    const cur = byId[n.id];
+    if (!cur) { byId[n.id] = n; }
+    else {
+      // 取 ts 较新的版本（编辑过的记录 ts 不变，这里简单保留已有，除非导入的有更多字段）
+      byId[n.id] = (n.ts >= cur.ts) ? n : cur;
+    }
+  });
+  notes = Object.values(byId).sort((a,b) => b.ts - a.ts);
+}
+
+document.getElementById('import-file').addEventListener('change', e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const data = JSON.parse(r.result);
+      const incoming = Array.isArray(data) ? data : data.notes;
+      if (!Array.isArray(incoming)) throw new Error('格式不对');
+      const before = notes.length;
+      await extractInlineAtts(incoming);   // 把内联附件存入 IndexedDB
+      mergeNotes(incoming);
+      // 合并类别
+      if (data.cats && Array.isArray(data.cats)) {
+        const have = new Set(cats.map(c => c.id));
+        data.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
+      }
+      save(); render();
+      alert(`导入成功！合并后共 ${notes.length} 条（原有 ${before} 条）。`);
+    } catch (err) {
+      alert('导入失败：文件格式不对，请选择本 app 导出的 .json 备份文件。');
+    }
+  };
+  r.onerror = () => alert('读取文件失败，请重试。');
+  r.readAsText(file);
+});
+
+// ===== 云同步（Supabase REST） =====
+const CLOUD_KEY = 'quicknotes.cloud';
+let cloud = null; // {url, key, room}
+let cloudSyncing = false;
+
+function loadCloudCfg() {
+  try { cloud = JSON.parse(localStorage.getItem(CLOUD_KEY)) || null; } catch { cloud = null; }
+}
+function saveCloudCfg() {
+  if (cloud) localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud));
+  else localStorage.removeItem(CLOUD_KEY);
+}
+
+const cloudModal = document.getElementById('cloud-modal');
+function openCloudModal() {
+  document.getElementById('cloud-url').value = cloud?.url || '';
+  document.getElementById('cloud-key').value = cloud?.key || '';
+  document.getElementById('cloud-room').value = cloud?.room || '';
+  document.getElementById('cloud-disconnect').style.display = cloud ? '' : 'none';
+  cloudModal.classList.add('show');
+}
+function closeCloudModal() { cloudModal.classList.remove('show'); }
+document.getElementById('cloud-cancel').addEventListener('click', closeCloudModal);
+cloudModal.addEventListener('click', e => { if (e.target === cloudModal) closeCloudModal(); });
+document.getElementById('cloud-disconnect').addEventListener('click', () => {
+  cloud = null; saveCloudCfg(); updateCloudStatus();
+  closeCloudModal();
+  alert('已断开云同步。数据仍保留在本机。');
+});
+
+document.getElementById('cloud-connect').addEventListener('click', async () => {
+  const url = document.getElementById('cloud-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('cloud-key').value.trim();
+  const room = document.getElementById('cloud-room').value.trim();
+  if (!url || !key || !room) { alert('请把三项都填上。'); return; }
+  cloud = { url, key, room };
+  const note = document.getElementById('cloud-modal-note');
+  note.textContent = '连接中…';
+  // 先拉云端，合并本地，再整体上传
+  const remote = await cloudFetch();
+  if (remote === false) {
+    note.textContent = '连接失败：请检查 URL、key 是否正确，以及是否已建好 notes 表（见教程）。';
+    cloud = null;
+    return;
+  }
+  if (Array.isArray(remote)) { await extractInlineAtts(remote); mergeNotes(remote); }
+  saveCloudCfg();
+  save(); // 会触发上传
+  render();
+  updateCloudStatus();
+  note.textContent = '✅ 已连接！本机数据已和云端合并。另一台手机填入相同信息即可同步。';
+  setTimeout(closeCloudModal, 1500);
+});
+
+// 从云端拉取本 room 的数据；成功返回数组，失败返回 false
+async function cloudFetch() {
+  if (!cloud) return false;
+  try {
+    const res = await fetch(`${cloud.url}/rest/v1/notes?room=eq.${encodeURIComponent(cloud.room)}&select=data`, {
+      headers: { apikey: cloud.key, Authorization: 'Bearer ' + cloud.key }
+    });
+    if (!res.ok) return false;
+    const rows = await res.json();
+    if (rows.length && rows[0].data) return rows[0].data;
+    return [];
+  } catch (e) { return false; }
+}
+
+// 上传整份数据（upsert）—— 附件内联后一起上传，另一台才能看到图
+async function cloudPush() {
+  if (!cloud || cloudSyncing) return;
+  cloudSyncing = true;
+  try {
+    const payload = await notesWithInlineAtts();
+    await fetch(`${cloud.url}/rest/v1/notes?on_conflict=room`, {
+      method: 'POST',
+      headers: {
+        apikey: cloud.key,
+        Authorization: 'Bearer ' + cloud.key,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify([{ room: cloud.room, data: payload, updated_at: new Date().toISOString() }])
+    });
+  } catch (e) {}
+  cloudSyncing = false;
+}
+
+// 定期从云端拉取更新并合并
+async function cloudPull() {
+  if (!cloud) return;
+  const remote = await cloudFetch();
+  if (Array.isArray(remote)) {
+    const before = JSON.stringify(notes.map(n => n.id).sort());
+    await extractInlineAtts(remote);   // 下载的附件拆回 IndexedDB
+    mergeNotes(remote);
+    const after = JSON.stringify(notes.map(n => n.id).sort());
+    if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
+  }
+}
+
+function updateCloudStatus() {
+  const el = document.getElementById('cloud-status');
+  if (!el) return;
+  if (cloud) { el.textContent = '☁️ 云同步已开启（代号：' + cloud.room + '）'; el.classList.add('on'); }
+  else { el.textContent = '☁️ 云同步未开启'; el.classList.remove('on'); }
+}
+
+// 包装 save：本地存完顺便推云端
+const _origSave = save;
+save = function() { _origSave(); if (cloud) cloudPush(); };
+
+loadCloudCfg();
+updateCloudStatus();
+if (cloud) { cloudPull(); setInterval(cloudPull, 20000); }
+
+load();
+loadLang();
+loadBg();
+loadFontSize();
+loadCollapsed();
+loadSubCollapsed();
+applyStaticI18n();
+render();
+checkReminders();
+
+// 让列表底部留白 = 输入区实际高度，避免输入区（含展开的颜色条）遮住最后一条
+(function watchComposerHeight() {
+  const composer = document.getElementById('composer');
+  const fab = document.getElementById('fab');
+  if (!composer) return;
+  const update = () => {
+    if (composer.classList.contains('collapsed')) {
+      // 收起：只需给 FAB 留点空间
+      document.documentElement.style.setProperty('--composer-h', '96px');
+    } else {
+      const h = composer.offsetHeight;
+      document.documentElement.style.setProperty('--composer-h', (h + 28) + 'px');
+    }
+  };
+
+  // 展开 / 收起
+  window.openComposer = () => {
+    composer.classList.remove('collapsed');
+    fab.classList.remove('show');
+    update();
+    setTimeout(() => { const inp = document.getElementById('input'); if (inp) inp.focus(); update(); }, 60);
+  };
+  window.closeComposer = () => {
+    composer.classList.add('collapsed');
+    fab.classList.add('show');
+    const inp = document.getElementById('input');
+    if (inp) inp.blur();
+    update();
+  };
+
+  fab.addEventListener('click', () => window.openComposer());
+  document.getElementById('composer-hide').addEventListener('click', () => window.closeComposer());
+
+  update();
+  if (window.ResizeObserver) {
+    new ResizeObserver(update).observe(composer);
+  } else {
+    setInterval(update, 800);
+  }
+  window.addEventListener('resize', update);
+
+  // 初始为收起状态
+  composer.classList.add('collapsed');
+  fab.classList.add('show');
+  update();
+})();
+
+// 注册 Service Worker（PWA 离线 + 安装支持）
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
