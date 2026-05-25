@@ -2901,19 +2901,31 @@ function startEditSub(span, n, s) {
   rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;';
   rich.innerHTML = s.rich ? sanitizeRich(s.text || '') : esc(s.text || '');
 
-  // Color bar
+  // Build colour bar and extract toggle + bar separately
   const colorWrap = buildColorBar(rich);
-  colorWrap.style.marginBottom = '4px';
+  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const colorBar = colorWrap.querySelector('.color-bar');
 
-  const attBox = document.createElement('div');
-  attBox.className = 'edit-atts';
+  // Toolbar row: [🎨] [＋ 附件] — aligns with the sub-row checkbox
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
+  const addAttBtn = document.createElement('button');
+  addAttBtn.className = 'edit-att-add';
+  addAttBtn.type = 'button';
+  addAttBtn.textContent = '＋ 附件';
+  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(addAttBtn);
+
+  // Attachment thumbnails list (no button here — button moved to toolbar)
+  const attList = document.createElement('div');
+  attList.className = 'edit-atts';
   const renderEA = () => {
-    attBox.innerHTML = editAtts.map((a, i) =>
+    attList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
         : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
-    ).join('') + `<button class="edit-att-add" type="button">＋ 附件</button>`;
-    hydrateImages(attBox);
+    ).join('');
+    hydrateImages(attList);
   };
   renderEA();
 
@@ -2921,9 +2933,11 @@ function startEditSub(span, n, s) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
+  // toolbar (🎨 + 附件) first → checkbox aligns with this row
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);  // expands below toolbar when 🎨 toggled
   wrap.appendChild(rich);
-  wrap.appendChild(colorWrap);
-  wrap.appendChild(attBox);
+  wrap.appendChild(attList);
   wrap.appendChild(actions);
   main.innerHTML = '';
   main.appendChild(wrap);
@@ -2938,10 +2952,10 @@ function startEditSub(span, n, s) {
     sel.addRange(range);
   } catch {}
 
-  attBox.addEventListener('click', e => {
+  addAttBtn.addEventListener('click', () => pickEA());
+  attList.addEventListener('click', e => {
     const rm = e.target.closest('.edit-att-rm');
-    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); return; }
-    if (e.target.closest('.edit-att-add')) pickEA();
+    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); }
   });
   async function pickEA() {
     const kind = await attachPicker();
