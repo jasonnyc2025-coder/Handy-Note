@@ -2390,7 +2390,7 @@ function renderSubs(n) {
     <div class="sub-row ${s.done?'done':''}" data-sub="${s.id}">
       <div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>
       <div class="sub-main">
-        <span class="sub-text" data-act="subedit" data-sub="${s.id}">${highlight(s.text)}</span>
+        <span class="sub-text" data-sub="${s.id}">${highlight(s.text)}</span>
         ${renderSubAtts(s)}
         <div class="sub-meta">
           ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
