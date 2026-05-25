@@ -1522,6 +1522,80 @@
     font-size: 1.4rem;
     cursor: pointer;
   }
+
+  /* ===== 密码锁屏 ===== */
+  #lock-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9900;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  #lock-screen.hidden { display: none; }
+  .lock-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    width: 100%;
+    max-width: 300px;
+    padding: 0 20px;
+  }
+  .lock-brand {
+    font-family: 'Fraunces', serif;
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .lock-brand em { font-style: italic; color: var(--accent); }
+  .lock-dots { display: flex; gap: 16px; }
+  .ld {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .ld.on { background: var(--ink); }
+  @keyframes lock-shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-8px); }
+    40%,80% { transform: translateX(8px); }
+  }
+  .lock-dots.shake { animation: lock-shake 0.38s ease; }
+  .lock-msg {
+    font-size: 0.82rem;
+    color: var(--accent);
+    min-height: 1.1em;
+    text-align: center;
+  }
+  .lock-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+  .lk {
+    height: 62px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-size: 1.45rem;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 2px 6px var(--shadow);
+    transition: transform 0.1s, background 0.1s;
+    font-family: inherit;
+  }
+  .lk:active { transform: scale(0.93); background: var(--line); }
+  .lk-del { font-size: 1.1rem; color: var(--ink-soft); }
+  .lk-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .lk-ok:active { filter: brightness(0.88); background: var(--accent); }
+  .lock-footer { font-size: 0.72rem; color: var(--ink-soft); margin-top: 4px; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -1546,6 +1620,9 @@
       <div class="gear-sep"></div>
       <button data-menu="export" data-i18n="menuExport">⬇️ 导出数据（备份）</button>
       <button data-menu="import" data-i18n="menuImport">⬆️ 导入数据（恢复/合并）</button>
+      <div class="gear-sep"></div>
+      <button data-menu="lock" data-i18n="menuLock">🔒 密码锁</button>
+      <button data-menu="lockNow" id="lock-now-btn" data-i18n="menuLockNow" style="display:none">🔐 立即锁定</button>
       <div class="gear-sep"></div>
       <button data-menu="cloud" data-i18n="menuCloud">☁️ 云同步设置</button>
       <div class="cloud-status" id="cloud-status"></div>
@@ -1928,7 +2005,7 @@ const I18N = {
   zh: {
     subtitle: '想到什么随时记 · 自动保存', search: '搜索', searchPlaceholder: '搜索记录、子项、类别…',
     menuBg: '🎨 背景主题', menuFont: '🔤 字体大小', fontSub: '选择记录文字的大小', fsSmall: '小', fsNormal: '中（默认）', fsLarge: '大', fsXlarge: '特大', menuExport: '⬇️ 导出数据（备份）', menuImport: '⬆️ 导入数据（恢复/合并）',
-    menuCloud: '☁️ 云同步设置', menuLang: '🌐 Language / 语言',
+    menuCloud: '☁️ 云同步设置', menuLang: '🌐 Language / 语言', menuLock: '🔒 密码锁', menuLockNow: '🔐 立即锁定',
     idea: '想法', todo: '待办', tIdea: '💡 想法', tTodo: '✓ 待办', cReminder: '⏰ 提醒',
     inputPlaceholder: '写点什么…', inputTodo: '要做什么…', inputIdea: '记录一个想法…',
     camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
@@ -1947,7 +2024,7 @@ const I18N = {
   en: {
     subtitle: 'Jot anything down · Auto-saved', search: 'Search', searchPlaceholder: 'Search notes, sub-items, categories…',
     menuBg: '🎨 Background', menuFont: '🔤 Font size', fontSub: 'Choose note text size', fsSmall: 'Small', fsNormal: 'Normal', fsLarge: 'Large', fsXlarge: 'X-Large', menuExport: '⬇️ Export data (backup)', menuImport: '⬆️ Import data (restore/merge)',
-    menuCloud: '☁️ Cloud sync', menuLang: '🌐 Language / 语言',
+    menuCloud: '☁️ Cloud sync', menuLang: '🌐 Language / 语言', menuLock: '🔒 Passcode', menuLockNow: '🔐 Lock now',
     idea: 'Idea', todo: 'Todo', tIdea: '💡 Idea', tTodo: '✓ Todo', cReminder: '⏰ Reminder',
     inputPlaceholder: 'Write something…', inputTodo: 'What to do…', inputIdea: 'Jot an idea…',
     camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
@@ -3469,6 +3546,8 @@ gearMenu.addEventListener('click', e => {
   else if (m === 'bg') { gearMenu.classList.remove('show'); openBgModal(); }
   else if (m === 'lang') { gearMenu.classList.remove('show'); document.getElementById('lang-modal').classList.add('show'); }
   else if (m === 'fontsize') { gearMenu.classList.remove('show'); openFontModal(); }
+  else if (m === 'lock') { gearMenu.classList.remove('show'); setupLockPin(); }
+  else if (m === 'lockNow') { gearMenu.classList.remove('show'); showLockScreen(); }
 });
 
 // 字体大小弹窗事件
@@ -3763,6 +3842,7 @@ loadCollapsed();
 loadSubCollapsed();
 applyStaticI18n();
 render();
+loadLock();
 checkReminders();
 
 // 让列表底部留白 = 输入区实际高度，避免输入区（含展开的颜色条）遮住最后一条
@@ -3818,6 +3898,188 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+
+// ===== 密码锁 =====
+const LOCK_KEY = 'quicknotes.lock';
+let _lockPin = '';
+
+async function _hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('qn::' + pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function _updateDots() {
+  document.querySelectorAll('.ld').forEach((d, i) => d.classList.toggle('on', i < _lockPin.length));
+}
+function _lockMsg(msg) { document.getElementById('lock-msg').textContent = msg || ''; }
+function _shakeDots() {
+  const el = document.getElementById('lock-dots');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
+}
+
+function showLockScreen() {
+  _lockPin = '';
+  _updateDots();
+  _lockMsg('');
+  document.getElementById('lock-screen').classList.remove('hidden');
+}
+function hideLockScreen() {
+  document.getElementById('lock-screen').classList.add('hidden');
+}
+
+function loadLock() {
+  try {
+    if (localStorage.getItem(LOCK_KEY)) {
+      showLockScreen();
+      _updateLockNowBtn();
+    }
+  } catch {}
+}
+
+function _updateLockNowBtn() {
+  const btn = document.getElementById('lock-now-btn');
+  if (btn) btn.style.display = localStorage.getItem(LOCK_KEY) ? '' : 'none';
+}
+
+async function _tryUnlock() {
+  if (_lockPin.length < 4) { _lockMsg('请输入4位密码'); return; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
+    if (!stored) { hideLockScreen(); return; }
+    const h = await _hashPin(_lockPin);
+    if (h === stored.h) {
+      hideLockScreen();
+    } else {
+      _lockMsg('密码错误，请重试');
+      _shakeDots();
+      _lockPin = '';
+      _updateDots();
+    }
+  } catch { hideLockScreen(); }
+}
+
+document.getElementById('lock-screen').addEventListener('click', e => {
+  const btn = e.target.closest('.lk');
+  if (!btn) return;
+  const d = btn.dataset.d;
+  if (d === 'del') {
+    _lockPin = _lockPin.slice(0, -1);
+    _updateDots();
+    _lockMsg('');
+  } else if (d === 'ok') {
+    _tryUnlock();
+  } else {
+    if (_lockPin.length < 4) {
+      _lockPin += d;
+      _updateDots();
+      _lockMsg('');
+      if (_lockPin.length === 4) _tryUnlock();
+    }
+  }
+});
+
+document.getElementById('lock-forgot').addEventListener('click', async () => {
+  if (await confirmDialog('忘记密码将清除所有数据并解锁，确定继续？')) {
+    localStorage.clear();
+    location.reload();
+  }
+});
+
+async function setupLockPin() {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null'); } catch {}
+
+  if (stored) {
+    const action = await new Promise(resolve => {
+      const btns = [
+        { label: '🔑 修改密码', val: 'change' },
+        { label: '🔓 关闭密码锁', val: 'remove' },
+      ];
+      // 复用 confirmDialog 样式，显示选择框
+      const modal = document.createElement('div');
+      modal.className = 'modal show';
+      modal.innerHTML = `<div class="modal-card">
+        <div class="modal-title">🔒 密码锁</div>
+        <div class="modal-sub">密码锁已开启</div>
+        <div class="modal-actions" style="flex-direction:column;gap:8px;margin-top:14px;">
+          ${btns.map(b => `<button class="m-ok" style="width:100%" data-v="${b.val}">${b.label}</button>`).join('')}
+          <button class="m-cancel" data-v="">取消</button>
+        </div>
+      </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', e => {
+        const v = e.target.dataset.v;
+        if (v !== undefined) { document.body.removeChild(modal); resolve(v || null); }
+      });
+    });
+    if (!action) return;
+
+    const cur = await promptDialog('请输入当前密码', '');
+    if (cur == null) return;
+    const curH = await _hashPin(cur.trim());
+    if (curH !== stored.h) { await confirmDialog('密码错误'); return; }
+
+    if (action === 'remove') {
+      localStorage.removeItem(LOCK_KEY);
+      _updateLockNowBtn();
+      await confirmDialog('密码锁已关闭 ✓');
+      return;
+    }
+  }
+
+  const p1 = await promptDialog(stored ? '输入新密码（4位数字）' : '设置密码（4位数字）', '');
+  if (p1 == null) return;
+  if (!/^\d{4}$/.test(p1.trim())) { await confirmDialog('请输入恰好4位数字'); return; }
+  const p2 = await promptDialog('再次输入确认', '');
+  if (p2 == null) return;
+  if (p1.trim() !== p2.trim()) { await confirmDialog('两次输入不一致'); return; }
+
+  const h = await _hashPin(p1.trim());
+  localStorage.setItem(LOCK_KEY, JSON.stringify({ h }));
+  _updateLockNowBtn();
+  await confirmDialog((stored ? '密码已修改 ✓' : '密码锁已开启 ✓') + '\n下次打开应用时将需要输入密码。');
+}
+
+// 切换到后台超过30秒后回来自动锁屏
+let _lockHideTs = 0;
+document.addEventListener('visibilitychange', () => {
+  try {
+    if (!localStorage.getItem(LOCK_KEY)) return;
+    if (document.visibilityState === 'hidden') {
+      _lockHideTs = Date.now();
+    } else if (document.visibilityState === 'visible') {
+      if (Date.now() - _lockHideTs > 30000) showLockScreen();
+    }
+  } catch {}
+});
 </script>
+
+<div id="lock-screen" class="hidden">
+  <div class="lock-inner">
+    <div class="lock-brand">随手<em>记</em></div>
+    <div class="lock-dots" id="lock-dots">
+      <span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span>
+    </div>
+    <div class="lock-msg" id="lock-msg"></div>
+    <div class="lock-pad">
+      <button class="lk" data-d="1">1</button>
+      <button class="lk" data-d="2">2</button>
+      <button class="lk" data-d="3">3</button>
+      <button class="lk" data-d="4">4</button>
+      <button class="lk" data-d="5">5</button>
+      <button class="lk" data-d="6">6</button>
+      <button class="lk" data-d="7">7</button>
+      <button class="lk" data-d="8">8</button>
+      <button class="lk" data-d="9">9</button>
+      <button class="lk lk-del" data-d="del">⌫</button>
+      <button class="lk" data-d="0">0</button>
+      <button class="lk lk-ok" data-d="ok">✓</button>
+    </div>
+    <div class="lock-footer" id="lock-forgot">忘记密码？</div>
+  </div>
+</div>
 </body>
 </html>
