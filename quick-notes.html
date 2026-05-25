@@ -2921,8 +2921,8 @@ function startEditSub(span, n, s) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
-  wrap.appendChild(colorWrap);
   wrap.appendChild(rich);
+  wrap.appendChild(colorWrap);
   wrap.appendChild(attBox);
   wrap.appendChild(actions);
   main.innerHTML = '';
