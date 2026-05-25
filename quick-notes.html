@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f4f1ea">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="随手记">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
@@ -126,7 +126,7 @@
   }
 
   header {
-    padding: 16px 0 14px;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 0 14px;
     position: sticky;
     top: 0;
     background: linear-gradient(var(--bg) 80%, transparent);
@@ -1993,25 +1993,25 @@ function save() {
 const BG_KEY = 'quicknotes.bg';
 const BG_PHOTO_KEY = 'quicknotes.bgphoto';
 const BG_LIST = [
-  { id: 'paper',    name: '米黄',   css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
-  { id: 'plain',    name: '纯白',   css: 'background:#fbfaf6;' },
-  { id: 'gray',     name: '浅灰',   css: 'background:#eceae6;' },
-  { id: 'grid',     name: '格纹',   css: 'background:#f4f1ea;background-image:linear-gradient(#e3ddd0 1px,transparent 1px),linear-gradient(90deg,#e3ddd0 1px,transparent 1px);background-size:10px 10px;' },
-  { id: 'pink',     name: '暖粉',   css: 'background:linear-gradient(160deg,#f7e3dc,#f1e4ea);' },
-  { id: 'mint',     name: '薄荷',   css: 'background:linear-gradient(160deg,#e6f0ea,#e4ecf1);' },
+  { id: 'paper',    name: '米黄',     sc: '#f4f1ea', css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'plain',    name: '纯白',     sc: '#fbfaf6', css: 'background:#fbfaf6;' },
+  { id: 'gray',     name: '浅灰',     sc: '#eceae6', css: 'background:#eceae6;' },
+  { id: 'grid',     name: '格纹',     sc: '#f4f1ea', css: 'background:#f4f1ea;background-image:linear-gradient(#e3ddd0 1px,transparent 1px),linear-gradient(90deg,#e3ddd0 1px,transparent 1px);background-size:10px 10px;' },
+  { id: 'pink',     name: '暖粉',     sc: '#f7e3dc', css: 'background:linear-gradient(160deg,#f7e3dc,#f1e4ea);' },
+  { id: 'mint',     name: '薄荷',     sc: '#e6f0ea', css: 'background:linear-gradient(160deg,#e6f0ea,#e4ecf1);' },
   // 自然主题（渐变模拟）
-  { id: 'sunrise',  name: '🌅 日出', css: 'background:linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b);' },
-  { id: 'sunset',   name: '🌇 黄昏', css: 'background:linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e);' },
-  { id: 'ocean',    name: '🌊 海洋', css: 'background:linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5);' },
-  { id: 'forest',   name: '🌲 森林', css: 'background:linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b);' },
-  { id: 'sky',      name: '☁️ 晴空', css: 'background:linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb);' },
-  { id: 'lavender', name: '💜 薰衣草', css: 'background:linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd);' },
-  { id: 'sakura',   name: '🌸 樱花', css: 'background:linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd);' },
-  { id: 'autumn',   name: '🍂 秋叶', css: 'background:linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a);' },
-  { id: 'aurora',   name: '🌌 极光', css: 'background:linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);' },
-  { id: 'dusk',     name: '🌆 暮色', css: 'background:linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);' },
-  { id: 'dark',     name: '深棕',   css: 'background:#23201c;background-image:radial-gradient(#34302a 0.5px,transparent 0.5px);background-size:8px 8px;' },
-  { id: 'midnight', name: '夜空',   css: 'background:linear-gradient(160deg,#1a1d2b,#232036);' },
+  { id: 'sunrise',  name: '🌅 日出',  sc: '#ffd9a0', css: 'background:linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b);' },
+  { id: 'sunset',   name: '🌇 黄昏',  sc: '#f6b88a', css: 'background:linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e);' },
+  { id: 'ocean',    name: '🌊 海洋',  sc: '#a8e0e6', css: 'background:linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5);' },
+  { id: 'forest',   name: '🌲 森林',  sc: '#cfe8c0', css: 'background:linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b);' },
+  { id: 'sky',      name: '☁️ 晴空',  sc: '#bfe3f5', css: 'background:linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb);' },
+  { id: 'lavender', name: '💜 薰衣草', sc: '#e7dcf3', css: 'background:linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd);' },
+  { id: 'sakura',   name: '🌸 樱花',  sc: '#fce4ec', css: 'background:linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd);' },
+  { id: 'autumn',   name: '🍂 秋叶',  sc: '#f3d9a8', css: 'background:linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a);' },
+  { id: 'aurora',   name: '🌌 极光',  sc: '#1a2a4a', css: 'background:linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);' },
+  { id: 'dusk',     name: '🌆 暮色',  sc: '#3a3a5a', css: 'background:linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);' },
+  { id: 'dark',     name: '深棕',     sc: '#23201c', css: 'background:#23201c;background-image:radial-gradient(#34302a 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'midnight', name: '夜空',     sc: '#1a1d2b', css: 'background:linear-gradient(160deg,#1a1d2b,#232036);' },
 ];
 
 function applyBg(id) {
@@ -2023,6 +2023,10 @@ function applyBg(id) {
   } else {
     document.body.style.backgroundImage = '';
   }
+  const bg = BG_LIST.find(b => b.id === id);
+  const color = id === 'custom' ? '#555555' : (bg ? bg.sc : '#f4f1ea');
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', color);
 }
 function loadBg() {
   let id = 'paper';
