@@ -594,6 +594,14 @@
     border-width: 0 2px 2px 0;
     transform: rotate(45deg) translateY(-1px);
   }
+  .sub-bullet {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 7px;
+    opacity: 0.55;
+  }
   .sub-text {
     flex: 1;
     font-size: calc(var(--note-font, 0.97rem) - 0.09rem);
@@ -2386,9 +2394,13 @@ function renderSubs(n) {
   if (!n.subs || !n.subs.length) return '';
   const collapsed = isSubCollapsed(n.id);
   const doneCount = n.subs.filter(s => s.done).length;
+  const isTodo = n.type === 'todo';
   const rows = n.subs.map(s => `
-    <div class="sub-row ${s.done?'done':''}" data-sub="${s.id}">
-      <div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>
+    <div class="sub-row ${isTodo && s.done?'done':''}" data-sub="${s.id}">
+      ${isTodo
+        ? `<div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>`
+        : `<div class="sub-bullet"></div>`
+      }
       <div class="sub-main">
         <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
         ${renderSubAtts(s)}
