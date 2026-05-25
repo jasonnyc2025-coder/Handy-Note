@@ -2303,7 +2303,6 @@ function renderItem(n) {
       <div class="body">
         ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
         ${renderAtts(n.atts)}
-        ${renderSubs(n)}
         <div class="meta">
           ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
           <span>${fullDate(n.ts)}</span>
@@ -2318,6 +2317,7 @@ function renderItem(n) {
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
           <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
         </div>
+        ${renderSubs(n)}
       </div>
       <button class="del" data-act="del">×</button>
     </div>`;
