@@ -2169,8 +2169,7 @@ function renderTabs() {
   }
   cats.forEach(c => {
     const cnt = notes.filter(n => n.cat === c.id).length;
-    const isActive = filter === c.id;
-    html += `<button class="tab ${isActive?'active':''}" data-filter="${c.id}">${esc(c.name)}${isActive?' <span class="tab-edit-hint">✏️</span>':''} <span class="count">${cnt||''}</span></button>`;
+    html += `<button class="tab ${filter===c.id?'active':''}" data-filter="${c.id}">${esc(c.name)} <span class="count">${cnt||''}</span></button>`;
   });
   html += `<button class="tab tab-add" data-filter="__add">＋</button>`;
   tabs.innerHTML = html;
@@ -2999,9 +2998,6 @@ document.getElementById('tabs').addEventListener('click', e => {
   if (tabDragging) return;            // 拖动中不触发切换
   const f = t.dataset.filter;
   if (f === '__add') { addCategory(); return; }
-  if (f !== 'all' && f !== '__overdue' && f === filter) {
-    manageCategory(f); return;        // 再次点击已选中的类别 → 管理/重命名
-  }
   filter = f;
   render();
 });
@@ -3083,10 +3079,15 @@ let tabDragging = false;
     if (started) {
       const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
       if (el) el.classList.remove('dragging');
-      if (wasDragging) { save(); renderTabs(); }
+      if (wasDragging) {
+        save(); renderTabs();
+      } else {
+        // 长按但未移动 → 弹出管理菜单（重命名/删除/移动）
+        const id = dragId;
+        setTimeout(() => manageCategory(id), 10);
+      }
     }
     started = false; dragId = null;
-    // 拖动过才需要短暂拦截 click（防止松手误切换）；纯长按/轻点不拦截
     if (wasDragging) {
       setTimeout(() => { tabDragging = false; }, 60);
     } else {
