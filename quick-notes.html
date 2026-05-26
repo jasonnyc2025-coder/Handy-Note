@@ -1729,11 +1729,11 @@
 <div class="modal" id="cloud-modal">
   <div class="modal-card">
     <div class="modal-title">☁️ 云同步设置</div>
-    <div class="modal-sub">填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。</div>
-    <label class="cloud-label">Project URL</label>
-    <input type="text" id="cloud-url" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="cloud-label">anon public key</label>
-    <input type="text" id="cloud-key" placeholder="eyJhbGci..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="modal-sub">填入服务器信息后，多台设备会自动同步。两台手机填一样的即可。</div>
+    <label class="cloud-label">服务器地址</label>
+    <input type="text" id="cloud-url" placeholder="https://your-server.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label class="cloud-label">API Key</label>
+    <input type="text" id="cloud-key" placeholder="your-api-key" autocomplete="off" autocapitalize="off" spellcheck="false">
     <label class="cloud-label">同步代号（自己起个名，两台填一样）</label>
     <input type="text" id="cloud-room" placeholder="例如 mynotes2026" autocomplete="off" autocapitalize="off" spellcheck="false">
     <div class="modal-actions">
@@ -2047,7 +2047,7 @@ const I18N = {
     pin: '📌 置顶', unpin: '📌 取消置顶',
     repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
     quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
-    cloudTitle: '☁️ 云同步设置', cloudSub: '填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。',
+    cloudTitle: '☁️ 云同步设置', cloudSub: '填入服务器信息后，多台设备会自动同步。两台手机填一样的即可。',
     disconnect: '断开', connect: '连接并同步', confirmDel: '确认删除', bgTitle: '🎨 背景主题', bgSub: '点一下即可切换，自动保存', bgPhoto: '我的照片', bgPhotoAdd: '上传照片',
     addAttach: '添加附件', newCat: '+ 新建类别', all: '全部', overdue: '⏰ 已过期', uncat: '未分类',
     allCount: '全部', plusReminder: '+ 提醒', plusSub: '+ 子项', edit: '编辑', categorize: '📁 归类',
@@ -2066,7 +2066,7 @@ const I18N = {
     pin: '📌 Pin', unpin: '📌 Unpin',
     repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
     quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
-    cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your Supabase info to auto-sync across devices. Use the same info on both phones.',
+    cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your server info to auto-sync across devices. Use the same info on both phones.',
     disconnect: 'Disconnect', connect: 'Connect & sync', confirmDel: 'Confirm delete', bgTitle: '🎨 Background', bgSub: 'Tap to switch, saved automatically', bgPhoto: 'My Photo', bgPhotoAdd: 'Upload Photo',
     addAttach: 'Add attachment', newCat: '+ New category', all: 'All', overdue: '⏰ Overdue', uncat: 'Uncategorized',
     allCount: 'All', plusReminder: '+ Reminder', plusSub: '+ Sub-item', edit: 'Edit', categorize: '📁 Category',
@@ -3790,7 +3790,7 @@ document.getElementById('import-file').addEventListener('change', e => {
   r.readAsText(file);
 });
 
-// ===== 云同步（Supabase REST） =====
+// ===== 云同步（自建服务器 REST） =====
 const CLOUD_KEY = 'quicknotes.cloud';
 let cloud = null; // {url, key, room}
 let cloudSyncing = false;
@@ -3831,11 +3831,18 @@ document.getElementById('cloud-connect').addEventListener('click', async () => {
   // 先拉云端，合并本地，再整体上传
   const remote = await cloudFetch();
   if (remote === false) {
-    note.textContent = '连接失败：请检查 URL、key 是否正确，以及是否已建好 notes 表（见教程）。';
+    note.textContent = '连接失败：请检查服务器地址和 API Key 是否正确，以及服务器是否正常运行。';
     cloud = null;
     return;
   }
-  if (Array.isArray(remote)) { await extractInlineAtts(remote); mergeNotes(remote); }
+  if (remote && Array.isArray(remote.notes)) {
+    await extractInlineAtts(remote.notes);
+    mergeNotes(remote.notes);
+    if (Array.isArray(remote.cats)) {
+      const have = new Set(cats.map(c => c.id));
+      remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
+    }
+  }
   saveCloudCfg();
   save(); // 会触发上传
   render();
@@ -3844,17 +3851,16 @@ document.getElementById('cloud-connect').addEventListener('click', async () => {
   setTimeout(closeCloudModal, 1500);
 });
 
-// 从云端拉取本 room 的数据；成功返回数组，失败返回 false
+// 从云端拉取本 room 的数据；成功返回 {notes, cats}，失败返回 false
 async function cloudFetch() {
   if (!cloud) return false;
   try {
-    const res = await fetch(`${cloud.url}/rest/v1/notes?room=eq.${encodeURIComponent(cloud.room)}&select=data`, {
-      headers: { apikey: cloud.key, Authorization: 'Bearer ' + cloud.key }
-    });
+    const res = await fetch(
+      `${cloud.url}/api/sync/${encodeURIComponent(cloud.room)}`,
+      { headers: { 'X-Api-Key': cloud.key } }
+    );
     if (!res.ok) return false;
-    const rows = await res.json();
-    if (rows.length && rows[0].data) return rows[0].data;
-    return [];
+    return await res.json(); // {notes: [...], cats: [...]}
   } catch (e) { return false; }
 }
 
@@ -3864,15 +3870,10 @@ async function cloudPush() {
   cloudSyncing = true;
   try {
     const payload = await notesWithInlineAtts();
-    await fetch(`${cloud.url}/rest/v1/notes?on_conflict=room`, {
-      method: 'POST',
-      headers: {
-        apikey: cloud.key,
-        Authorization: 'Bearer ' + cloud.key,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify([{ room: cloud.room, data: payload, updated_at: new Date().toISOString() }])
+    await fetch(`${cloud.url}/api/sync/${encodeURIComponent(cloud.room)}`, {
+      method: 'PUT',
+      headers: { 'X-Api-Key': cloud.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: payload, cats })
     });
   } catch (e) {}
   cloudSyncing = false;
@@ -3882,13 +3883,17 @@ async function cloudPush() {
 async function cloudPull() {
   if (!cloud) return;
   const remote = await cloudFetch();
-  if (Array.isArray(remote)) {
-    const before = JSON.stringify(notes.map(n => n.id).sort());
-    await extractInlineAtts(remote);   // 下载的附件拆回 IndexedDB
-    mergeNotes(remote);
-    const after = JSON.stringify(notes.map(n => n.id).sort());
-    if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
+  if (!remote || !Array.isArray(remote.notes)) return;
+  const before = JSON.stringify(notes.map(n => n.id).sort());
+  await extractInlineAtts(remote.notes);
+  mergeNotes(remote.notes);
+  // 合并分类
+  if (Array.isArray(remote.cats)) {
+    const have = new Set(cats.map(c => c.id));
+    remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
   }
+  const after = JSON.stringify(notes.map(n => n.id).sort());
+  if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
 }
 
 function updateCloudStatus() {
