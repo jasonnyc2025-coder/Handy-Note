@@ -1729,20 +1729,33 @@
 <div class="modal" id="cloud-modal">
   <div class="modal-card">
     <div class="modal-title">☁️ 云同步设置</div>
-    <div class="modal-sub">填入服务器信息后，多台设备会自动同步。两台手机填一样的即可。</div>
-    <label class="cloud-label">服务器地址</label>
-    <input type="text" id="cloud-url" placeholder="https://your-server.com" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="cloud-label">API Key</label>
-    <input type="text" id="cloud-key" placeholder="your-api-key" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="cloud-label">同步代号（自己起个名，两台填一样）</label>
-    <input type="text" id="cloud-room" placeholder="例如 mynotes2026" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="modal-actions">
-      <button class="m-del" id="cloud-disconnect" data-i18n="disconnect">断开</button>
-      <span style="flex:1"></span>
-      <button class="m-cancel" id="cloud-cancel" data-i18n="cancel">取消</button>
-      <button class="m-ok" id="cloud-connect" data-i18n="connect">连接并同步</button>
+
+    <!-- Not signed in -->
+    <div id="cloud-setup">
+      <div class="modal-sub">填入服务器地址后用 Google 账号登录，多台设备自动同步。</div>
+      <label class="cloud-label">服务器地址</label>
+      <input type="text" id="cloud-url" placeholder="https://your-server.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div id="cloud-google-btn" style="margin-top:16px;min-height:44px;display:flex;justify-content:center;"></div>
     </div>
-    <div class="modal-note" id="cloud-modal-note">不知道这些是什么？关掉它继续用导出/导入也完全没问题。配置教程见我给你的说明。</div>
+
+    <!-- Signed in -->
+    <div id="cloud-user-panel" style="display:none">
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 0 6px;">
+        <img id="cloud-avatar" style="width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--line);" src="" alt="">
+        <div>
+          <div id="cloud-user-name" style="font-weight:600;font-size:1rem;"></div>
+          <div id="cloud-user-email" style="font-size:0.78rem;color:var(--ink-soft);margin-top:2px;"></div>
+        </div>
+      </div>
+      <div id="cloud-sync-status" style="font-size:0.82rem;color:var(--ink-soft);padding:4px 0 8px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="m-del" id="cloud-disconnect" style="display:none">断开登录</button>
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="cloud-cancel">取消</button>
+    </div>
+    <div class="modal-note" id="cloud-modal-note"></div>
   </div>
 </div>
 
@@ -3790,104 +3803,175 @@ document.getElementById('import-file').addEventListener('change', e => {
   r.readAsText(file);
 });
 
-// ===== 云同步（自建服务器 REST） =====
+// ===== 云同步（自建服务器 · Google 登录） =====
 const CLOUD_KEY = 'quicknotes.cloud';
-let cloud = null; // {url, key, room}
+let cloud = null; // {url, token, name, email, picture}
 let cloudSyncing = false;
 
 function loadCloudCfg() {
-  try { cloud = JSON.parse(localStorage.getItem(CLOUD_KEY)) || null; } catch { cloud = null; }
+  try {
+    const c = JSON.parse(localStorage.getItem(CLOUD_KEY)) || null;
+    // 丢弃旧格式（含 key/room 字段）
+    cloud = (c && c.token) ? c : null;
+  } catch { cloud = null; }
 }
 function saveCloudCfg() {
   if (cloud) localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud));
   else localStorage.removeItem(CLOUD_KEY);
 }
 
+// ── Modal ──────────────────────────────────────────────────────────────────
 const cloudModal = document.getElementById('cloud-modal');
-function openCloudModal() {
-  document.getElementById('cloud-url').value = cloud?.url || '';
-  document.getElementById('cloud-key').value = cloud?.key || '';
-  document.getElementById('cloud-room').value = cloud?.room || '';
-  document.getElementById('cloud-disconnect').style.display = cloud ? '' : 'none';
-  cloudModal.classList.add('show');
-}
 function closeCloudModal() { cloudModal.classList.remove('show'); }
 document.getElementById('cloud-cancel').addEventListener('click', closeCloudModal);
 cloudModal.addEventListener('click', e => { if (e.target === cloudModal) closeCloudModal(); });
+
 document.getElementById('cloud-disconnect').addEventListener('click', () => {
   cloud = null; saveCloudCfg(); updateCloudStatus();
   closeCloudModal();
-  alert('已断开云同步。数据仍保留在本机。');
+  showToast('已断开云同步，数据仍保留在本机');
 });
 
-document.getElementById('cloud-connect').addEventListener('click', async () => {
+// URL 输入框失焦时自动加载 Google 登录按钮
+document.getElementById('cloud-url').addEventListener('blur', () => {
   const url = document.getElementById('cloud-url').value.trim().replace(/\/$/, '');
-  const key = document.getElementById('cloud-key').value.trim();
-  const room = document.getElementById('cloud-room').value.trim();
-  if (!url || !key || !room) { alert('请把三项都填上。'); return; }
-  cloud = { url, key, room };
-  const note = document.getElementById('cloud-modal-note');
-  note.textContent = '连接中…';
-  // 先拉云端，合并本地，再整体上传
-  const remote = await cloudFetch();
-  if (remote === false) {
-    note.textContent = '连接失败：请检查服务器地址和 API Key 是否正确，以及服务器是否正常运行。';
-    cloud = null;
-    return;
-  }
-  if (remote && Array.isArray(remote.notes)) {
-    await extractInlineAtts(remote.notes);
-    mergeNotes(remote.notes);
-    if (Array.isArray(remote.cats)) {
-      const have = new Set(cats.map(c => c.id));
-      remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
-    }
-  }
-  saveCloudCfg();
-  save(); // 会触发上传
-  render();
-  updateCloudStatus();
-  note.textContent = '✅ 已连接！本机数据已和云端合并。另一台手机填入相同信息即可同步。';
-  setTimeout(closeCloudModal, 1500);
+  if (url) _renderGoogleBtn(url);
 });
 
-// 从云端拉取本 room 的数据；成功返回 {notes, cats}，失败返回 false
-async function cloudFetch() {
-  if (!cloud) return false;
-  try {
-    const res = await fetch(
-      `${cloud.url}/api/sync/${encodeURIComponent(cloud.room)}`,
-      { headers: { 'X-Api-Key': cloud.key } }
-    );
-    if (!res.ok) return false;
-    return await res.json(); // {notes: [...], cats: [...]}
-  } catch (e) { return false; }
+let _gsiReady = false;
+function _loadGSI() {
+  return new Promise(resolve => {
+    if (window.google) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve; s.onerror = resolve;
+    document.head.appendChild(s);
+  });
 }
 
-// 上传整份数据（upsert）—— 附件内联后一起上传，另一台才能看到图
+async function _renderGoogleBtn(serverUrl) {
+  const note = document.getElementById('cloud-modal-note');
+  const btnDiv = document.getElementById('cloud-google-btn');
+  btnDiv.innerHTML = '';
+  note.textContent = '正在连接服务器…';
+  try {
+    const res = await fetch(`${serverUrl}/api/config`);
+    if (!res.ok) throw new Error('服务器无法连接');
+    const { googleClientId } = await res.json();
+    await _loadGSI();
+    if (!window.google) throw new Error('Google 登录加载失败');
+    google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (resp) => _handleGoogleSignIn(resp, serverUrl),
+      auto_select: false
+    });
+    google.accounts.id.renderButton(btnDiv, {
+      theme: 'outline', size: 'large', width: 260, locale: 'zh-CN', text: 'signin_with'
+    });
+    note.textContent = '';
+  } catch (err) {
+    note.textContent = '⚠️ ' + err.message;
+  }
+}
+
+async function _handleGoogleSignIn(response, serverUrl) {
+  const note = document.getElementById('cloud-modal-note');
+  note.textContent = '登录中…';
+  try {
+    const res = await fetch(`${serverUrl}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: response.credential })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || '认证失败');
+    }
+    const data = await res.json();
+    cloud = { url: serverUrl, token: data.token, name: data.name, email: data.email, picture: data.picture };
+    saveCloudCfg();
+    // 拉取云端，合并后推送
+    const remote = await cloudFetch();
+    if (remote && Array.isArray(remote.notes)) {
+      await extractInlineAtts(remote.notes);
+      mergeNotes(remote.notes);
+      if (Array.isArray(remote.cats)) {
+        const have = new Set(cats.map(c => c.id));
+        remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
+      }
+    }
+    save(); render(); updateCloudStatus();
+    closeCloudModal();
+    showToast(`✅ 已登录：${data.name}`);
+    setInterval(cloudPull, 20000);
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    cloud = null;
+  }
+}
+
+function openCloudModal() {
+  const setup = document.getElementById('cloud-setup');
+  const panel = document.getElementById('cloud-user-panel');
+  const discBtn = document.getElementById('cloud-disconnect');
+  const note = document.getElementById('cloud-modal-note');
+  if (cloud && cloud.token) {
+    setup.style.display = 'none';
+    panel.style.display = '';
+    discBtn.style.display = '';
+    document.getElementById('cloud-avatar').src = cloud.picture || '';
+    document.getElementById('cloud-user-name').textContent = cloud.name || '';
+    document.getElementById('cloud-user-email').textContent = cloud.email || '';
+    document.getElementById('cloud-sync-status').textContent = '☁️ 云同步已开启';
+    note.textContent = '';
+  } else {
+    setup.style.display = '';
+    panel.style.display = 'none';
+    discBtn.style.display = 'none';
+    document.getElementById('cloud-url').value = cloud?.url || '';
+    document.getElementById('cloud-google-btn').innerHTML = '';
+    note.textContent = '填写服务器地址后会显示 Google 登录按钮。';
+    // 如果已有 URL 直接渲染按钮
+    const url = cloud?.url || '';
+    if (url) _renderGoogleBtn(url);
+  }
+  cloudModal.classList.add('show');
+}
+
+// ── Sync API (JWT Bearer) ──────────────────────────────────────────────────
+
+async function cloudFetch() {
+  if (!cloud || !cloud.token) return false;
+  try {
+    const res = await fetch(`${cloud.url}/api/sync`, {
+      headers: { 'Authorization': 'Bearer ' + cloud.token }
+    });
+    if (!res.ok) return false;
+    return await res.json();
+  } catch { return false; }
+}
+
 async function cloudPush() {
-  if (!cloud || cloudSyncing) return;
+  if (!cloud || !cloud.token || cloudSyncing) return;
   cloudSyncing = true;
   try {
     const payload = await notesWithInlineAtts();
-    await fetch(`${cloud.url}/api/sync/${encodeURIComponent(cloud.room)}`, {
+    await fetch(`${cloud.url}/api/sync`, {
       method: 'PUT',
-      headers: { 'X-Api-Key': cloud.key, 'Content-Type': 'application/json' },
+      headers: { 'Authorization': 'Bearer ' + cloud.token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ notes: payload, cats })
     });
-  } catch (e) {}
+  } catch {}
   cloudSyncing = false;
 }
 
-// 定期从云端拉取更新并合并
 async function cloudPull() {
-  if (!cloud) return;
+  if (!cloud || !cloud.token) return;
   const remote = await cloudFetch();
   if (!remote || !Array.isArray(remote.notes)) return;
   const before = JSON.stringify(notes.map(n => n.id).sort());
   await extractInlineAtts(remote.notes);
   mergeNotes(remote.notes);
-  // 合并分类
   if (Array.isArray(remote.cats)) {
     const have = new Set(cats.map(c => c.id));
     remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
@@ -3899,17 +3983,22 @@ async function cloudPull() {
 function updateCloudStatus() {
   const el = document.getElementById('cloud-status');
   if (!el) return;
-  if (cloud) { el.textContent = '☁️ 云同步已开启（代号：' + cloud.room + '）'; el.classList.add('on'); }
-  else { el.textContent = '☁️ 云同步未开启'; el.classList.remove('on'); }
+  if (cloud && cloud.token) {
+    el.textContent = '☁️ 云同步已开启（' + (cloud.name || cloud.email) + '）';
+    el.classList.add('on');
+  } else {
+    el.textContent = '☁️ 云同步未开启';
+    el.classList.remove('on');
+  }
 }
 
 // 包装 save：本地存完顺便推云端
 const _origSave = save;
-save = function() { _origSave(); if (cloud) cloudPush(); };
+save = function() { _origSave(); if (cloud && cloud.token) cloudPush(); };
 
 loadCloudCfg();
 updateCloudStatus();
-if (cloud) { cloudPull(); setInterval(cloudPull, 20000); }
+if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
 
 load();
 loadLang();
