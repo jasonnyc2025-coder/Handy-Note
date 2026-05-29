@@ -2732,14 +2732,13 @@ const PRESET_COLORS = [
   '#6b8e23', '#4a8c4a', '#2e9b8f', '#3a72c4', '#4455c4', '#6a40b8',
   '#8a4fbf', '#b5479b', '#c43a6e', '#8c6d4a', '#5a5a5a'
 ];
-// 若编辑区内没有选中文字，则全选——确保格式命令作用到已有内容
-function ensureSelection(richEl) {
-  const sel = window.getSelection();
-  if (!sel || !sel.isCollapsed) return; // 已有选区，不干预
-  const range = document.createRange();
-  range.selectNodeContents(richEl);
-  sel.removeAllRanges();
-  sel.addRange(range);
+// 检查 richEl 内是否有非空文字选区
+function hasRichSelection(richEl) {
+  try {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+    return richEl.contains(sel.getRangeAt(0).commonAncestorContainer);
+  } catch { return false; }
 }
 
 // 生成一个颜色条元素，绑定到指定富文本编辑区
@@ -2750,6 +2749,9 @@ function buildColorBar(richEl) {
   // ── 始终可见的格式栏 ──────────────────────────────
   const fmtBar = document.createElement('div');
   fmtBar.className = 'fmt-bar';
+
+  // 字号 em 映射
+  const FS_EM = {'2':'0.85em','3':'1em','4':'1.2em','5':'1.5em'};
 
   // 字号按钮 (S M L XL)
   [
@@ -2765,9 +2767,15 @@ function buildColorBar(richEl) {
     btn.addEventListener('click', () => {
       richEl.focus();
       try {
-        ensureSelection(richEl);
-        document.execCommand('styleWithCSS', false, true);
-        document.execCommand('fontSize', false, fs);
+        if (hasRichSelection(richEl)) {
+          // 有选中文字：用 execCommand 对选区变更字号
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('fontSize', false, fs);
+        } else {
+          // 无选区（移动端常见）：直接包裹整段内容
+          const clean = sanitizeRich(richEl.innerHTML);
+          richEl.innerHTML = `<span style="font-size:${FS_EM[fs]||'1em'}">${clean}</span>`;
+        }
       } catch(e) {}
     });
     fmtBar.appendChild(btn);
@@ -2780,7 +2788,14 @@ function buildColorBar(richEl) {
   uBtn.addEventListener('mousedown', e => e.preventDefault());
   uBtn.addEventListener('click', () => {
     richEl.focus();
-    try { ensureSelection(richEl); document.execCommand('underline'); } catch(e) {}
+    try {
+      if (hasRichSelection(richEl)) {
+        document.execCommand('underline');
+      } else {
+        const clean = sanitizeRich(richEl.innerHTML);
+        richEl.innerHTML = `<u>${clean}</u>`;
+      }
+    } catch(e) {}
   });
   fmtBar.appendChild(uBtn);
 
