@@ -3454,7 +3454,13 @@ function startAddSubSub(subRow, n, s) {
     else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
   rich.addEventListener('blur', () => {
-    setTimeout(() => { if (!committed && !picking && document.activeElement !== rich) commit(true); }, 220);
+    setTimeout(() => {
+      if (!committed && !picking && document.activeElement !== rich) {
+        const html = sanitizeRich(rich.innerHTML);
+        if (plainOf(html) || ssAtts.length) commit(true);
+        // if empty, keep form open — prevents keyboard-open blur from destroying it
+      }
+    }, 220);
   });
 }
 
