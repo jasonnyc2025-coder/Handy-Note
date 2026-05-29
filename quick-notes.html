@@ -1449,6 +1449,18 @@
     line-height: 1;
   }
   .color-toggle.on { border-color: var(--accent); background: var(--accent-soft); }
+  .fmt-bar {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  }
+  .fmt-btn {
+    border: 1px solid var(--line); background: transparent;
+    border-radius: 7px; cursor: pointer; padding: 0 5px;
+    height: 28px; min-width: 28px; font-family: inherit; font-size: 0.82rem;
+    color: var(--ink-soft); display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.15s; line-height: 1;
+  }
+  .fmt-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .fmt-btn.on { border-color: var(--accent); background: var(--accent-soft); }
   .color-bar {
     display: none;
     gap: 8px;
@@ -2622,18 +2634,31 @@ function esc(s) {
 function sanitizeRich(html) {
   const tpl = document.createElement('div');
   tpl.innerHTML = html;
+  const FS_MAP = {'1':'0.75em','2':'0.85em','3':'1em','4':'1.2em','5':'1.5em','6':'2em','7':'2.5em'};
+  const safeFs = v => /^[\d.]+(px|em|rem|%|pt)$|^(x-small|small|medium|large|x-large|xx-large|xxx-large|smaller|larger)$/.test((v||'').trim());
   const walk = (node) => {
     let out = '';
     node.childNodes.forEach(ch => {
-      if (ch.nodeType === 3) { out += esc(ch.nodeValue); }       // 文本
+      if (ch.nodeType === 3) { out += esc(ch.nodeValue); }
       else if (ch.nodeType === 1) {
         const tag = ch.tagName.toLowerCase();
         if (tag === 'br') { out += '<br>'; return; }
-        // 提取颜色
-        let color = ch.style && ch.style.color ? ch.style.color : (ch.getAttribute && ch.getAttribute('color'));
         const inner = walk(ch);
-        if ((tag === 'span' || tag === 'font' || tag === 'div' || tag === 'p') && color) {
-          out += `<span style="color:${esc(color)}">${inner}</span>`;
+        // underline
+        if (tag === 'u') { out += `<u>${inner}</u>`; return; }
+        // color
+        const color = (ch.style && ch.style.color) ? ch.style.color
+                    : (ch.getAttribute && ch.getAttribute('color')) || '';
+        // font-size: from inline style (styleWithCSS) or <font size="X">
+        let fs = (ch.style && ch.style.fontSize) ? ch.style.fontSize.trim() : '';
+        if (!fs && tag === 'font') { const s = ch.getAttribute('size'); if (s) fs = FS_MAP[s]||''; }
+        if (fs && !safeFs(fs)) fs = '';
+        // combine
+        const styles = [];
+        if (color) styles.push(`color:${esc(color)}`);
+        if (fs)    styles.push(`font-size:${esc(fs)}`);
+        if ((tag === 'span' || tag === 'font' || tag === 'div' || tag === 'p') && styles.length) {
+          out += `<span style="${styles.join(';')}">${inner}</span>`;
         } else {
           if (tag === 'div' || tag === 'p') out += inner + '<br>';
           else out += inner;
@@ -2712,12 +2737,43 @@ function buildColorBar(richEl) {
   const wrap = document.createElement('div');
   wrap.className = 'color-wrap';
 
-  const toggle = document.createElement('button');
-  toggle.className = 'color-toggle';
-  toggle.type = 'button';
-  toggle.textContent = '🎨';
-  toggle.title = '文字颜色';
+  // ── 始终可见的格式栏 ──────────────────────────────
+  const fmtBar = document.createElement('div');
+  fmtBar.className = 'fmt-bar';
 
+  // 字号按钮 (S M L XL)
+  [
+    { label:'A', fs:'2', title:'小字',  css:'font-size:0.75em' },
+    { label:'A', fs:'3', title:'正常',  css:'font-size:1em' },
+    { label:'A', fs:'4', title:'大字',  css:'font-size:1.25em;font-weight:500' },
+    { label:'A', fs:'5', title:'特大',  css:'font-size:1.55em;font-weight:600' },
+  ].forEach(({ label, fs, title, css }) => {
+    const btn = document.createElement('button');
+    btn.className = 'fmt-btn fmt-size'; btn.type = 'button'; btn.title = title;
+    btn.innerHTML = `<span style="${css}">${label}</span>`;
+    btn.addEventListener('mousedown', e => e.preventDefault());
+    btn.addEventListener('click', () => {
+      richEl.focus();
+      try { document.execCommand('styleWithCSS', false, true); document.execCommand('fontSize', false, fs); } catch(e) {}
+    });
+    fmtBar.appendChild(btn);
+  });
+
+  // 下划线按钮
+  const uBtn = document.createElement('button');
+  uBtn.className = 'fmt-btn fmt-u'; uBtn.type = 'button'; uBtn.title = '下划线';
+  uBtn.innerHTML = '<u style="text-underline-offset:2px">U</u>';
+  uBtn.addEventListener('mousedown', e => e.preventDefault());
+  uBtn.addEventListener('click', () => { richEl.focus(); try { document.execCommand('underline'); } catch(e) {} });
+  fmtBar.appendChild(uBtn);
+
+  // 颜色 toggle（放在格式栏末尾）
+  const toggle = document.createElement('button');
+  toggle.className = 'color-toggle'; toggle.type = 'button';
+  toggle.textContent = '🎨'; toggle.title = '文字颜色';
+  fmtBar.appendChild(toggle);
+
+  // ── 可折叠颜色条 ──────────────────────────────────
   const bar = document.createElement('div');
   bar.className = 'color-bar';
   bar.innerHTML = PRESET_COLORS.map(c =>
@@ -2726,25 +2782,20 @@ function buildColorBar(richEl) {
   `<label class="color-custom" title="自定义颜色">＋<input type="color" class="color-pick"></label>
    <button class="color-whole" data-act="whole" title="整条变色">整条</button>`;
 
-  wrap.appendChild(toggle);
+  wrap.appendChild(fmtBar);
   wrap.appendChild(bar);
 
-  // 点 🎨 展开/收起
+  // 颜色 toggle 展开/收起
   toggle.addEventListener('mousedown', e => e.preventDefault());
-  toggle.addEventListener('click', () => {
-    bar.classList.toggle('show');
-    toggle.classList.toggle('on');
-  });
+  toggle.addEventListener('click', () => { bar.classList.toggle('show'); toggle.classList.toggle('on'); });
 
   bar.addEventListener('mousedown', e => { if (e.target.closest('.color-pick')) return; e.preventDefault(); });
   const applyColor = (color, whole) => {
     richEl.focus();
     try {
       if (whole) {
-        const range = document.createRange();
-        range.selectNodeContents(richEl);
-        const sel = window.getSelection();
-        sel.removeAllRanges(); sel.addRange(range);
+        const range = document.createRange(); range.selectNodeContents(richEl);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
       }
       const c = color || (getComputedStyle(document.body).getPropertyValue('--ink').trim() || '#2b2722');
       document.execCommand('foreColor', false, c);
@@ -2753,9 +2804,7 @@ function buildColorBar(richEl) {
   bar.addEventListener('click', e => {
     const dot = e.target.closest('.color-dot');
     if (dot) { applyColor(dot.dataset.color, false); return; }
-    if (e.target.closest('[data-act="whole"]')) {
-      applyColor(bar._lastColor || '#c8553d', true);
-    }
+    if (e.target.closest('[data-act="whole"]')) applyColor(bar._lastColor || '#c8553d', true);
   });
   const pick = bar.querySelector('.color-pick');
   pick.addEventListener('input', () => { bar._lastColor = pick.value; applyColor(pick.value, false); });
@@ -3000,7 +3049,7 @@ function startAddSub(item, n) {
   rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;flex:1;';
 
   const colorWrap = buildColorBar(rich);
-  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
   // Toolbar: [🎨] [＋ 附件]
@@ -3010,7 +3059,7 @@ function startAddSub(item, n) {
   attBtn.className = 'sub-att-btn';
   attBtn.type = 'button';
   attBtn.textContent = '📎 附件';
-  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(fmtBar);
   toolbar.appendChild(attBtn);
 
   // Attachment list
@@ -3137,7 +3186,7 @@ function startEditSub(span, n, s) {
 
   // Build colour bar and extract toggle + bar separately
   const colorWrap = buildColorBar(rich);
-  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
   // Toolbar row: [🎨] [＋ 附件] — aligns with the sub-row checkbox
@@ -3147,7 +3196,7 @@ function startEditSub(span, n, s) {
   addAttBtn.className = 'edit-att-add';
   addAttBtn.type = 'button';
   addAttBtn.textContent = '＋ 附件';
-  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(fmtBar);
   toolbar.appendChild(addAttBtn);
 
   // Attachment thumbnails list (no button here — button moved to toolbar)
@@ -3247,7 +3296,7 @@ function startAddSubSub(subRow, n, s) {
   rich.setAttribute('placeholder', '子子项内容…');
 
   const colorWrap = buildColorBar(rich);
-  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
   const toolbar = document.createElement('div');
@@ -3256,7 +3305,7 @@ function startAddSubSub(subRow, n, s) {
   attAddBtn.className = 'subsub-att-add-btn';
   attAddBtn.type = 'button';
   attAddBtn.textContent = '＋ 附件';
-  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(fmtBar);
   toolbar.appendChild(attAddBtn);
 
   const attList = document.createElement('div');
@@ -3356,7 +3405,7 @@ function startEditSubSub(ssRow, n, s, ss) {
   rich.innerHTML = ss.rich ? sanitizeRich(ss.text || '') : esc(ss.text || '');
 
   const colorWrap = buildColorBar(rich);
-  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
   const toolbar = document.createElement('div');
@@ -3365,7 +3414,7 @@ function startEditSubSub(ssRow, n, s, ss) {
   attAddBtn.className = 'subsub-att-add-btn';
   attAddBtn.type = 'button';
   attAddBtn.textContent = '＋ 附件';
-  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(fmtBar);
   toolbar.appendChild(attAddBtn);
 
   const attList = document.createElement('div');
