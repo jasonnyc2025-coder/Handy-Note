@@ -3185,8 +3185,8 @@ function startAddSubSub(subRow, n, s) {
   if (!subsubList) {
     subsubList = document.createElement('div');
     subsubList.className = 'subsub-list';
-    const addBtn = main.querySelector('.subsub-add-btn');
-    if (addBtn) main.insertBefore(subsubList, addBtn);
+    const subMeta = main.querySelector('.sub-meta');
+    if (subMeta) main.insertBefore(subsubList, subMeta);
     else main.appendChild(subsubList);
   }
 
