@@ -2733,14 +2733,6 @@ const PRESET_COLORS = [
   '#8a4fbf', '#b5479b', '#c43a6e', '#8c6d4a', '#5a5a5a'
 ];
 // 检查 richEl 内是否有非空文字选区
-function hasRichSelection(richEl) {
-  try {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
-    return richEl.contains(sel.getRangeAt(0).commonAncestorContainer);
-  } catch { return false; }
-}
-
 // 生成一个颜色条元素，绑定到指定富文本编辑区
 function buildColorBar(richEl) {
   const wrap = document.createElement('div');
@@ -2753,7 +2745,44 @@ function buildColorBar(richEl) {
   // 字号 em 映射
   const FS_EM = {'2':'0.85em','3':'1em','4':'1.2em','5':'1.5em'};
 
+  // 格式状态 — 独立追踪，不依赖 innerHTML 堆叠
+  const fmt = { size: null, underline: false };
+
+  // 剥掉已知格式包装层，取基础内容
+  function getBase() {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = richEl.innerHTML;
+    // 去最外层 <u>（下划线是最外层）
+    if (fmt.underline &&
+        tmp.childNodes.length === 1 &&
+        tmp.firstChild.nodeType === 1 &&
+        tmp.firstChild.tagName.toLowerCase() === 'u') {
+      tmp.innerHTML = tmp.firstChild.innerHTML;
+    }
+    // 去最外层 <span style="font-size:...">（字号在下划线内层）
+    if (fmt.size &&
+        tmp.childNodes.length === 1 &&
+        tmp.firstChild.nodeType === 1 &&
+        tmp.firstChild.tagName.toLowerCase() === 'span' &&
+        tmp.firstChild.style.fontSize) {
+      tmp.innerHTML = tmp.firstChild.innerHTML;
+    }
+    return tmp.innerHTML;
+  }
+
+  // 用当前状态重新渲染：字号在内，下划线在外
+  function reapply() {
+    const base = sanitizeRich(getBase());
+    let result = base;
+    if (fmt.size)      result = `<span style="font-size:${fmt.size}">${result}</span>`;
+    if (fmt.underline) result = `<u>${result}</u>`;
+    richEl.innerHTML = result;
+    sizeButtons.forEach(({ btn, fs }) => btn.classList.toggle('on', fmt.size === FS_EM[fs]));
+    uBtn.classList.toggle('on', fmt.underline);
+  }
+
   // 字号按钮 (S M L XL)
+  const sizeButtons = [];
   [
     { label:'A', fs:'2', title:'小字',  css:'font-size:0.75em' },
     { label:'A', fs:'3', title:'正常',  css:'font-size:1em' },
@@ -2765,26 +2794,21 @@ function buildColorBar(richEl) {
     btn.innerHTML = `<span style="${css}">${label}</span>`;
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => {
-      richEl.focus();
-      try {
-        const clean = sanitizeRich(richEl.innerHTML);
-        richEl.innerHTML = `<span style="font-size:${FS_EM[fs]||'1em'}">${clean}</span>`;
-      } catch(e) {}
+      fmt.size = (fmt.size === FS_EM[fs]) ? null : FS_EM[fs];
+      reapply();
     });
+    sizeButtons.push({ btn, fs });
     fmtBar.appendChild(btn);
   });
 
-  // 下划线按钮
+  // 下划线按钮（点击切换开/关）
   const uBtn = document.createElement('button');
   uBtn.className = 'fmt-btn fmt-u'; uBtn.type = 'button'; uBtn.title = '下划线';
   uBtn.innerHTML = '<u style="text-underline-offset:2px">U</u>';
   uBtn.addEventListener('mousedown', e => e.preventDefault());
   uBtn.addEventListener('click', () => {
-    richEl.focus();
-    try {
-      const clean = sanitizeRich(richEl.innerHTML);
-      richEl.innerHTML = `<u>${clean}</u>`;
-    } catch(e) {}
+    fmt.underline = !fmt.underline;
+    reapply();
   });
   fmtBar.appendChild(uBtn);
 
