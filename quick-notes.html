@@ -2441,7 +2441,7 @@ function catColor(id) {
 function renderItem(n) {
   return `
     <div class="item ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
-      ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:4px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;"></div>`}
+      ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:3px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;opacity:0.35;"></div>`}
       <div class="body">
         ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
         ${renderAtts(n.atts)}
