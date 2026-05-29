@@ -641,8 +641,10 @@
     margin-top: 7px;
     opacity: 0.4;
   }
+  .subsub-body {
+    flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+  }
   .subsub-text {
-    flex: 1;
     font-size: 0.86rem;
     line-height: 1.45;
     color: var(--ink);
@@ -685,6 +687,30 @@
     background: var(--accent); color: white; border: none;
     border-radius: 8px; padding: 3px 10px; font-size: 0.8rem; cursor: pointer;
   }
+  .subsub-edit-wrap {
+    flex: 1; display: flex; flex-direction: column; gap: 4px; margin-top: 2px;
+  }
+  .subsub-rich-edit {
+    font-family: inherit; font-size: 0.86rem; line-height: 1.45;
+    border: 1px solid var(--accent); border-radius: 8px;
+    padding: 4px 8px; background: var(--paper); color: var(--ink);
+    outline: none; white-space: pre-wrap; word-break: break-word; min-height: 1.5em;
+  }
+  .subsub-toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .subsub-atts { display: flex; flex-wrap: wrap; gap: 4px; }
+  .subsub-att { position: relative; }
+  .subsub-att img { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; display: block; }
+  .subsub-att-pdf { font-size: 0.72rem; color: var(--ink-soft); background: var(--hover); border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; gap: 3px; }
+  .subsub-att-rm { position: absolute; top: -4px; right: -4px; width: 14px; height: 14px; border-radius: 50%; background: var(--danger,#c8553d); color: white; border: none; font-size: 0.6rem; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1; }
+  .subsub-edit-actions { display: flex; gap: 6px; }
+  .subsub-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 3px 10px; font-size: 0.8rem; cursor: pointer; }
+  .subsub-cancel-btn { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; font-size: 0.8rem; cursor: pointer; color: var(--ink-soft); }
+  .subsub-att-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: none; border: 1px dashed var(--line); border-radius: 20px; cursor: pointer; padding: 1px 8px; }
+  .subsub-row-atts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .subsub-row-atts img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; display: block; }
+  .subsub-row-atts .pdf-chip { font-size: 0.72rem; color: var(--ink-soft); background: var(--hover); border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; gap: 3px; }
   .sub-text {
     flex: 1;
     font-size: calc(var(--note-font, 0.97rem) - 0.09rem);
@@ -2486,6 +2512,15 @@ function render() {
   hydrateImages(list);
 }
 
+function renderSubSubAtts(ss) {
+  if (!ss.atts || !ss.atts.length) return '';
+  return `<div class="subsub-row-atts">${ss.atts.map(a =>
+    a.kind === 'image'
+      ? `<img ${imgSrcAttr(a)} alt="">`
+      : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
+  ).join('')}</div>`;
+}
+
 function renderSubSubs(s, isTodo) {
   if (!s.subs || !s.subs.length) return '';
   return `<div class="subsub-list">${s.subs.map(ss => `
@@ -2494,7 +2529,10 @@ function renderSubSubs(s, isTodo) {
         ? `<div class="subsub-check ${ss.done ? 'on' : ''}" data-act="subsubtoggle" data-subsub="${ss.id}" data-sub="${s.id}"></div>`
         : `<div class="subsub-bullet"></div>`
       }
-      <span class="subsub-text">${ss.rich ? sanitizeRich(ss.text||'') : esc(ss.text||'')}</span>
+      <div class="subsub-body">
+        <span class="subsub-text">${highlight(ss)}</span>
+        ${renderSubSubAtts(ss)}
+      </div>
       <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
@@ -3139,10 +3177,10 @@ function startEditSub(span, n, s) {
   });
 }
 
-// 给子项添加子子项（内联输入）
+// 给子项添加子子项（富文本 + 颜色 + 附件）
 function startAddSubSub(subRow, n, s) {
   const main = subRow.querySelector('.sub-main');
-  if (!main || main.querySelector('.subsub-input-wrap')) return;
+  if (!main || main.querySelector('.subsub-edit-wrap')) return;
   let subsubList = main.querySelector('.subsub-list');
   if (!subsubList) {
     subsubList = document.createElement('div');
@@ -3151,76 +3189,212 @@ function startAddSubSub(subRow, n, s) {
     if (addBtn) main.insertBefore(subsubList, addBtn);
     else main.appendChild(subsubList);
   }
+
+  let ssAtts = [];
+  let picking = false;
+
   const wrap = document.createElement('div');
-  wrap.className = 'subsub-input-wrap';
-  const inp = document.createElement('input');
-  inp.className = 'subsub-input';
-  inp.placeholder = '子子项内容…';
+  wrap.className = 'subsub-edit-wrap';
+
+  const rich = document.createElement('div');
+  rich.className = 'subsub-rich-edit';
+  rich.contentEditable = 'true';
+  rich.setAttribute('placeholder', '子子项内容…');
+
+  const colorWrap = buildColorBar(rich);
+  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  const attAddBtn = document.createElement('button');
+  attAddBtn.className = 'subsub-att-add-btn';
+  attAddBtn.type = 'button';
+  attAddBtn.textContent = '＋ 附件';
+  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(attAddBtn);
+
+  const attList = document.createElement('div');
+  attList.className = 'subsub-atts';
+  const renderAtts = () => {
+    attList.innerHTML = ssAtts.map((a, i) =>
+      a.kind === 'image'
+        ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+    ).join('');
+    hydrateImages(attList);
+  };
+
+  const actions = document.createElement('div');
+  actions.className = 'subsub-edit-actions';
   const okBtn = document.createElement('button');
-  okBtn.className = 'subsub-save-btn';
-  okBtn.textContent = '添加';
-  wrap.appendChild(inp);
-  wrap.appendChild(okBtn);
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '添加';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actions.appendChild(okBtn); actions.appendChild(cancelBtn);
+
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(attList);
+  wrap.appendChild(actions);
   subsubList.appendChild(wrap);
-  inp.focus();
+  rich.focus();
+
+  attList.addEventListener('click', e => {
+    const rm = e.target.closest('.subsub-att-rm');
+    if (rm) { ssAtts.splice(+rm.dataset.i, 1); renderAtts(); }
+  });
+  attAddBtn.addEventListener('mousedown', e => e.preventDefault());
+  attAddBtn.addEventListener('click', async () => {
+    picking = true;
+    const kind = await attachPicker();
+    if (!kind) { picking = false; rich.focus(); return; }
+    const got = await pickFilesByKind(kind);
+    if (got.length) { ssAtts.push(...got); renderAtts(); }
+    picking = false; rich.focus();
+  });
 
   let committed = false;
-  const commit = () => {
+  const commit = (saveIt) => {
     if (committed) return;
     committed = true;
-    const v = inp.value.trim();
-    if (v) {
-      if (!s.subs) s.subs = [];
-      s.subs.push({
-        id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
-        text: v, done: false, ts: Date.now()
-      });
-      save();
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain || ssAtts.length) {
+        if (!s.subs) s.subs = [];
+        s.subs.push({
+          id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
+          text: html, rich: true, atts: ssAtts.slice(), done: false, ts: Date.now()
+        });
+        save();
+      }
     }
     render();
   };
-  okBtn.addEventListener('mousedown', e => { e.preventDefault(); commit(); });
-  okBtn.addEventListener('click', e => { e.preventDefault(); commit(); });
-  inp.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
-    else if (ev.key === 'Escape') { ev.preventDefault(); committed = true; render(); }
+
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
+  cancelBtn.addEventListener('click', () => commit(false));
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
-  inp.addEventListener('blur', () => {
-    setTimeout(() => { if (!committed && document.activeElement !== inp) commit(); }, 200);
+  rich.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && !picking && document.activeElement !== rich) commit(true); }, 220);
   });
 }
 
-// 编辑子子项文字
+// 编辑子子项（富文本 + 颜色 + 附件）
 function startEditSubSub(ssRow, n, s, ss) {
-  if (ssRow.querySelector('.subsub-input')) return;
-  const textSpan = ssRow.querySelector('.subsub-text');
-  if (textSpan) textSpan.style.display = 'none';
+  if (ssRow.querySelector('.subsub-edit-wrap')) return;
+
+  const body = ssRow.querySelector('.subsub-body');
+  if (body) body.style.display = 'none';
   const editBtn = ssRow.querySelector('.subsub-edit-btn');
   if (editBtn) editBtn.style.display = 'none';
+  const delBtn = ssRow.querySelector('.subsub-del');
+  if (delBtn) delBtn.style.display = 'none';
 
-  const inp = document.createElement('input');
-  inp.className = 'subsub-input';
-  inp.value = plainOf(ss.text || '');
-  ssRow.insertBefore(inp, ssRow.querySelector('.subsub-del'));
-  inp.focus();
-  inp.select();
+  let editAtts = (ss.atts || []).map(a => Object.assign({}, a));
+  let picking = false;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'subsub-edit-wrap';
+  wrap.style.flex = '1';
+
+  const rich = document.createElement('div');
+  rich.className = 'subsub-rich-edit';
+  rich.contentEditable = 'true';
+  rich.innerHTML = ss.rich ? sanitizeRich(ss.text || '') : esc(ss.text || '');
+
+  const colorWrap = buildColorBar(rich);
+  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  const attAddBtn = document.createElement('button');
+  attAddBtn.className = 'subsub-att-add-btn';
+  attAddBtn.type = 'button';
+  attAddBtn.textContent = '＋ 附件';
+  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(attAddBtn);
+
+  const attList = document.createElement('div');
+  attList.className = 'subsub-atts';
+  const renderAtts = () => {
+    attList.innerHTML = editAtts.map((a, i) =>
+      a.kind === 'image'
+        ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+    ).join('');
+    hydrateImages(attList);
+  };
+  renderAtts();
+
+  const actions = document.createElement('div');
+  actions.className = 'subsub-edit-actions';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '保存';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actions.appendChild(okBtn); actions.appendChild(cancelBtn);
+
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(attList);
+  wrap.appendChild(actions);
+  ssRow.insertBefore(wrap, ssRow.querySelector('.subsub-del'));
+  rich.focus();
+  try {
+    const sel = window.getSelection(), range = document.createRange();
+    range.selectNodeContents(rich); range.collapse(false);
+    sel.removeAllRanges(); sel.addRange(range);
+  } catch {}
+
+  attList.addEventListener('click', e => {
+    const rm = e.target.closest('.subsub-att-rm');
+    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderAtts(); }
+  });
+  attAddBtn.addEventListener('mousedown', e => e.preventDefault());
+  attAddBtn.addEventListener('click', async () => {
+    picking = true;
+    const kind = await attachPicker();
+    if (!kind) { picking = false; rich.focus(); return; }
+    const got = await pickFilesByKind(kind);
+    if (got.length) { editAtts.push(...got); renderAtts(); }
+    picking = false; rich.focus();
+  });
 
   let committed = false;
-  const commit = (save_) => {
+  const commit = (saveIt) => {
     if (committed) return;
     committed = true;
-    if (save_) {
-      const v = inp.value.trim();
-      if (v) { ss.text = v; ss.rich = false; save(); }
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain || editAtts.length) {
+        ss.text = html; ss.rich = true; ss.atts = editAtts;
+        save();
+      }
     }
     render();
   };
-  inp.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
+
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
+  cancelBtn.addEventListener('click', () => commit(false));
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
     else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
-  inp.addEventListener('blur', () => {
-    setTimeout(() => { if (!committed && document.activeElement !== inp) commit(true); }, 200);
+  rich.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && !picking && document.activeElement !== rich) commit(true); }, 220);
   });
 }
 
