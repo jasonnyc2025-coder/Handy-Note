@@ -705,7 +705,7 @@
     font-family: inherit; font-size: var(--note-font, 0.97rem); line-height: 1.45;
     border: 1px solid var(--accent); border-radius: 8px;
     padding: 4px 8px; background: var(--paper); color: var(--ink);
-    outline: none; white-space: pre-wrap; word-break: break-word; min-height: 1.5em;
+    outline: none; white-space: pre-wrap; word-break: break-word; min-height: 1.5em; max-height: 150px; overflow-y: auto;
   }
   .subsub-toolbar {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -3125,7 +3125,7 @@ function startAddSub(item, n) {
   const rich = document.createElement('div');
   rich.className = 'sub-rich-edit edit-area';
   rich.contentEditable = 'true';
-  rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;flex:1;';
+  rich.style.cssText = 'min-height:1.5em;max-height:150px;overflow-y:auto;outline:none;white-space:pre-wrap;word-break:break-word;flex:1;';
 
   const colorWrap = buildColorBar(rich);
   const fmtBar = colorWrap.querySelector('.fmt-bar');
