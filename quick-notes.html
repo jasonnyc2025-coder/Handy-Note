@@ -602,6 +602,17 @@
     margin-top: 7px;
     opacity: 0.55;
   }
+  .sub-num {
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+    min-width: 16px;
+    text-align: right;
+    margin-top: 3px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+    opacity: 0.7;
+  }
   /* Sub-sub-items (grandchildren) */
   .subsub-list {
     margin: 4px 0 2px 22px;
@@ -2556,11 +2567,12 @@ function renderSubs(n) {
   const collapsed = isSubCollapsed(n.id);
   const doneCount = n.subs.filter(s => s.done).length;
   const isTodo = n.type === 'todo';
-  const rows = n.subs.map(s => `
+  const rows = n.subs.map((s, i) => `
     <div class="sub-row ${isTodo && s.done?'done':''}" data-sub="${s.id}">
+      <span class="sub-num">${i + 1}</span>
       ${isTodo
         ? `<div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>`
-        : `<div class="sub-bullet"></div>`
+        : ''
       }
       <div class="sub-main">
         <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
