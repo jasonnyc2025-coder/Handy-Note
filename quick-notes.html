@@ -2767,15 +2767,8 @@ function buildColorBar(richEl) {
     btn.addEventListener('click', () => {
       richEl.focus();
       try {
-        if (hasRichSelection(richEl)) {
-          // 有选中文字：用 execCommand 对选区变更字号
-          document.execCommand('styleWithCSS', false, true);
-          document.execCommand('fontSize', false, fs);
-        } else {
-          // 无选区（移动端常见）：直接包裹整段内容
-          const clean = sanitizeRich(richEl.innerHTML);
-          richEl.innerHTML = `<span style="font-size:${FS_EM[fs]||'1em'}">${clean}</span>`;
-        }
+        const clean = sanitizeRich(richEl.innerHTML);
+        richEl.innerHTML = `<span style="font-size:${FS_EM[fs]||'1em'}">${clean}</span>`;
       } catch(e) {}
     });
     fmtBar.appendChild(btn);
@@ -2789,12 +2782,8 @@ function buildColorBar(richEl) {
   uBtn.addEventListener('click', () => {
     richEl.focus();
     try {
-      if (hasRichSelection(richEl)) {
-        document.execCommand('underline');
-      } else {
-        const clean = sanitizeRich(richEl.innerHTML);
-        richEl.innerHTML = `<u>${clean}</u>`;
-      }
+      const clean = sanitizeRich(richEl.innerHTML);
+      richEl.innerHTML = `<u>${clean}</u>`;
     } catch(e) {}
   });
   fmtBar.appendChild(uBtn);
