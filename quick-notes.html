@@ -3167,7 +3167,16 @@ function startAddSub(item, n) {
 
   row.appendChild(mainDiv);
   subsBox.appendChild(row);
+
+  // Close the meta-actions panel so it doesn't obscure the form
+  const metaActions = body.querySelector('.meta-actions');
+  if (metaActions) metaActions.classList.remove('show');
+  const moreBtn = body.querySelector('.more-btn');
+  if (moreBtn) moreBtn.classList.remove('on');
+
   rich.focus();
+  // Scroll the form into view after the keyboard has had time to open
+  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
 
   let committed = false;
   let pickingAtt = false;
@@ -3411,6 +3420,7 @@ function startAddSubSub(subRow, n, s) {
   wrap.appendChild(actions);
   subsubList.appendChild(wrap);
   rich.focus();
+  setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
 
   attList.addEventListener('click', e => {
     const rm = e.target.closest('.subsub-att-rm');
