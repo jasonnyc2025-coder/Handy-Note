@@ -2978,7 +2978,7 @@ document.getElementById('list').addEventListener('click', async e => {
   }
 });
 
-// 在卡片底部添加子项的输入框
+// 在卡片底部添加子项的输入框（富文本 + 颜色 + 附件）
 function startAddSub(item, n) {
   if (item.querySelector('.sub-adding')) return;
   const body = item.querySelector('.body');
@@ -2989,68 +2989,113 @@ function startAddSub(item, n) {
     const meta = body.querySelector('.meta');
     body.insertBefore(subsBox, meta);
   }
+
   const row = document.createElement('div');
   row.className = 'sub-row sub-adding';
-  const inp = document.createElement('input');
-  inp.className = 'sub-input';
-  inp.placeholder = '子项内容…';
-  // 子项附件按钮
+
+  // Rich contenteditable editor
+  const rich = document.createElement('div');
+  rich.className = 'sub-rich-edit edit-area';
+  rich.contentEditable = 'true';
+  rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;flex:1;';
+
+  const colorWrap = buildColorBar(rich);
+  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  // Toolbar: [🎨] [＋ 附件]
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;';
   const attBtn = document.createElement('button');
   attBtn.className = 'sub-att-btn';
-  attBtn.textContent = '📎';
-  attBtn.title = '给子项加照片或 PDF';
+  attBtn.type = 'button';
+  attBtn.textContent = '📎 附件';
+  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(attBtn);
+
+  // Attachment list
+  const attListEl = document.createElement('div');
+  attListEl.className = 'edit-atts';
+  let subAtts = [];
+  const renderAttList = () => {
+    attListEl.innerHTML = subAtts.map((a, i) =>
+      a.kind === 'image'
+        ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+    ).join('');
+    hydrateImages(attListEl);
+  };
+
+  // Actions
+  const actionsEl = document.createElement('div');
+  actionsEl.className = 'edit-actions';
+  actionsEl.style.marginTop = '6px';
   const okBtn = document.createElement('button');
-  okBtn.className = 'sub-ok-btn';
-  okBtn.textContent = '添加';
-  row.appendChild(inp);
-  row.appendChild(attBtn);
-  row.appendChild(okBtn);
+  okBtn.className = 'edit-ok'; okBtn.textContent = '添加';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'edit-cancel'; cancelBtn.textContent = '取消';
+  actionsEl.appendChild(okBtn); actionsEl.appendChild(cancelBtn);
+
+  // Wrap into a sub-main div so it fits the sub-row layout
+  const mainDiv = document.createElement('div');
+  mainDiv.className = 'sub-main';
+  mainDiv.appendChild(rich);
+  mainDiv.appendChild(toolbar);
+  mainDiv.appendChild(colorBar);
+  mainDiv.appendChild(attListEl);
+  mainDiv.appendChild(actionsEl);
+
+  row.appendChild(mainDiv);
   subsBox.appendChild(row);
-  inp.focus();
+  rich.focus();
 
-  let subAtts = [];   // 本子项待加的附件
   let committed = false;
-  let pickingAtt = false;   // 正在选附件时，不让 blur 提交
+  let pickingAtt = false;
 
-  const commit = () => {
-    if (committed) return;          // 防止 blur + 回车 双触发
+  const commit = (saveIt) => {
+    if (committed) return;
     committed = true;
-    const v = inp.value.trim();
-    if (v || subAtts.length) {
-      if (!n.subs) n.subs = [];
-      n.subs.push({
-        id: Date.now()+''+Math.random().toString(36).slice(2,5),
-        text: v, done: false,
-        atts: subAtts.slice(),
-        ts: Date.now()
-      });
-      save();
+    if (saveIt !== false) {
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain || subAtts.length) {
+        if (!n.subs) n.subs = [];
+        n.subs.push({
+          id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
+          text: html, rich: true, done: false,
+          atts: subAtts.slice(), ts: Date.now()
+        });
+        save();
+      }
     }
     render();
   };
 
-  okBtn.addEventListener('mousedown', e => { e.preventDefault(); commit(); });
-  okBtn.addEventListener('click', e => { e.preventDefault(); commit(); });
-  inp.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
-    else if (ev.key === 'Escape') { ev.preventDefault(); committed = true; render(); }
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
+  cancelBtn.addEventListener('click', () => commit(false));
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
-  inp.addEventListener('blur', () => {
-    // 延迟一点，避免点附件/添加按钮时误触发
-    setTimeout(() => { if (!committed && !pickingAtt && document.activeElement !== inp) commit(); }, 200);
+  rich.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && !pickingAtt && document.activeElement !== rich) commit(true); }, 220);
   });
 
-  // 子项附件选择：弹出统一的居中选择弹窗
   attBtn.addEventListener('mousedown', e => e.preventDefault());
-  attBtn.addEventListener('click', async e => {
-    e.preventDefault();
+  attBtn.addEventListener('click', async () => {
     pickingAtt = true;
     const kind = await attachPicker();
-    if (!kind) { pickingAtt = false; inp.focus(); return; }
+    if (!kind) { pickingAtt = false; rich.focus(); return; }
     const got = await pickFilesByKind(kind);
-    if (got.length) { subAtts.push(...got); attBtn.textContent = '📎' + subAtts.length; }
-    pickingAtt = false;
-    inp.focus();
+    if (got.length) { subAtts.push(...got); renderAttList(); }
+    pickingAtt = false; rich.focus();
+  });
+
+  attListEl.addEventListener('click', e => {
+    const rm = e.target.closest('.edit-att-rm');
+    if (rm) { subAtts.splice(+rm.dataset.i, 1); renderAttList(); }
   });
 }
 
