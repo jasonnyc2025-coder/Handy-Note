@@ -3200,7 +3200,13 @@ function startAddSub(item, n) {
     else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
   rich.addEventListener('blur', () => {
-    setTimeout(() => { if (!committed && !pickingAtt && document.activeElement !== rich) commit(true); }, 220);
+    setTimeout(() => {
+      if (!committed && !pickingAtt && document.activeElement !== rich) {
+        const html = sanitizeRich(rich.innerHTML);
+        if (plainOf(html) || subAtts.length) commit(true);
+        // if empty, keep form open — prevents keyboard-open blur from destroying it
+      }
+    }, 220);
   });
 
   attBtn.addEventListener('mousedown', e => e.preventDefault());
