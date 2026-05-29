@@ -3016,7 +3016,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s) {
-      const preview = (s.text || '（无文字）').slice(0, 20);
+      const preview = (plainOf(s.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
         n.subs = n.subs.filter(x => x.id !== sid);
         save(); render();
@@ -3061,7 +3061,14 @@ document.getElementById('list').addEventListener('click', async e => {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
-    if (s && s.subs) { s.subs = s.subs.filter(x => x.id !== ssid); save(); render(); }
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    if (ss) {
+      const preview = (plainOf(ss.text) || '（无文字）').slice(0, 20);
+      if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
+        s.subs = s.subs.filter(x => x.id !== ssid);
+        save(); render();
+      }
+    }
   } else if (act === 'subsubedit') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
