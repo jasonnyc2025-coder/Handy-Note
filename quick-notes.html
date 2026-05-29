@@ -3101,6 +3101,13 @@ function startAddSub(item, n) {
     subsBox.className = 'subs';
     const meta = body.querySelector('.meta');
     body.insertBefore(subsBox, meta);
+  } else {
+    // Expand if collapsed so the form is visible
+    subsBox.style.display = '';
+    const toggleBtn = body.querySelector('.subs-toggle');
+    if (toggleBtn) toggleBtn.classList.remove('collapsed');
+    collapsedSubs[n.id] = false;
+    try { localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs)); } catch {}
   }
 
   const row = document.createElement('div');
