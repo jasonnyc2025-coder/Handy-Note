@@ -3094,7 +3094,14 @@ document.getElementById('list').addEventListener('click', async e => {
 
 // 在卡片底部添加子项的输入框（富文本 + 颜色 + 附件）
 function startAddSub(item, n) {
-  if (item.querySelector('.sub-adding')) return;
+  // If form already open but off-screen, scroll to it and refocus instead of doing nothing
+  const existingForm = item.querySelector('.sub-adding');
+  if (existingForm) {
+    const existingRich = existingForm.querySelector('[contenteditable]');
+    existingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (existingRich) existingRich.focus();
+    return;
+  }
   const body = item.querySelector('.body');
   let subsBox = body.querySelector('.subs');
   if (!subsBox) {
@@ -3177,7 +3184,7 @@ function startAddSub(item, n) {
 
   rich.focus();
   // Scroll the form into view after the keyboard has had time to open
-  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
+  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600);
 
   let committed = false;
   let pickingAtt = false;
@@ -3361,7 +3368,15 @@ function startEditSub(span, n, s) {
 // 给子项添加子子项（富文本 + 颜色 + 附件）
 function startAddSubSub(subRow, n, s) {
   const main = subRow.querySelector('.sub-main');
-  if (!main || main.querySelector('.subsub-edit-wrap')) return;
+  if (!main) return;
+  // If form already open but off-screen, scroll to it and refocus
+  const existingWrap = main.querySelector('.subsub-edit-wrap');
+  if (existingWrap) {
+    const existingRich = existingWrap.querySelector('[contenteditable]');
+    existingWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (existingRich) existingRich.focus();
+    return;
+  }
   let subsubList = main.querySelector('.subsub-list');
   if (!subsubList) {
     subsubList = document.createElement('div');
@@ -3421,7 +3436,7 @@ function startAddSubSub(subRow, n, s) {
   wrap.appendChild(actions);
   subsubList.appendChild(wrap);
   rich.focus();
-  setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 350);
+  setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600);
 
   attList.addEventListener('click', e => {
     const rm = e.target.closest('.subsub-att-rm');
