@@ -2569,7 +2569,7 @@ function renderSubs(n) {
   const isTodo = n.type === 'todo';
   const rows = n.subs.map((s, i) => `
     <div class="sub-row ${isTodo && s.done?'done':''}" data-sub="${s.id}">
-      <span class="sub-num">${i + 1}</span>
+      <span class="sub-num">${i + 1}.</span>
       ${isTodo
         ? `<div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>`
         : ''
