@@ -3199,8 +3199,11 @@ function startAddSub(item, n) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || subAtts.length) {
-        if (!n.subs) n.subs = [];
-        n.subs.push({
+        // Re-find by ID: cloudPull replaces the notes array every 20s,
+        // making the captured `n` reference stale
+        const liveN = notes.find(x => x.id === n.id) || n;
+        if (!liveN.subs) liveN.subs = [];
+        liveN.subs.push({
           id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
           text: html, rich: true, done: false,
           atts: subAtts.slice(), ts: Date.now()
@@ -3463,8 +3466,11 @@ function startAddSubSub(subRow, n, s) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || ssAtts.length) {
-        if (!s.subs) s.subs = [];
-        s.subs.push({
+        // Re-find by ID in case cloudPull replaced the notes array
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        if (!liveS.subs) liveS.subs = [];
+        liveS.subs.push({
           id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
           text: html, rich: true, atts: ssAtts.slice(), done: false, ts: Date.now()
         });
