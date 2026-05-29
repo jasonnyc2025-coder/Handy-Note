@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f4f1ea">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="随手记">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
@@ -126,7 +126,7 @@
   }
 
   header {
-    padding: 16px 0 14px;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 0 14px;
     position: sticky;
     top: 0;
     background: linear-gradient(var(--bg) 80%, transparent);
@@ -138,6 +138,8 @@
     align-items: baseline;
     gap: 8px;
     flex-wrap: wrap;
+    padding-left: 20px;
+    padding-right: 10px;
   }
 
   .gear {
@@ -257,6 +259,7 @@
     white-space: nowrap;
   }
   .tab-add { font-size: 1.1rem; padding: 4px 12px; color: var(--accent); }
+  .tab-edit-hint { font-size: 0.65rem; opacity: 0.7; margin-left: 1px; }
   .tab.dragging {
     background: var(--accent);
     color: #fff;
@@ -342,35 +345,37 @@
   /* 类别分组 */
   .cat-group { margin-bottom: 6px; }
   .cat-group-head {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    width: 100%;
+    gap: 7px;
     border: none;
-    background: transparent;
+    background: var(--accent-soft);
     font-family: inherit;
-    color: var(--ink);
     cursor: pointer;
-    padding: 8px 4px;
-    margin-top: 6px;
+    padding: 5px 14px 5px 11px;
+    margin-top: 14px;
+    border-radius: 20px;
+    box-shadow: 0 1px 4px var(--shadow);
   }
   .cg-arrow {
-    font-size: 0.8rem;
-    color: var(--ink-soft);
+    font-size: 0.75rem;
+    color: var(--accent);
     transition: transform 0.2s;
   }
   .cat-group-head.collapsed .cg-arrow { transform: rotate(-90deg); }
   .cg-name {
     font-family: 'Fraunces', serif;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--accent);
   }
   .cg-count {
-    font-size: 0.7rem;
-    color: var(--ink-soft);
-    background: var(--paper);
-    border: 1px solid var(--line);
-    padding: 1px 8px;
+    font-size: 0.68rem;
+    color: var(--accent);
+    background: rgba(0,0,0,0.06);
+    border: 1px solid var(--accent-soft);
+    padding: 1px 7px;
     border-radius: 20px;
   }
   .cat-group-body { padding-top: 2px; }
@@ -419,6 +424,7 @@
   .body { flex: 1; min-width: 0; }
   .text {
     font-size: var(--note-font, 0.97rem);
+    font-weight: 600;
     line-height: 1.5;
     word-break: break-word;
     white-space: pre-wrap;
@@ -458,7 +464,7 @@
   .more-btn {
     margin-left: auto;
     border: 1px solid var(--line);
-    background: transparent;
+    background: var(--line);
     color: var(--ink-soft);
     font-size: 0.9rem;
     line-height: 1;
@@ -477,6 +483,14 @@
     border-top: 1px dashed var(--line);
   }
   .meta-actions.show { display: flex; }
+  .pin-badge {
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-right: 2px;
+  }
+  .item.pinned {
+    box-shadow: 0 0 0 2px var(--accent)33, 0 4px 16px var(--shadow);
+  }
   .badge {
     font-size: 0.66rem;
     padding: 2px 8px;
@@ -487,17 +501,17 @@
   .badge.todo { background: #e0e8df; color: #4a6b48; }
 
   .remind-btn {
-    border: 1px dashed var(--line);
-    background: transparent;
+    border: 1px solid var(--line);
+    background: var(--line);
     font-family: inherit;
-    font-size: 0.68rem;
-    color: var(--ink-soft);
-    padding: 2px 9px;
+    font-size: 0.78rem;
+    color: var(--ink);
+    padding: 4px 12px;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .remind-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .remind-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .remind-tag {
     font-size: 0.68rem;
     padding: 2px 9px;
@@ -509,20 +523,20 @@
   }
   .remind-tag.past { background: var(--line); color: var(--ink-soft); text-decoration: line-through; }
 
-  .text[data-act="edit"] { cursor: text; }
+  .empty-text[data-act="edit"] { cursor: text; }
   .text.empty-text { color: var(--ink-soft); opacity: 0.6; font-style: italic; }
   .edit-btn {
     border: 1px solid var(--line);
-    background: transparent;
+    background: var(--line);
     font-family: inherit;
-    font-size: 0.68rem;
-    color: var(--ink-soft);
-    padding: 2px 9px;
+    font-size: 0.78rem;
+    color: var(--ink);
+    padding: 4px 12px;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .edit-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
   /* 子项 */
   .subs-wrap { margin: 8px 0 4px; }
@@ -555,20 +569,21 @@
   }
   .sub-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 9px;
     padding: 4px 0;
     flex-wrap: wrap;
   }
   .sub-check {
     width: 17px; height: 17px;
-    border: 2px solid var(--line);
+    border: 2px solid var(--ink-soft);
     border-radius: 5px;
     flex-shrink: 0;
     cursor: pointer;
     display: grid;
     place-items: center;
     transition: all 0.2s;
+    margin-top: 2px;
   }
   .sub-check:hover { border-color: var(--accent); }
   .sub-check.on { background: var(--accent); border-color: var(--accent); }
@@ -578,6 +593,97 @@
     border: solid var(--paper);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg) translateY(-1px);
+  }
+  .sub-bullet {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 7px;
+    opacity: 0.55;
+  }
+  /* Sub-sub-items (grandchildren) */
+  .subsub-list {
+    margin: 4px 0 2px 22px;
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+  }
+  .subsub-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 3px 0;
+  }
+  .subsub-check {
+    width: 13px; height: 13px;
+    border: 2px solid var(--ink-soft);
+    border-radius: 3px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-top: 3px;
+    transition: all 0.15s;
+    display: grid; place-items: center;
+  }
+  .subsub-check:hover { border-color: var(--accent); }
+  .subsub-check.on { background: var(--accent); border-color: var(--accent); }
+  .subsub-check.on::after {
+    content: '';
+    width: 3px; height: 6px;
+    border: solid var(--paper);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translateY(-1px);
+  }
+  .subsub-bullet {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 7px;
+    opacity: 0.4;
+  }
+  .subsub-text {
+    flex: 1;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    color: var(--ink);
+    word-break: break-word;
+  }
+  .subsub-row.done .subsub-text {
+    color: var(--done);
+    text-decoration: line-through;
+    text-decoration-color: var(--done);
+  }
+  .subsub-edit-btn {
+    background: none; border: none;
+    color: var(--ink-soft); font-size: 0.72rem;
+    cursor: pointer; padding: 1px 3px;
+    opacity: 0.55; flex-shrink: 0; line-height: 1;
+  }
+  .subsub-del {
+    background: none; border: none;
+    color: var(--ink-soft); font-size: 0.8rem;
+    cursor: pointer; padding: 1px 2px;
+    opacity: 0.45; flex-shrink: 0;
+  }
+  .subsub-add-btn {
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    background: none;
+    border: 1px dashed var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    padding: 1px 8px;
+    margin-top: 3px;
+  }
+  .subsub-input-wrap { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+  .subsub-input {
+    flex: 1; font-family: inherit; font-size: 0.86rem;
+    border: 1px solid var(--accent); border-radius: 8px;
+    padding: 3px 8px; background: var(--paper); color: var(--ink); outline: none;
+  }
+  .subsub-save-btn {
+    background: var(--accent); color: white; border: none;
+    border-radius: 8px; padding: 3px 10px; font-size: 0.8rem; cursor: pointer;
   }
   .sub-text {
     flex: 1;
@@ -609,16 +715,16 @@
   .sub-del:hover, .sub-del:active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .sub-add-btn {
     border: 1px solid var(--line);
-    background: transparent;
+    background: var(--line);
     font-family: inherit;
-    font-size: 0.68rem;
-    color: var(--ink-soft);
-    padding: 2px 9px;
+    font-size: 0.78rem;
+    color: var(--ink);
+    padding: 4px 12px;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .sub-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .sub-count {
     font-size: 0.66rem;
     padding: 2px 8px;
@@ -1507,9 +1613,108 @@
     font-size: 1.4rem;
     cursor: pointer;
   }
+
+  /* ===== 密码锁屏 ===== */
+  #lock-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 9900;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  #lock-screen.hidden { display: none; }
+  .lock-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    width: 100%;
+    max-width: 300px;
+    padding: 0 20px;
+  }
+  .lock-brand {
+    font-family: 'Fraunces', serif;
+    font-size: 2.2rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .lock-brand em { font-style: italic; color: var(--accent); }
+  .lock-dots { display: flex; gap: 16px; }
+  .ld {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+    background: transparent;
+    transition: background 0.15s;
+  }
+  .ld.on { background: var(--ink); }
+  @keyframes lock-shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-8px); }
+    40%,80% { transform: translateX(8px); }
+  }
+  .lock-dots.shake { animation: lock-shake 0.38s ease; }
+  .lock-msg {
+    font-size: 0.82rem;
+    color: var(--accent);
+    min-height: 1.1em;
+    text-align: center;
+  }
+  .lock-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+  }
+  .lk {
+    height: 62px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    font-size: 1.45rem;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 2px 6px var(--shadow);
+    transition: transform 0.1s, background 0.1s;
+    font-family: inherit;
+  }
+  .lk:active { transform: scale(0.93); background: var(--line); }
+  .lk-del { font-size: 1.1rem; color: var(--ink-soft); }
+  .lk-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .lk-ok:active { filter: brightness(0.88); background: var(--accent); }
+  .lock-footer { font-size: 0.72rem; color: var(--ink-soft); margin-top: 4px; cursor: pointer; text-decoration: underline; }
 </style>
 </head>
 <body>
+<div id="lock-screen" class="hidden">
+  <div class="lock-inner">
+    <div class="lock-brand">随手<em>记</em></div>
+    <div class="lock-dots" id="lock-dots">
+      <span class="ld"></span><span class="ld"></span><span class="ld"></span><span class="ld"></span>
+    </div>
+    <div class="lock-msg" id="lock-msg"></div>
+    <div class="lock-pad">
+      <button class="lk" data-d="1">1</button>
+      <button class="lk" data-d="2">2</button>
+      <button class="lk" data-d="3">3</button>
+      <button class="lk" data-d="4">4</button>
+      <button class="lk" data-d="5">5</button>
+      <button class="lk" data-d="6">6</button>
+      <button class="lk" data-d="7">7</button>
+      <button class="lk" data-d="8">8</button>
+      <button class="lk" data-d="9">9</button>
+      <button class="lk lk-del" data-d="del">⌫</button>
+      <button class="lk" data-d="0">0</button>
+      <button class="lk lk-ok" data-d="ok">✓</button>
+    </div>
+    <div class="lock-footer" id="lock-forgot">忘记密码？</div>
+  </div>
+</div>
+<script>try{if(localStorage.getItem('quicknotes.lock'))document.getElementById('lock-screen').classList.remove('hidden');}catch(e){}</script>
 <div class="wrap">
   <header>
     <div class="titlebar">
@@ -1531,6 +1736,9 @@
       <div class="gear-sep"></div>
       <button data-menu="export" data-i18n="menuExport">⬇️ 导出数据（备份）</button>
       <button data-menu="import" data-i18n="menuImport">⬆️ 导入数据（恢复/合并）</button>
+      <div class="gear-sep"></div>
+      <button data-menu="lock" data-i18n="menuLock">🔒 密码锁</button>
+      <button data-menu="lockNow" id="lock-now-btn" data-i18n="menuLockNow" style="display:none">🔐 立即锁定</button>
       <div class="gear-sep"></div>
       <button data-menu="cloud" data-i18n="menuCloud">☁️ 云同步设置</button>
       <div class="cloud-status" id="cloud-status"></div>
@@ -1604,20 +1812,33 @@
 <div class="modal" id="cloud-modal">
   <div class="modal-card">
     <div class="modal-title">☁️ 云同步设置</div>
-    <div class="modal-sub">填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。</div>
-    <label class="cloud-label">Project URL</label>
-    <input type="text" id="cloud-url" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="cloud-label">anon public key</label>
-    <input type="text" id="cloud-key" placeholder="eyJhbGci..." autocomplete="off" autocapitalize="off" spellcheck="false">
-    <label class="cloud-label">同步代号（自己起个名，两台填一样）</label>
-    <input type="text" id="cloud-room" placeholder="例如 mynotes2026" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="modal-actions">
-      <button class="m-del" id="cloud-disconnect" data-i18n="disconnect">断开</button>
-      <span style="flex:1"></span>
-      <button class="m-cancel" id="cloud-cancel" data-i18n="cancel">取消</button>
-      <button class="m-ok" id="cloud-connect" data-i18n="connect">连接并同步</button>
+
+    <!-- Not signed in -->
+    <div id="cloud-setup">
+      <div class="modal-sub">填入服务器地址后用 Google 账号登录，多台设备自动同步。</div>
+      <label class="cloud-label">服务器地址</label>
+      <input type="text" id="cloud-url" placeholder="https://your-server.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div id="cloud-google-btn" style="margin-top:16px;min-height:44px;display:flex;justify-content:center;"></div>
     </div>
-    <div class="modal-note" id="cloud-modal-note">不知道这些是什么？关掉它继续用导出/导入也完全没问题。配置教程见我给你的说明。</div>
+
+    <!-- Signed in -->
+    <div id="cloud-user-panel" style="display:none">
+      <div style="display:flex;align-items:center;gap:14px;padding:10px 0 6px;">
+        <img id="cloud-avatar" style="width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--line);" src="" alt="">
+        <div>
+          <div id="cloud-user-name" style="font-weight:600;font-size:1rem;"></div>
+          <div id="cloud-user-email" style="font-size:0.78rem;color:var(--ink-soft);margin-top:2px;"></div>
+        </div>
+      </div>
+      <div id="cloud-sync-status" style="font-size:0.82rem;color:var(--ink-soft);padding:4px 0 8px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="m-del" id="cloud-disconnect" style="display:none">断开登录</button>
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="cloud-cancel">取消</button>
+    </div>
+    <div class="modal-note" id="cloud-modal-note"></div>
   </div>
 </div>
 
@@ -1913,15 +2134,16 @@ const I18N = {
   zh: {
     subtitle: '想到什么随时记 · 自动保存', search: '搜索', searchPlaceholder: '搜索记录、子项、类别…',
     menuBg: '🎨 背景主题', menuFont: '🔤 字体大小', fontSub: '选择记录文字的大小', fsSmall: '小', fsNormal: '中（默认）', fsLarge: '大', fsXlarge: '特大', menuExport: '⬇️ 导出数据（备份）', menuImport: '⬆️ 导入数据（恢复/合并）',
-    menuCloud: '☁️ 云同步设置', menuLang: '🌐 Language / 语言',
+    menuCloud: '☁️ 云同步设置', menuLang: '🌐 Language / 语言', menuLock: '🔒 密码锁', menuLockNow: '🔐 立即锁定',
     idea: '想法', todo: '待办', tIdea: '💡 想法', tTodo: '✓ 待办', cReminder: '⏰ 提醒',
     inputPlaceholder: '写点什么…', inputTodo: '要做什么…', inputIdea: '记录一个想法…',
     camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
     setReminder: '设置提醒', delReminder: '删除提醒', cancel: '取消', save: '保存', del: '删除', done: '完成',
     reminderNote: '提醒在此页面开着时会响铃并通知；完全关闭浏览器则不会响。',
+    pin: '📌 置顶', unpin: '📌 取消置顶',
     repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
     quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
-    cloudTitle: '☁️ 云同步设置', cloudSub: '填入你的 Supabase 信息后，多台设备会自动同步。两台手机填一样的即可。',
+    cloudTitle: '☁️ 云同步设置', cloudSub: '填入服务器信息后，多台设备会自动同步。两台手机填一样的即可。',
     disconnect: '断开', connect: '连接并同步', confirmDel: '确认删除', bgTitle: '🎨 背景主题', bgSub: '点一下即可切换，自动保存', bgPhoto: '我的照片', bgPhotoAdd: '上传照片',
     addAttach: '添加附件', newCat: '+ 新建类别', all: '全部', overdue: '⏰ 已过期', uncat: '未分类',
     allCount: '全部', plusReminder: '+ 提醒', plusSub: '+ 子项', edit: '编辑', categorize: '📁 归类',
@@ -1931,15 +2153,16 @@ const I18N = {
   en: {
     subtitle: 'Jot anything down · Auto-saved', search: 'Search', searchPlaceholder: 'Search notes, sub-items, categories…',
     menuBg: '🎨 Background', menuFont: '🔤 Font size', fontSub: 'Choose note text size', fsSmall: 'Small', fsNormal: 'Normal', fsLarge: 'Large', fsXlarge: 'X-Large', menuExport: '⬇️ Export data (backup)', menuImport: '⬆️ Import data (restore/merge)',
-    menuCloud: '☁️ Cloud sync', menuLang: '🌐 Language / 语言',
+    menuCloud: '☁️ Cloud sync', menuLang: '🌐 Language / 语言', menuLock: '🔒 Passcode', menuLockNow: '🔐 Lock now',
     idea: 'Idea', todo: 'Todo', tIdea: '💡 Idea', tTodo: '✓ Todo', cReminder: '⏰ Reminder',
     inputPlaceholder: 'Write something…', inputTodo: 'What to do…', inputIdea: 'Jot an idea…',
     camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
     setReminder: 'Set reminder', delReminder: 'Remove reminder', cancel: 'Cancel', save: 'Save', del: 'Delete', done: 'Done',
     reminderNote: 'Rings and notifies while this page is open; won\'t ring if the browser is fully closed.',
+    pin: '📌 Pin', unpin: '📌 Unpin',
     repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
     quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
-    cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your Supabase info to auto-sync across devices. Use the same info on both phones.',
+    cloudTitle: '☁️ Cloud sync', cloudSub: 'Enter your server info to auto-sync across devices. Use the same info on both phones.',
     disconnect: 'Disconnect', connect: 'Connect & sync', confirmDel: 'Confirm delete', bgTitle: '🎨 Background', bgSub: 'Tap to switch, saved automatically', bgPhoto: 'My Photo', bgPhotoAdd: 'Upload Photo',
     addAttach: 'Add attachment', newCat: '+ New category', all: 'All', overdue: '⏰ Overdue', uncat: 'Uncategorized',
     allCount: 'All', plusReminder: '+ Reminder', plusSub: '+ Sub-item', edit: 'Edit', categorize: '📁 Category',
@@ -1993,25 +2216,25 @@ function save() {
 const BG_KEY = 'quicknotes.bg';
 const BG_PHOTO_KEY = 'quicknotes.bgphoto';
 const BG_LIST = [
-  { id: 'paper',    name: '米黄',   css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
-  { id: 'plain',    name: '纯白',   css: 'background:#fbfaf6;' },
-  { id: 'gray',     name: '浅灰',   css: 'background:#eceae6;' },
-  { id: 'grid',     name: '格纹',   css: 'background:#f4f1ea;background-image:linear-gradient(#e3ddd0 1px,transparent 1px),linear-gradient(90deg,#e3ddd0 1px,transparent 1px);background-size:10px 10px;' },
-  { id: 'pink',     name: '暖粉',   css: 'background:linear-gradient(160deg,#f7e3dc,#f1e4ea);' },
-  { id: 'mint',     name: '薄荷',   css: 'background:linear-gradient(160deg,#e6f0ea,#e4ecf1);' },
+  { id: 'paper',    name: '米黄',     sc: '#f4f1ea', css: 'background:#f4f1ea;background-image:radial-gradient(#e3ddd0 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'plain',    name: '纯白',     sc: '#fbfaf6', css: 'background:#fbfaf6;' },
+  { id: 'gray',     name: '浅灰',     sc: '#eceae6', css: 'background:#eceae6;' },
+  { id: 'grid',     name: '格纹',     sc: '#f4f1ea', css: 'background:#f4f1ea;background-image:linear-gradient(#e3ddd0 1px,transparent 1px),linear-gradient(90deg,#e3ddd0 1px,transparent 1px);background-size:10px 10px;' },
+  { id: 'pink',     name: '暖粉',     sc: '#f7e3dc', css: 'background:linear-gradient(160deg,#f7e3dc,#f1e4ea);' },
+  { id: 'mint',     name: '薄荷',     sc: '#e6f0ea', css: 'background:linear-gradient(160deg,#e6f0ea,#e4ecf1);' },
   // 自然主题（渐变模拟）
-  { id: 'sunrise',  name: '🌅 日出', css: 'background:linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b);' },
-  { id: 'sunset',   name: '🌇 黄昏', css: 'background:linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e);' },
-  { id: 'ocean',    name: '🌊 海洋', css: 'background:linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5);' },
-  { id: 'forest',   name: '🌲 森林', css: 'background:linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b);' },
-  { id: 'sky',      name: '☁️ 晴空', css: 'background:linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb);' },
-  { id: 'lavender', name: '💜 薰衣草', css: 'background:linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd);' },
-  { id: 'sakura',   name: '🌸 樱花', css: 'background:linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd);' },
-  { id: 'autumn',   name: '🍂 秋叶', css: 'background:linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a);' },
-  { id: 'aurora',   name: '🌌 极光', css: 'background:linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);' },
-  { id: 'dusk',     name: '🌆 暮色', css: 'background:linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);' },
-  { id: 'dark',     name: '深棕',   css: 'background:#23201c;background-image:radial-gradient(#34302a 0.5px,transparent 0.5px);background-size:8px 8px;' },
-  { id: 'midnight', name: '夜空',   css: 'background:linear-gradient(160deg,#1a1d2b,#232036);' },
+  { id: 'sunrise',  name: '🌅 日出',  sc: '#ffd9a0', css: 'background:linear-gradient(180deg,#ffd9a0,#ffb88c 45%,#ff9a8b);' },
+  { id: 'sunset',   name: '🌇 黄昏',  sc: '#f6b88a', css: 'background:linear-gradient(180deg,#f6b88a,#e98a7a 50%,#9b6b9e);' },
+  { id: 'ocean',    name: '🌊 海洋',  sc: '#a8e0e6', css: 'background:linear-gradient(180deg,#a8e0e6,#6fb6cf 55%,#4a8fb5);' },
+  { id: 'forest',   name: '🌲 森林',  sc: '#cfe8c0', css: 'background:linear-gradient(180deg,#cfe8c0,#9ecb8a 55%,#6fa86b);' },
+  { id: 'sky',      name: '☁️ 晴空',  sc: '#bfe3f5', css: 'background:linear-gradient(180deg,#bfe3f5,#dceefb 60%,#eef6fb);' },
+  { id: 'lavender', name: '💜 薰衣草', sc: '#e7dcf3', css: 'background:linear-gradient(160deg,#e7dcf3,#d4c5ec 50%,#bfa9dd);' },
+  { id: 'sakura',   name: '🌸 樱花',  sc: '#fce4ec', css: 'background:linear-gradient(170deg,#fce4ec,#f8d0dd 50%,#f4b8cd);' },
+  { id: 'autumn',   name: '🍂 秋叶',  sc: '#f3d9a8', css: 'background:linear-gradient(170deg,#f3d9a8,#e0a96d 50%,#c47a4a);' },
+  { id: 'aurora',   name: '🌌 极光',  sc: '#1a2a4a', css: 'background:linear-gradient(180deg,#1a2a4a,#2a5a6a 45%,#3a8a7a 70%,#1a2a4a);' },
+  { id: 'dusk',     name: '🌆 暮色',  sc: '#3a3a5a', css: 'background:linear-gradient(180deg,#3a3a5a,#6a5a7a 55%,#b08a8a);' },
+  { id: 'dark',     name: '深棕',     sc: '#23201c', css: 'background:#23201c;background-image:radial-gradient(#34302a 0.5px,transparent 0.5px);background-size:8px 8px;' },
+  { id: 'midnight', name: '夜空',     sc: '#1a1d2b', css: 'background:linear-gradient(160deg,#1a1d2b,#232036);' },
 ];
 
 function applyBg(id) {
@@ -2023,6 +2246,10 @@ function applyBg(id) {
   } else {
     document.body.style.backgroundImage = '';
   }
+  const bg = BG_LIST.find(b => b.id === id);
+  const color = id === 'custom' ? '#555555' : (bg ? bg.sc : '#f4f1ea');
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', color);
 }
 function loadBg() {
   let id = 'paper';
@@ -2175,16 +2402,15 @@ function catColor(id) {
 
 function renderItem(n) {
   return `
-    <div class="item ${n.done?'done':''}" data-id="${n.id}">
+    <div class="item ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:4px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;"></div>`}
       <div class="body">
-        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text" data-act="edit">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
         ${renderAtts(n.atts)}
-        ${renderSubs(n)}
         <div class="meta">
-          <span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
+          ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
           <span>${fullDate(n.ts)}</span>
-          ${n.subs && n.subs.length ? `<span class="sub-count">${n.subs.filter(s=>s.done).length}/${n.subs.length}</span>` : ''}
+          ${n.subs && n.subs.length ? `<span class="sub-count">${n.type==='todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : n.subs.length}</span>` : ''}
           ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
           ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
           <button class="more-btn" data-act="more">⋯</button>
@@ -2193,7 +2419,9 @@ function renderItem(n) {
           ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
           <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
+          <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
         </div>
+        ${renderSubs(n)}
       </div>
       <button class="del" data-act="del">×</button>
     </div>`;
@@ -2202,6 +2430,7 @@ function renderItem(n) {
 function render() {
   const list = document.getElementById('list');
   let items = notes.slice().sort((a,b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
     return b.ts - a.ts;
   });
@@ -2257,20 +2486,41 @@ function render() {
   hydrateImages(list);
 }
 
+function renderSubSubs(s, isTodo) {
+  if (!s.subs || !s.subs.length) return '';
+  return `<div class="subsub-list">${s.subs.map(ss => `
+    <div class="subsub-row ${isTodo && ss.done ? 'done' : ''}" data-subsub="${ss.id}" data-sub="${s.id}">
+      ${isTodo
+        ? `<div class="subsub-check ${ss.done ? 'on' : ''}" data-act="subsubtoggle" data-subsub="${ss.id}" data-sub="${s.id}"></div>`
+        : `<div class="subsub-bullet"></div>`
+      }
+      <span class="subsub-text">${ss.rich ? sanitizeRich(ss.text||'') : esc(ss.text||'')}</span>
+      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
+      <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
+    </div>
+  `).join('')}</div>`;
+}
+
 function renderSubs(n) {
   if (!n.subs || !n.subs.length) return '';
   const collapsed = isSubCollapsed(n.id);
   const doneCount = n.subs.filter(s => s.done).length;
+  const isTodo = n.type === 'todo';
   const rows = n.subs.map(s => `
-    <div class="sub-row ${s.done?'done':''}" data-sub="${s.id}">
-      <div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>
+    <div class="sub-row ${isTodo && s.done?'done':''}" data-sub="${s.id}">
+      ${isTodo
+        ? `<div class="sub-check ${s.done?'on':''}" data-act="subtoggle" data-sub="${s.id}"></div>`
+        : `<div class="sub-bullet"></div>`
+      }
       <div class="sub-main">
-        <span class="sub-text" data-act="subedit" data-sub="${s.id}">${highlight(s.text)}</span>
+        <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
         ${renderSubAtts(s)}
+        ${renderSubSubs(s, isTodo)}
         <div class="sub-meta">
           ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
           <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
+          <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
         </div>
       </div>
       <button class="sub-del" data-act="subdel" data-sub="${s.id}">×</button>
@@ -2280,7 +2530,7 @@ function renderSubs(n) {
     <div class="subs-wrap">
       <button class="subs-toggle ${collapsed?'collapsed':''}" data-act="subtoggle-all" data-id="${n.id}">
         <span class="st-arrow">▾</span>
-        <span class="st-label">${lang==='en'?'Sub-items':'子项'} ${doneCount}/${n.subs.length}</span>
+        <span class="st-label">${lang==='en'?'Sub-items':'子项'} ${isTodo ? `${doneCount}/${n.subs.length}` : n.subs.length}</span>
       </button>
       <div class="subs" ${collapsed?'style="display:none"':''}>${rows}</div>
     </div>`;
@@ -2367,7 +2617,7 @@ function plainOf(htmlOrText) {
 let searchQuery = '';
 function escForRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function highlight(n) {
-  // n 可能是记录对象（富文本）或纯字符串（子项文字）
+  // n 可以是记录对象、子项对象（均含 rich 标志），或纯字符串
   const isObj = (typeof n === 'object' && n !== null);
   const raw = isObj ? (n.text || '') : (n || '');
   const rich = isObj && n.rich;
@@ -2386,7 +2636,10 @@ function matchSearch(n) {
   if (!searchQuery) return true;
   const q = searchQuery.toLowerCase();
   if (plainOf(n.text).toLowerCase().includes(q)) return true;
-  if (n.subs && n.subs.some(s => (s.text||'').toLowerCase().includes(q))) return true;
+  if (n.subs && n.subs.some(s =>
+    plainOf(s.text).toLowerCase().includes(q) ||
+    (s.subs && s.subs.some(ss => plainOf(ss.text).toLowerCase().includes(q)))
+  )) return true;
   const cat = cats.find(c => c.id === n.cat);
   if (cat && cat.name.toLowerCase().includes(q)) return true;
   return false;
@@ -2607,6 +2860,8 @@ document.getElementById('list').addEventListener('click', async e => {
     }
   } else if (act === 'toggle') {
     if (n) { n.done = !n.done; save(); render(); }
+  } else if (act === 'pin') {
+    if (n) { n.pinned = !n.pinned; save(); render(); }
   } else if (act === 'view') {
     const att = n && n.atts[+actEl.dataset.idx];
     if (att) openLightbox(await getAttData(att));
@@ -2659,6 +2914,29 @@ document.getElementById('list').addEventListener('click', async e => {
     const row = e.target.closest('.sub-row');
     const span = row && row.querySelector('.sub-text');
     if (s && span) startEditSub(span, n, s);
+  } else if (act === 'subsubadd') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const subRow = e.target.closest('.sub-row');
+    if (s && subRow) startAddSubSub(subRow, n, s);
+  } else if (act === 'subsubtoggle') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    if (ss) { ss.done = !ss.done; save(); render(); }
+  } else if (act === 'subsubdel') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s && s.subs) { s.subs = s.subs.filter(x => x.id !== ssid); save(); render(); }
+  } else if (act === 'subsubedit') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const ssRow = e.target.closest('.subsub-row');
+    if (ss && ssRow) startEditSubSub(ssRow, n, s, ss);
   }
 });
 
@@ -2759,28 +3037,46 @@ function pickSubFile(kind, subAtts, attBtn, inp) {
 // 编辑某个子项文字
 function startEditSub(span, n, s) {
   const row = span.closest('.sub-row');
-  if (!row || row.querySelector('.edit-area')) return;
-  // 隐藏原有内容，插入编辑区
+  if (!row || row.querySelector('.sub-rich-edit')) return;
   const main = row.querySelector('.sub-main') || row;
 
   let editAtts = (s.atts || []).map(a => Object.assign({}, a));
 
   const wrap = document.createElement('div');
   wrap.className = 'edit-wrap';
-  const ta = document.createElement('textarea');
-  ta.className = 'edit-area';
-  ta.value = s.text || '';
-  ta.rows = Math.max(1, (s.text || '').split('\n').length);
 
-  const attBox = document.createElement('div');
-  attBox.className = 'edit-atts';
+  // Rich contenteditable editor
+  const rich = document.createElement('div');
+  rich.className = 'sub-rich-edit edit-area';
+  rich.contentEditable = 'true';
+  rich.style.cssText = 'min-height:1.5em;outline:none;white-space:pre-wrap;word-break:break-word;';
+  rich.innerHTML = s.rich ? sanitizeRich(s.text || '') : esc(s.text || '');
+
+  // Build colour bar and extract toggle + bar separately
+  const colorWrap = buildColorBar(rich);
+  const colorToggle = colorWrap.querySelector('.color-toggle');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  // Toolbar row: [🎨] [＋ 附件] — aligns with the sub-row checkbox
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
+  const addAttBtn = document.createElement('button');
+  addAttBtn.className = 'edit-att-add';
+  addAttBtn.type = 'button';
+  addAttBtn.textContent = '＋ 附件';
+  toolbar.appendChild(colorToggle);
+  toolbar.appendChild(addAttBtn);
+
+  // Attachment thumbnails list (no button here — button moved to toolbar)
+  const attList = document.createElement('div');
+  attList.className = 'edit-atts';
   const renderEA = () => {
-    attBox.innerHTML = editAtts.map((a, i) =>
+    attList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
         : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
-    ).join('') + `<button class="edit-att-add" type="button">＋ 附件</button>`;
-    hydrateImages(attBox);
+    ).join('');
+    hydrateImages(attList);
   };
   renderEA();
 
@@ -2788,18 +3084,29 @@ function startEditSub(span, n, s) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
-  wrap.appendChild(ta);
-  wrap.appendChild(attBox);
+  // toolbar (🎨 + 附件) first → checkbox aligns with this row
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(attList);
   wrap.appendChild(actions);
   main.innerHTML = '';
   main.appendChild(wrap);
-  ta.focus();
-  ta.setSelectionRange(ta.value.length, ta.value.length);
+  rich.focus();
+  // Move cursor to end
+  try {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(rich);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch {}
 
-  attBox.addEventListener('click', e => {
+  addAttBtn.addEventListener('click', () => pickEA());
+  attList.addEventListener('click', e => {
     const rm = e.target.closest('.edit-att-rm');
-    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); return; }
-    if (e.target.closest('.edit-att-add')) pickEA();
+    if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); }
   });
   async function pickEA() {
     const kind = await attachPicker();
@@ -2813,16 +3120,107 @@ function startEditSub(span, n, s) {
     if (done) return;
     done = true;
     if (saveIt) {
-      const v = ta.value.trim();
-      if (v || editAtts.length) { s.text = v; s.atts = editAtts; save(); }
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain || editAtts.length) {
+        s.text = html;
+        s.rich = true;
+        s.atts = editAtts;
+        save();
+      }
     }
     render();
   };
   actions.querySelector('.edit-ok').onclick = () => fin(true);
   actions.querySelector('.edit-cancel').onclick = () => fin(false);
-  ta.addEventListener('keydown', ev => {
+  rich.addEventListener('keydown', ev => {
     if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); fin(true); }
     else if (ev.key === 'Escape') { ev.preventDefault(); fin(false); }
+  });
+}
+
+// 给子项添加子子项（内联输入）
+function startAddSubSub(subRow, n, s) {
+  const main = subRow.querySelector('.sub-main');
+  if (!main || main.querySelector('.subsub-input-wrap')) return;
+  let subsubList = main.querySelector('.subsub-list');
+  if (!subsubList) {
+    subsubList = document.createElement('div');
+    subsubList.className = 'subsub-list';
+    const addBtn = main.querySelector('.subsub-add-btn');
+    if (addBtn) main.insertBefore(subsubList, addBtn);
+    else main.appendChild(subsubList);
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'subsub-input-wrap';
+  const inp = document.createElement('input');
+  inp.className = 'subsub-input';
+  inp.placeholder = '子子项内容…';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'subsub-save-btn';
+  okBtn.textContent = '添加';
+  wrap.appendChild(inp);
+  wrap.appendChild(okBtn);
+  subsubList.appendChild(wrap);
+  inp.focus();
+
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
+    const v = inp.value.trim();
+    if (v) {
+      if (!s.subs) s.subs = [];
+      s.subs.push({
+        id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
+        text: v, done: false, ts: Date.now()
+      });
+      save();
+    }
+    render();
+  };
+  okBtn.addEventListener('mousedown', e => { e.preventDefault(); commit(); });
+  okBtn.addEventListener('click', e => { e.preventDefault(); commit(); });
+  inp.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); committed = true; render(); }
+  });
+  inp.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && document.activeElement !== inp) commit(); }, 200);
+  });
+}
+
+// 编辑子子项文字
+function startEditSubSub(ssRow, n, s, ss) {
+  if (ssRow.querySelector('.subsub-input')) return;
+  const textSpan = ssRow.querySelector('.subsub-text');
+  if (textSpan) textSpan.style.display = 'none';
+  const editBtn = ssRow.querySelector('.subsub-edit-btn');
+  if (editBtn) editBtn.style.display = 'none';
+
+  const inp = document.createElement('input');
+  inp.className = 'subsub-input';
+  inp.value = plainOf(ss.text || '');
+  ssRow.insertBefore(inp, ssRow.querySelector('.subsub-del'));
+  inp.focus();
+  inp.select();
+
+  let committed = false;
+  const commit = (save_) => {
+    if (committed) return;
+    committed = true;
+    if (save_) {
+      const v = inp.value.trim();
+      if (v) { ss.text = v; ss.rich = false; save(); }
+    }
+    render();
+  };
+  inp.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  });
+  inp.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && document.activeElement !== inp) commit(true); }, 200);
   });
 }
 
@@ -3001,7 +3399,6 @@ let tabDragging = false;
     dragId = f; downX = e.clientX; downY = e.clientY; started = false;
     pressTimer = setTimeout(() => {
       started = true;                  // 进入"可拖动"准备状态
-      tabs.style.touchAction = 'none';
       const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
       if (el) el.classList.add('dragging');
       if (navigator.vibrate) navigator.vibrate(15);
@@ -3010,11 +3407,12 @@ let tabDragging = false;
 
   const onMove = e => {
     if (!started) {
-      if (pressTimer && (Math.abs(e.clientX - downX) > 12 || Math.abs(e.clientY - downY) > 12)) {
+      if (pressTimer && (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4)) {
         clearTimeout(pressTimer); pressTimer = null;
       }
       return;
     }
+    if (tabs.style.touchAction !== 'none') tabs.style.touchAction = 'none';
     e.preventDefault();
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     const draggable = [...tabs.querySelectorAll('.tab')].filter(el => {
@@ -3054,10 +3452,15 @@ let tabDragging = false;
     if (started) {
       const el = tabs.querySelector(`.tab[data-filter="${cssEsc(dragId)}"]`);
       if (el) el.classList.remove('dragging');
-      if (wasDragging) { save(); renderTabs(); }
+      if (wasDragging) {
+        save(); renderTabs();
+      } else {
+        // 长按但未移动 → 弹出管理菜单（重命名/删除/移动）
+        const id = dragId;
+        setTimeout(() => manageCategory(id), 10);
+      }
     }
     started = false; dragId = null;
-    // 拖动过才需要短暂拦截 click（防止松手误切换）；纯长按/轻点不拦截
     if (wasDragging) {
       setTimeout(() => { tabDragging = false; }, 60);
     } else {
@@ -3439,6 +3842,8 @@ gearMenu.addEventListener('click', e => {
   else if (m === 'bg') { gearMenu.classList.remove('show'); openBgModal(); }
   else if (m === 'lang') { gearMenu.classList.remove('show'); document.getElementById('lang-modal').classList.add('show'); }
   else if (m === 'fontsize') { gearMenu.classList.remove('show'); openFontModal(); }
+  else if (m === 'lock') { gearMenu.classList.remove('show'); setupLockPin(); }
+  else if (m === 'lockNow') { gearMenu.classList.remove('show'); showLockScreen(); }
 });
 
 // 字体大小弹窗事件
@@ -3609,121 +4014,202 @@ document.getElementById('import-file').addEventListener('change', e => {
   r.readAsText(file);
 });
 
-// ===== 云同步（Supabase REST） =====
+// ===== 云同步（自建服务器 · Google 登录） =====
 const CLOUD_KEY = 'quicknotes.cloud';
-let cloud = null; // {url, key, room}
+let cloud = null; // {url, token, name, email, picture}
 let cloudSyncing = false;
 
 function loadCloudCfg() {
-  try { cloud = JSON.parse(localStorage.getItem(CLOUD_KEY)) || null; } catch { cloud = null; }
+  try {
+    const c = JSON.parse(localStorage.getItem(CLOUD_KEY)) || null;
+    // 丢弃旧格式（含 key/room 字段）
+    cloud = (c && c.token) ? c : null;
+  } catch { cloud = null; }
 }
 function saveCloudCfg() {
   if (cloud) localStorage.setItem(CLOUD_KEY, JSON.stringify(cloud));
   else localStorage.removeItem(CLOUD_KEY);
 }
 
+// ── Modal ──────────────────────────────────────────────────────────────────
 const cloudModal = document.getElementById('cloud-modal');
-function openCloudModal() {
-  document.getElementById('cloud-url').value = cloud?.url || '';
-  document.getElementById('cloud-key').value = cloud?.key || '';
-  document.getElementById('cloud-room').value = cloud?.room || '';
-  document.getElementById('cloud-disconnect').style.display = cloud ? '' : 'none';
-  cloudModal.classList.add('show');
-}
 function closeCloudModal() { cloudModal.classList.remove('show'); }
 document.getElementById('cloud-cancel').addEventListener('click', closeCloudModal);
 cloudModal.addEventListener('click', e => { if (e.target === cloudModal) closeCloudModal(); });
+
 document.getElementById('cloud-disconnect').addEventListener('click', () => {
   cloud = null; saveCloudCfg(); updateCloudStatus();
   closeCloudModal();
-  alert('已断开云同步。数据仍保留在本机。');
+  showToast('已断开云同步，数据仍保留在本机');
 });
 
-document.getElementById('cloud-connect').addEventListener('click', async () => {
+// URL 输入框失焦时自动加载 Google 登录按钮
+document.getElementById('cloud-url').addEventListener('blur', () => {
   const url = document.getElementById('cloud-url').value.trim().replace(/\/$/, '');
-  const key = document.getElementById('cloud-key').value.trim();
-  const room = document.getElementById('cloud-room').value.trim();
-  if (!url || !key || !room) { alert('请把三项都填上。'); return; }
-  cloud = { url, key, room };
-  const note = document.getElementById('cloud-modal-note');
-  note.textContent = '连接中…';
-  // 先拉云端，合并本地，再整体上传
-  const remote = await cloudFetch();
-  if (remote === false) {
-    note.textContent = '连接失败：请检查 URL、key 是否正确，以及是否已建好 notes 表（见教程）。';
-    cloud = null;
-    return;
-  }
-  if (Array.isArray(remote)) { await extractInlineAtts(remote); mergeNotes(remote); }
-  saveCloudCfg();
-  save(); // 会触发上传
-  render();
-  updateCloudStatus();
-  note.textContent = '✅ 已连接！本机数据已和云端合并。另一台手机填入相同信息即可同步。';
-  setTimeout(closeCloudModal, 1500);
+  if (url) _renderGoogleBtn(url);
 });
 
-// 从云端拉取本 room 的数据；成功返回数组，失败返回 false
-async function cloudFetch() {
-  if (!cloud) return false;
-  try {
-    const res = await fetch(`${cloud.url}/rest/v1/notes?room=eq.${encodeURIComponent(cloud.room)}&select=data`, {
-      headers: { apikey: cloud.key, Authorization: 'Bearer ' + cloud.key }
-    });
-    if (!res.ok) return false;
-    const rows = await res.json();
-    if (rows.length && rows[0].data) return rows[0].data;
-    return [];
-  } catch (e) { return false; }
+let _gsiReady = false;
+function _loadGSI() {
+  return new Promise(resolve => {
+    if (window.google) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve; s.onerror = resolve;
+    document.head.appendChild(s);
+  });
 }
 
-// 上传整份数据（upsert）—— 附件内联后一起上传，另一台才能看到图
+async function _renderGoogleBtn(serverUrl) {
+  const note = document.getElementById('cloud-modal-note');
+  const btnDiv = document.getElementById('cloud-google-btn');
+  btnDiv.innerHTML = '';
+  note.textContent = '正在连接服务器…';
+  try {
+    const res = await fetch(`${serverUrl}/api/config`);
+    if (!res.ok) throw new Error('服务器无法连接');
+    const { googleClientId } = await res.json();
+    await _loadGSI();
+    if (!window.google) throw new Error('Google 登录加载失败');
+    google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (resp) => _handleGoogleSignIn(resp, serverUrl),
+      auto_select: false
+    });
+    google.accounts.id.renderButton(btnDiv, {
+      theme: 'outline', size: 'large', width: 260, locale: 'zh-CN', text: 'signin_with'
+    });
+    note.textContent = '';
+  } catch (err) {
+    note.textContent = '⚠️ ' + err.message;
+  }
+}
+
+async function _handleGoogleSignIn(response, serverUrl) {
+  const note = document.getElementById('cloud-modal-note');
+  note.textContent = '登录中…';
+  try {
+    const res = await fetch(`${serverUrl}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: response.credential })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error(e.error || '认证失败');
+    }
+    const data = await res.json();
+    cloud = { url: serverUrl, token: data.token, name: data.name, email: data.email, picture: data.picture };
+    saveCloudCfg();
+    // 拉取云端，合并后推送
+    const remote = await cloudFetch();
+    if (remote && Array.isArray(remote.notes)) {
+      await extractInlineAtts(remote.notes);
+      mergeNotes(remote.notes);
+      if (Array.isArray(remote.cats)) {
+        const have = new Set(cats.map(c => c.id));
+        remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
+      }
+    }
+    save(); render(); updateCloudStatus();
+    closeCloudModal();
+    showToast(`✅ 已登录：${data.name}`);
+    setInterval(cloudPull, 20000);
+  } catch (err) {
+    note.textContent = '❌ ' + err.message;
+    cloud = null;
+  }
+}
+
+function openCloudModal() {
+  const setup = document.getElementById('cloud-setup');
+  const panel = document.getElementById('cloud-user-panel');
+  const discBtn = document.getElementById('cloud-disconnect');
+  const note = document.getElementById('cloud-modal-note');
+  if (cloud && cloud.token) {
+    setup.style.display = 'none';
+    panel.style.display = '';
+    discBtn.style.display = '';
+    document.getElementById('cloud-avatar').src = cloud.picture || '';
+    document.getElementById('cloud-user-name').textContent = cloud.name || '';
+    document.getElementById('cloud-user-email').textContent = cloud.email || '';
+    document.getElementById('cloud-sync-status').textContent = '☁️ 云同步已开启';
+    note.textContent = '';
+  } else {
+    setup.style.display = '';
+    panel.style.display = 'none';
+    discBtn.style.display = 'none';
+    document.getElementById('cloud-url').value = cloud?.url || '';
+    document.getElementById('cloud-google-btn').innerHTML = '';
+    note.textContent = '填写服务器地址后会显示 Google 登录按钮。';
+    // 如果已有 URL 直接渲染按钮
+    const url = cloud?.url || '';
+    if (url) _renderGoogleBtn(url);
+  }
+  cloudModal.classList.add('show');
+}
+
+// ── Sync API (JWT Bearer) ──────────────────────────────────────────────────
+
+async function cloudFetch() {
+  if (!cloud || !cloud.token) return false;
+  try {
+    const res = await fetch(`${cloud.url}/api/sync`, {
+      headers: { 'Authorization': 'Bearer ' + cloud.token }
+    });
+    if (!res.ok) return false;
+    return await res.json();
+  } catch { return false; }
+}
+
 async function cloudPush() {
-  if (!cloud || cloudSyncing) return;
+  if (!cloud || !cloud.token || cloudSyncing) return;
   cloudSyncing = true;
   try {
     const payload = await notesWithInlineAtts();
-    await fetch(`${cloud.url}/rest/v1/notes?on_conflict=room`, {
-      method: 'POST',
-      headers: {
-        apikey: cloud.key,
-        Authorization: 'Bearer ' + cloud.key,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify([{ room: cloud.room, data: payload, updated_at: new Date().toISOString() }])
+    await fetch(`${cloud.url}/api/sync`, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + cloud.token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: payload, cats })
     });
-  } catch (e) {}
+  } catch {}
   cloudSyncing = false;
 }
 
-// 定期从云端拉取更新并合并
 async function cloudPull() {
-  if (!cloud) return;
+  if (!cloud || !cloud.token) return;
   const remote = await cloudFetch();
-  if (Array.isArray(remote)) {
-    const before = JSON.stringify(notes.map(n => n.id).sort());
-    await extractInlineAtts(remote);   // 下载的附件拆回 IndexedDB
-    mergeNotes(remote);
-    const after = JSON.stringify(notes.map(n => n.id).sort());
-    if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
+  if (!remote || !Array.isArray(remote.notes)) return;
+  const before = JSON.stringify(notes.map(n => n.id).sort());
+  await extractInlineAtts(remote.notes);
+  mergeNotes(remote.notes);
+  if (Array.isArray(remote.cats)) {
+    const have = new Set(cats.map(c => c.id));
+    remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
   }
+  const after = JSON.stringify(notes.map(n => n.id).sort());
+  if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
 }
 
 function updateCloudStatus() {
   const el = document.getElementById('cloud-status');
   if (!el) return;
-  if (cloud) { el.textContent = '☁️ 云同步已开启（代号：' + cloud.room + '）'; el.classList.add('on'); }
-  else { el.textContent = '☁️ 云同步未开启'; el.classList.remove('on'); }
+  if (cloud && cloud.token) {
+    el.textContent = '☁️ 云同步已开启（' + (cloud.name || cloud.email) + '）';
+    el.classList.add('on');
+  } else {
+    el.textContent = '☁️ 云同步未开启';
+    el.classList.remove('on');
+  }
 }
 
 // 包装 save：本地存完顺便推云端
 const _origSave = save;
-save = function() { _origSave(); if (cloud) cloudPush(); };
+save = function() { _origSave(); if (cloud && cloud.token) cloudPush(); };
 
 loadCloudCfg();
 updateCloudStatus();
-if (cloud) { cloudPull(); setInterval(cloudPull, 20000); }
+if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
 
 load();
 loadLang();
@@ -3733,6 +4219,7 @@ loadCollapsed();
 loadSubCollapsed();
 applyStaticI18n();
 render();
+loadLock();
 checkReminders();
 
 // 让列表底部留白 = 输入区实际高度，避免输入区（含展开的颜色条）遮住最后一条
@@ -3788,6 +4275,168 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
+
+// ===== 密码锁 =====
+const LOCK_KEY = 'quicknotes.lock';
+let _lockPin = '';
+
+async function _hashPin(pin) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('qn::' + pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function _updateDots() {
+  document.querySelectorAll('.ld').forEach((d, i) => d.classList.toggle('on', i < _lockPin.length));
+}
+function _lockMsg(msg) { document.getElementById('lock-msg').textContent = msg || ''; }
+function _shakeDots() {
+  const el = document.getElementById('lock-dots');
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
+}
+
+function showLockScreen() {
+  _lockPin = '';
+  _updateDots();
+  _lockMsg('');
+  document.getElementById('lock-screen').classList.remove('hidden');
+}
+function hideLockScreen() {
+  document.getElementById('lock-screen').classList.add('hidden');
+}
+
+function loadLock() {
+  try {
+    if (localStorage.getItem(LOCK_KEY)) {
+      showLockScreen();
+      _updateLockNowBtn();
+    }
+  } catch {}
+}
+
+function _updateLockNowBtn() {
+  const btn = document.getElementById('lock-now-btn');
+  if (btn) btn.style.display = localStorage.getItem(LOCK_KEY) ? '' : 'none';
+}
+
+async function _tryUnlock() {
+  if (_lockPin.length < 4) { _lockMsg('请输入4位密码'); return; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
+    if (!stored) { hideLockScreen(); return; }
+    const h = await _hashPin(_lockPin);
+    if (h === stored.h) {
+      hideLockScreen();
+    } else {
+      _lockMsg('密码错误，请重试');
+      _shakeDots();
+      _lockPin = '';
+      _updateDots();
+    }
+  } catch { hideLockScreen(); }
+}
+
+document.getElementById('lock-screen').addEventListener('click', e => {
+  const btn = e.target.closest('.lk');
+  if (!btn) return;
+  const d = btn.dataset.d;
+  if (d === 'del') {
+    _lockPin = _lockPin.slice(0, -1);
+    _updateDots();
+    _lockMsg('');
+  } else if (d === 'ok') {
+    _tryUnlock();
+  } else {
+    if (_lockPin.length < 4) {
+      _lockPin += d;
+      _updateDots();
+      _lockMsg('');
+      if (_lockPin.length === 4) _tryUnlock();
+    }
+  }
+});
+
+document.getElementById('lock-forgot').addEventListener('click', async () => {
+  if (await confirmDialog('忘记密码将清除所有数据并解锁，确定继续？')) {
+    localStorage.clear();
+    location.reload();
+  }
+});
+
+function showToast(msg, duration = 2200) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 20px;border-radius:20px;font-size:0.85rem;z-index:9999;opacity:0;transition:opacity 0.2s;max-width:82%;text-align:center;white-space:pre-line;box-shadow:0 4px 16px rgba(0,0,0,0.25);';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.style.opacity = '1');
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 220); }, duration);
+}
+
+async function setupLockPin() {
+  let stored = null;
+  try { stored = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null'); } catch {}
+
+  if (stored) {
+    const action = await new Promise(resolve => {
+      const modal = document.createElement('div');
+      modal.className = 'modal show';
+      modal.innerHTML = `<div class="modal-card">
+        <div class="modal-title">🔒 密码锁</div>
+        <div class="modal-sub">密码锁已开启</div>
+        <div class="modal-actions" style="flex-direction:column;gap:8px;margin-top:14px;">
+          <button class="m-ok" style="width:100%" data-v="change">🔑 修改密码</button>
+          <button class="m-ok" style="width:100%" data-v="remove">🔓 关闭密码锁</button>
+          <button class="m-cancel" data-v="">取消</button>
+        </div>
+      </div>`;
+      document.body.appendChild(modal);
+      modal.addEventListener('click', e => {
+        const v = e.target.dataset.v;
+        if (v !== undefined) { document.body.removeChild(modal); resolve(v || null); }
+      });
+    });
+    if (!action) return;
+
+    const cur = await promptDialog('请输入当前密码', '');
+    if (cur == null) return;
+    const curH = await _hashPin(cur.trim());
+    if (curH !== stored.h) { showToast('❌ 密码错误'); return; }
+
+    if (action === 'remove') {
+      localStorage.removeItem(LOCK_KEY);
+      _updateLockNowBtn();
+      showToast('🔓 密码锁已关闭');
+      return;
+    }
+  }
+
+  const p1 = await promptDialog(stored ? '输入新密码（4位数字）' : '设置密码（4位数字）', '');
+  if (p1 == null) return;
+  if (!/^\d{4}$/.test(p1.trim())) { showToast('❌ 请输入恰好4位数字'); return; }
+  const p2 = await promptDialog('再次输入确认', '');
+  if (p2 == null) return;
+  if (p1.trim() !== p2.trim()) { showToast('❌ 两次输入不一致'); return; }
+
+  const h = await _hashPin(p1.trim());
+  localStorage.setItem(LOCK_KEY, JSON.stringify({ h }));
+  _updateLockNowBtn();
+  showToast(stored ? '✅ 密码已修改' : '✅ 密码锁已开启\n下次打开时需要输入密码');
+}
+
+// 切换到后台超过30秒后回来自动锁屏
+let _lockHideTs = 0;
+document.addEventListener('visibilitychange', () => {
+  try {
+    if (!localStorage.getItem(LOCK_KEY)) return;
+    if (document.visibilityState === 'hidden') {
+      _lockHideTs = Date.now();
+    } else if (document.visibilityState === 'visible') {
+      if (Date.now() - _lockHideTs > 30000) showLockScreen();
+    }
+  } catch {}
+});
 </script>
 </body>
 </html>
