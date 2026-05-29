@@ -2732,6 +2732,16 @@ const PRESET_COLORS = [
   '#6b8e23', '#4a8c4a', '#2e9b8f', '#3a72c4', '#4455c4', '#6a40b8',
   '#8a4fbf', '#b5479b', '#c43a6e', '#8c6d4a', '#5a5a5a'
 ];
+// 若编辑区内没有选中文字，则全选——确保格式命令作用到已有内容
+function ensureSelection(richEl) {
+  const sel = window.getSelection();
+  if (!sel || !sel.isCollapsed) return; // 已有选区，不干预
+  const range = document.createRange();
+  range.selectNodeContents(richEl);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 // 生成一个颜色条元素，绑定到指定富文本编辑区
 function buildColorBar(richEl) {
   const wrap = document.createElement('div');
@@ -2754,7 +2764,11 @@ function buildColorBar(richEl) {
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => {
       richEl.focus();
-      try { document.execCommand('styleWithCSS', false, true); document.execCommand('fontSize', false, fs); } catch(e) {}
+      try {
+        ensureSelection(richEl);
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('fontSize', false, fs);
+      } catch(e) {}
     });
     fmtBar.appendChild(btn);
   });
@@ -2764,7 +2778,10 @@ function buildColorBar(richEl) {
   uBtn.className = 'fmt-btn fmt-u'; uBtn.type = 'button'; uBtn.title = '下划线';
   uBtn.innerHTML = '<u style="text-underline-offset:2px">U</u>';
   uBtn.addEventListener('mousedown', e => e.preventDefault());
-  uBtn.addEventListener('click', () => { richEl.focus(); try { document.execCommand('underline'); } catch(e) {} });
+  uBtn.addEventListener('click', () => {
+    richEl.focus();
+    try { ensureSelection(richEl); document.execCommand('underline'); } catch(e) {}
+  });
   fmtBar.appendChild(uBtn);
 
   // 颜色 toggle（放在格式栏末尾）
