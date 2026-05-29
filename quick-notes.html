@@ -3098,7 +3098,7 @@ function startAddSub(item, n) {
   const existingForm = item.querySelector('.sub-adding');
   if (existingForm) {
     const existingRich = existingForm.querySelector('[contenteditable]');
-    existingForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    item.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (existingRich) existingRich.focus();
     return;
   }
@@ -3174,7 +3174,9 @@ function startAddSub(item, n) {
   mainDiv.appendChild(actionsEl);
 
   row.appendChild(mainDiv);
-  subsBox.appendChild(row);
+  // Prepend so the form appears at the TOP of the subs list,
+  // not buried below existing sub-items where it would be off-screen
+  subsBox.prepend(row);
 
   // Close the meta-actions panel so it doesn't obscure the form
   const metaActions = body.querySelector('.meta-actions');
@@ -3183,8 +3185,9 @@ function startAddSub(item, n) {
   if (moreBtn) moreBtn.classList.remove('on');
 
   rich.focus();
-  // Scroll the form into view after the keyboard has had time to open
-  setTimeout(() => row.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600);
+  // Scroll the whole card to the top so the form is near the top of the viewport,
+  // well above the keyboard, regardless of how many subs already exist
+  setTimeout(() => item.scrollIntoView({ behavior: 'smooth', block: 'start' }), 600);
 
   let committed = false;
   let pickingAtt = false;
