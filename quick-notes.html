@@ -2116,23 +2116,50 @@ function playChime() {
 </script>
 
 <script>
-// ===== IndexedDB 附件存储 =====
-// 大附件（照片/PDF）存这里，容量远大于 localStorage
+// ===== IndexedDB 附件存储 + 笔记主存储 =====
+// 附件（照片/PDF）和笔记文字都存这里，容量远大于 localStorage
 const IDB_NAME = 'quicknotes-db';
 const IDB_STORE = 'blobs';
+const IDB_NOTES_STORE = 'notes_data';
 let _idb = null;
 
 function idbOpen() {
   return new Promise((resolve, reject) => {
     if (_idb) return resolve(_idb);
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = () => {
+    const req = indexedDB.open(IDB_NAME, 2); // v2：新增 notes_data store
+    req.onupgradeneeded = e => {
       const db = req.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      if (!db.objectStoreNames.contains(IDB_NOTES_STORE)) db.createObjectStore(IDB_NOTES_STORE);
     };
     req.onsuccess = () => { _idb = req.result; resolve(_idb); };
     req.onerror = () => reject(req.error);
   });
+}
+
+// 把笔记和分类异步写入 IDB（fire-and-forget，不阻塞 UI）
+function saveToIDB() {
+  idbOpen().then(db => {
+    const tx = db.transaction(IDB_NOTES_STORE, 'readwrite');
+    const st = tx.objectStore(IDB_NOTES_STORE);
+    st.put(JSON.stringify(notes), 'notes');
+    st.put(JSON.stringify(cats), 'cats');
+  }).catch(() => {});
+}
+
+// 从 IDB 读笔记和分类
+async function loadFromIDB() {
+  try {
+    const db = await idbOpen();
+    const tx = db.transaction(IDB_NOTES_STORE, 'readonly');
+    const st = tx.objectStore(IDB_NOTES_STORE);
+    const get = key => new Promise((res, rej) => {
+      const r = st.get(key); r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    const [n, c] = await Promise.all([get('notes'), get('cats')]);
+    if (n == null) return null;
+    return { notes: JSON.parse(n), cats: c ? JSON.parse(c) : [] };
+  } catch { return null; }
 }
 async function idbPut(key, value) {
   const db = await idbOpen();
@@ -2258,6 +2285,9 @@ function load() {
   catch { cats = []; }
 }
 function save() {
+  // 主存储：IndexedDB（无 5MB 限制）
+  saveToIDB();
+  // 备用：localStorage（可能因 5MB 限制失败，失败时 IDB 仍完好）
   try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
   try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
 }
@@ -4597,16 +4627,28 @@ loadCloudCfg();
 updateCloudStatus();
 if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
 
-load();
-loadLang();
-loadBg();
-loadFontSize();
-loadCollapsed();
-loadSubCollapsed();
-applyStaticI18n();
-render();
-loadLock();
-checkReminders();
+(async () => {
+  load(); // 同步从 localStorage 先加载，避免白屏
+  loadLang();
+  loadBg();
+  loadFontSize();
+  loadCollapsed();
+  loadSubCollapsed();
+  applyStaticI18n();
+  render();
+  loadLock();
+  checkReminders();
+
+  // 再从 IDB 加载（无大小限制）；有数据则覆盖 localStorage 版本并重渲染
+  const idbData = await loadFromIDB();
+  if (idbData) {
+    notes = idbData.notes;
+    cats = idbData.cats;
+    render();
+  } else if (notes.length > 0 || cats.length > 0) {
+    saveToIDB(); // 首次运行：把 localStorage 现有数据迁移到 IDB
+  }
+})();
 
 // 让列表底部留白 = 输入区实际高度，避免输入区（含展开的颜色条）遮住最后一条
 (function watchComposerHeight() {
