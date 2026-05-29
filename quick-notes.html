@@ -2988,6 +2988,12 @@ function startAddSub(item, n) {
     subsBox.className = 'subs';
     const meta = body.querySelector('.meta');
     body.insertBefore(subsBox, meta);
+  } else {
+    subsBox.style.display = '';
+    const toggleBtn = body.querySelector('.subs-toggle');
+    if (toggleBtn) toggleBtn.classList.remove('collapsed');
+    collapsedSubs[n.id] = false;
+    try { localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs)); } catch {}
   }
   const row = document.createElement('div');
   row.className = 'sub-row sub-adding';
@@ -3036,8 +3042,12 @@ function startAddSub(item, n) {
     else if (ev.key === 'Escape') { ev.preventDefault(); committed = true; render(); }
   });
   inp.addEventListener('blur', () => {
-    // 延迟一点，避免点附件/添加按钮时误触发
-    setTimeout(() => { if (!committed && !pickingAtt && document.activeElement !== inp) commit(); }, 200);
+    setTimeout(() => {
+      if (!committed && !pickingAtt && document.activeElement !== inp) {
+        if (inp.value.trim() || subAtts.length) commit();
+        // if empty, keep form open — prevents keyboard-open blur from destroying it
+      }
+    }, 200);
   });
 
   // 子项附件选择：弹出统一的居中选择弹窗
