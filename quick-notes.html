@@ -5164,6 +5164,78 @@ document.addEventListener('visibilitychange', () => {
     }
   } catch {}
 });
+
+// ===== 双指缩放列表内容 =====
+(function initPinchZoom() {
+  const ZOOM_KEY = 'quicknotes.zoom';
+  const MIN_ZOOM = 0.6;
+  const MAX_ZOOM = 3.0;
+  let zoom = 1;
+
+  function applyZoom(z) {
+    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+    const list = document.getElementById('list');
+    if (list) list.style.zoom = zoom;
+  }
+
+  function saveZoom() {
+    try { localStorage.setItem(ZOOM_KEY, zoom.toFixed(3)); } catch {}
+  }
+
+  function loadZoom() {
+    try {
+      const v = parseFloat(localStorage.getItem(ZOOM_KEY));
+      if (v >= MIN_ZOOM && v <= MAX_ZOOM) applyZoom(v);
+    } catch {}
+  }
+
+  loadZoom();
+
+  let startDist = 0;
+  let startZoom = 1;
+  let pinching = false;
+
+  function dist(t) {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      pinching = true;
+      startDist = dist(e.touches);
+      startZoom = zoom;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => {
+    if (!pinching || e.touches.length !== 2) return;
+    const ratio = dist(e.touches) / startDist;
+    applyZoom(startZoom * ratio);
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchend', e => {
+    if (!pinching) return;
+    if (e.touches.length < 2) {
+      pinching = false;
+      saveZoom();
+    }
+  }, { passive: true });
+
+  // 双击列表区域重置缩放
+  let lastTap = 0;
+  document.getElementById('list').addEventListener('dblclick', e => {
+    const now = Date.now();
+    if (now - lastTap < 350) {
+      applyZoom(1);
+      saveZoom();
+    }
+    lastTap = now;
+  });
+})();
 </script>
 </body>
 </html>
