@@ -2418,9 +2418,9 @@ let collapsedSubs = {};
 function loadSubCollapsed() {
   try { collapsedSubs = JSON.parse(localStorage.getItem(SUBCOLLAPSE_KEY)) || {}; } catch { collapsedSubs = {}; }
 }
-function isSubCollapsed(nid) { return !!collapsedSubs[nid]; }
+function isSubCollapsed(nid) { return collapsedSubs[nid] !== false; } // default: collapsed
 function toggleSubCollapse(nid) {
-  collapsedSubs[nid] = !collapsedSubs[nid];
+  collapsedSubs[nid] = !isSubCollapsed(nid);
   try { localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs)); } catch {}
 }
 
