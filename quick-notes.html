@@ -751,7 +751,7 @@
   .sss-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 6px; border-radius: 20px; opacity: 0.7; flex-shrink: 0; line-height: 1; transition: all 0.2s; }
   .sss-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
   .sss-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 3px 8px; font-family: inherit; transition: all 0.2s; margin-top: 2px; align-self: flex-start; }
-  .sss-add-form { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .sss-add-form { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
   .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
   .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
   .sss-cancel-btn { background: none; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; }
@@ -3780,8 +3780,11 @@ function startAddSSS(ssRow, n, s, ss) {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
 
-  form.appendChild(input); form.appendChild(okBtn); form.appendChild(cancelBtn);
-  // Insert before the ＋ 子项 button
+  form.appendChild(input);
+  const btnRow1 = document.createElement('div');
+  btnRow1.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
+  btnRow1.appendChild(okBtn); btnRow1.appendChild(cancelBtn);
+  form.appendChild(btnRow1);
   const addBtn = body.querySelector('.sss-add-btn');
   addBtn ? body.insertBefore(form, addBtn) : body.appendChild(form);
   input.focus();
@@ -3837,7 +3840,11 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
 
-  form.appendChild(input); form.appendChild(okBtn); form.appendChild(cancelBtn);
+  form.appendChild(input);
+  const btnRow2 = document.createElement('div');
+  btnRow2.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
+  btnRow2.appendChild(okBtn); btnRow2.appendChild(cancelBtn);
+  form.appendChild(btnRow2);
   textEl.replaceWith(form);
   input.focus(); input.select();
 
