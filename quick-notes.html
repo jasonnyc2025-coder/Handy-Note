@@ -2235,6 +2235,14 @@ async function getAttData(att) {
 const KEY = 'quicknotes.v1';
 let notes = [];
 let filter = 'all';
+const FILTER_KEY = 'quicknotes.filter';
+function saveFilter() { try { localStorage.setItem(FILTER_KEY, filter); } catch {} }
+function loadFilter() {
+  try {
+    const v = localStorage.getItem(FILTER_KEY);
+    if (v) filter = v;
+  } catch {}
+}
 let curType = 'idea';
 let curCat = null; // category pre-selected for next new note (used in "all" view)
 let cats = []; // 自定义类别 [{id, name}]
@@ -4019,6 +4027,7 @@ document.getElementById('tabs').addEventListener('click', e => {
   if (f === '__add') { addCategory(); return; }
   filter = f;
   curCat = null; // reset pre-selected category when switching tabs
+  saveFilter();
   render();
 });
 
@@ -4134,6 +4143,7 @@ async function addCategory() {
   const id = 'c' + Date.now() + Math.random().toString(36).slice(2,5);
   cats.push({ id, name: nm });
   filter = id;
+  saveFilter();
   save(); render();
   return id;
 }
@@ -4151,7 +4161,7 @@ async function manageCategory(id) {
     if (await confirmDialog(`确定删除类别「${c.name}」吗？\n该类别下的记录不会被删除，会回到“全部”。`)) {
       notes.forEach(n => { if (n.cat === id) delete n.cat; });
       cats = cats.filter(x => x.id !== id);
-      if (filter === id) filter = 'all';
+      if (filter === id) { filter = 'all'; saveFilter(); }
       save(); render();
     }
   } else if (choice === 'left' || choice === 'right') {
@@ -4919,6 +4929,7 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
   loadFontSize();
   loadCollapsed();
   loadSubCollapsed();
+  loadFilter();
   applyStaticI18n();
   render();
   loadLock();
@@ -4929,6 +4940,9 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
   if (idbData) {
     notes = idbData.notes;
     cats = idbData.cats;
+    if (filter !== 'all' && filter !== '__overdue' && !cats.find(c => c.id === filter)) {
+      filter = 'all';
+    }
     render();
   } else if (notes.length > 0 || cats.length > 0) {
     saveToIDB(); // 首次运行：把 localStorage 现有数据迁移到 IDB
