@@ -1392,6 +1392,7 @@
   .ctype button.sel.idea { background: var(--accent); color: #fff; border-color: var(--accent); }
   .ctype button.sel.todo { background: #4a6b48; color: #fff; border-color: #4a6b48; }
   .creminder.set { background: #eae3f0; color: #6b4a8a; border-color: #d4c2e0; }
+  .ccat.set { background: #e3ecf5; color: #2e6a9e; border-color: #b8d4e8; }
 
   .crow { display: flex; gap: 9px; align-items: flex-end; }
   textarea {
@@ -1782,6 +1783,7 @@
     <button class="sel idea" data-t="idea" id="t-idea" data-i18n="tIdea">💡 想法</button>
     <button data-t="todo" id="t-todo" data-i18n="tTodo">✓ 待办</button>
     <span style="flex:1"></span>
+    <button class="ccat" id="ccat" style="display:none">📁 类别</button>
     <button class="creminder" id="creminder" data-i18n="cReminder">⏰ 提醒</button>
   </div>
   <div class="pending" id="pending"></div>
@@ -2150,6 +2152,7 @@ const KEY = 'quicknotes.v1';
 let notes = [];
 let filter = 'all';
 let curType = 'idea';
+let curCat = null; // category pre-selected for next new note (used in "all" view)
 let cats = []; // 自定义类别 [{id, name}]
 const CATS_KEY = 'quicknotes.cats';
 
@@ -2467,6 +2470,7 @@ function render() {
   if (searchQuery) items = items.filter(matchSearch);
 
   renderTabs();
+  if (typeof updateCCatBtn === 'function') updateCCatBtn();
 
   // 若当前停在"已过期"但已无过期项，自动回到全部
   if (filter === '__overdue' && items.length === 0 && !searchQuery) { filter = 'all'; render(); return; }
@@ -2772,8 +2776,9 @@ function add() {
     text: html, rich: true, type: curType, done: false, ts: Date.now(),
     atts: pending.slice()
   };
-  // 当前正在某个类别下查看，新记录就归到该类别
+  // 当前正在某个类别下查看，新记录就归到该类别；全部视图下用手动选的类别
   if (filter !== 'all') note.cat = filter;
+  else if (curCat) note.cat = curCat;
   if (pendingRemind) {
     note.remindAt = pendingRemind;
     note.repeat = pendingRepeat;
@@ -2784,7 +2789,9 @@ function add() {
   pending = [];
   pendingRemind = null;
   pendingRepeat = 'none';
+  curCat = null;
   if (typeof updateCReminderBtn === 'function') updateCReminderBtn();
+  if (typeof updateCCatBtn === 'function') updateCCatBtn();
   renderPending();
   refreshSendState();
   save();
@@ -3563,6 +3570,7 @@ document.getElementById('tabs').addEventListener('click', e => {
   const f = t.dataset.filter;
   if (f === '__add') { addCategory(); return; }
   filter = f;
+  curCat = null; // reset pre-selected category when switching tabs
   render();
 });
 
@@ -3941,6 +3949,60 @@ function updateCReminderBtn() {
   }
 }
 document.getElementById('creminder').addEventListener('click', () => openRemindModal('__new__'));
+
+function updateCCatBtn() {
+  const btn = document.getElementById('ccat');
+  if (filter !== 'all') { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  if (curCat) {
+    const c = cats.find(x => x.id === curCat);
+    btn.textContent = '📁 ' + (c ? c.name : '类别');
+    btn.classList.add('set');
+  } else {
+    btn.textContent = '📁 类别';
+    btn.classList.remove('set');
+  }
+}
+
+document.getElementById('ccat').addEventListener('click', () => {
+  const modal = document.getElementById('catpick-modal');
+  document.querySelector('#catpick-modal .modal-title').textContent = '选择类别';
+  document.getElementById('catpick-sub').textContent = '新记录归到：';
+  const list = document.getElementById('catpick-list');
+  let html = `<button class="catpick-item ${!curCat?'sel':''}" data-cat="">📋 不分类</button>`;
+  cats.forEach(c => {
+    html += `<button class="catpick-item ${curCat===c.id?'sel':''}" data-cat="${c.id}">📁 ${esc(c.name)}</button>`;
+  });
+  list.innerHTML = html;
+  document.getElementById('catpick-new').style.display = '';
+  modal.classList.add('show');
+
+  const cancelBtn = document.getElementById('catpick-cancel');
+  const finish = () => {
+    modal.classList.remove('show');
+    list.removeEventListener('click', pick);
+    document.getElementById('catpick-new').removeEventListener('click', onNew);
+    cancelBtn.removeEventListener('click', finish);
+    modal.removeEventListener('click', onBg);
+  };
+  const pick = (e) => {
+    const b = e.target.closest('[data-cat]');
+    if (!b) return;
+    curCat = b.dataset.cat || null;
+    updateCCatBtn();
+    finish();
+  };
+  const onNew = async () => {
+    finish();
+    const id = await addCategory();
+    if (id) { curCat = id; updateCCatBtn(); }
+  };
+  const onBg = (e) => { if (e.target === modal) finish(); };
+  list.addEventListener('click', pick);
+  document.getElementById('catpick-new').addEventListener('click', onNew);
+  cancelBtn.addEventListener('click', finish);
+  modal.addEventListener('click', onBg);
+});
 
 // 解锁音频上下文（浏览器要求用户交互后才能播声音）
 function playChimeUnlock() {
