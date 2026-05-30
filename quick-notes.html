@@ -667,12 +667,15 @@
     text-decoration-color: var(--done);
   }
   .subsub-edit-btn {
-    background: none; border: 1px solid var(--line);
-    color: var(--ink-soft); font-size: 0.82rem;
-    cursor: pointer; padding: 4px 10px;
+    background: var(--line); border: 1px solid var(--line);
+    color: var(--ink); font-size: 0.82rem;
+    font-family: inherit; font-weight: 500;
+    cursor: pointer; padding: 5px 12px;
     border-radius: 20px;
-    opacity: 0.85; flex-shrink: 0; line-height: 1;
+    flex-shrink: 0; line-height: 1;
+    transition: all 0.2s;
   }
+  .subsub-edit-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .subsub-del {
     background: none; border: none;
     color: var(--ink-soft); font-size: 0.9rem;
@@ -2592,7 +2595,7 @@ function renderSubSubs(s, isTodo) {
         <span class="subsub-text">${highlight(ss)}</span>
         ${renderSubSubAtts(ss)}
       </div>
-      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
+      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">编辑</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
   `).join('')}</div>`;
