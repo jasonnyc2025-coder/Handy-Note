@@ -727,6 +727,34 @@
   .subsub-row-atts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
   .subsub-row-atts img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; display: block; }
   .subsub-row-atts .pdf-chip { font-size: 0.72rem; color: var(--ink-soft); background: var(--hover); border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; gap: 3px; }
+
+  /* Sub-sub-sub (level 4) items */
+  .sss-list { margin: 4px 0 2px 16px; border-left: 2px dotted var(--line); padding-left: 8px; }
+  .sss-row { display: flex; align-items: flex-start; gap: 5px; padding: 2px 0; }
+  .sss-check {
+    width: 11px; height: 11px;
+    border: 2px solid var(--ink-soft);
+    border-radius: 2px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.15s;
+    display: grid; place-items: center;
+  }
+  .sss-check:hover { border-color: var(--accent); }
+  .sss-check.on { background: var(--accent); border-color: var(--accent); }
+  .sss-check.on::after { content: ''; width: 2px; height: 5px; border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-1px); }
+  .sss-bullet { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 8px; opacity: 0.3; }
+  .sss-text { flex: 1; font-size: 0.88rem; line-height: 1.4; color: var(--ink); word-break: break-word; }
+  .sss-row.done .sss-text { color: var(--done); text-decoration: line-through; text-decoration-color: var(--done); }
+  .sss-del { background: none; border: none; color: var(--ink-soft); font-size: 0.85rem; cursor: pointer; padding: 3px 4px; opacity: 0.5; flex-shrink: 0; }
+  .sss-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 6px; border-radius: 20px; opacity: 0.7; flex-shrink: 0; line-height: 1; transition: all 0.2s; }
+  .sss-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+  .sss-add-btn { font-size: 0.75rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 4px 10px; font-family: inherit; transition: all 0.2s; margin-top: 2px; }
+  .sss-add-form { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
+  .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
+  .sss-cancel-btn { background: none; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; }
   .sub-text {
     flex: 1;
     font-size: var(--note-font, 0.97rem);
@@ -2584,6 +2612,21 @@ function renderSubSubAtts(ss) {
   ).join('')}</div>`;
 }
 
+function renderSSS(ss, isTodo, sid) {
+  if (!ss.subs || !ss.subs.length) return '';
+  return `<div class="sss-list">${ss.subs.map(sss => `
+    <div class="sss-row ${isTodo && sss.done ? 'done' : ''}" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">
+      ${isTodo
+        ? `<div class="sss-check ${sss.done ? 'on' : ''}" data-act="ssstoggle" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}"></div>`
+        : `<div class="sss-bullet"></div>`
+      }
+      <span class="sss-text">${highlight(sss)}</span>
+      <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
+      <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
+    </div>
+  `).join('')}</div>`;
+}
+
 function renderSubSubs(s, isTodo) {
   if (!s.subs || !s.subs.length) return '';
   return `<div class="subsub-list">${s.subs.map(ss => `
@@ -2595,6 +2638,8 @@ function renderSubSubs(s, isTodo) {
       <div class="subsub-body">
         <span class="subsub-text">${highlight(ss)}</span>
         ${renderSubSubAtts(ss)}
+        ${renderSSS(ss, isTodo, s.id)}
+        <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
       </div>
       <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
@@ -3153,6 +3198,44 @@ document.getElementById('list').addEventListener('click', async e => {
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
     const ssRow = e.target.closest('.subsub-row');
     if (ss && ssRow) startEditSubSub(ssRow, n, s, ss);
+  } else if (act === 'sssadd') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const ssRow = e.target.closest('.subsub-row');
+    if (ss && ssRow) startAddSSS(ssRow, n, s, ss);
+  } else if (act === 'ssstoggle') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    if (sss) { sss.done = !sss.done; save(); render(); }
+  } else if (act === 'sssdel') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    if (ss && sss) {
+      const preview = (plainOf(sss.text) || '（无文字）').slice(0, 20);
+      if (await confirmDialog(`确定删除「${preview}」吗？`)) {
+        ss.subs = ss.subs.filter(x => x.id !== sssid);
+        save(); render();
+      }
+    }
+  } else if (act === 'sssedit') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    const sssRow = e.target.closest('.sss-row');
+    if (sss && sssRow) startEditSSS(sssRow, n, s, ss, sss);
   }
 });
 
@@ -3676,6 +3759,97 @@ function startEditSubSub(ssRow, n, s, ss) {
   });
   rich.addEventListener('blur', () => {
     setTimeout(() => { if (!committed && !picking && document.activeElement !== rich) commit(true); }, 220);
+  });
+}
+
+// 在子子项下添加第四级子项
+function startAddSSS(ssRow, n, s, ss) {
+  const body = ssRow.querySelector('.subsub-body');
+  if (body.querySelector('.sss-add-form')) return;
+
+  const form = document.createElement('div');
+  form.className = 'sss-add-form';
+
+  const input = document.createElement('input');
+  input.type = 'text'; input.className = 'sss-input';
+  input.placeholder = '子项内容…';
+
+  const okBtn = document.createElement('button');
+  okBtn.type = 'button'; okBtn.className = 'sss-ok-btn'; okBtn.textContent = '添加';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
+
+  form.appendChild(input); form.appendChild(okBtn); form.appendChild(cancelBtn);
+  // Insert before the ＋ 子项 button
+  const addBtn = body.querySelector('.sss-add-btn');
+  addBtn ? body.insertBefore(form, addBtn) : body.appendChild(form);
+  input.focus();
+
+  let done = false;
+  const commit = (saveIt) => {
+    if (done) return; done = true;
+    const text = input.value.trim();
+    if (saveIt && text) {
+      const liveN = notes.find(x => x.id === n.id) || n;
+      const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+      const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+      if (!liveSS.subs) liveSS.subs = [];
+      liveSS.subs.push({ id: Date.now()+''+Math.random().toString(36).slice(2,6), text: esc(text), rich: false, done: false, ts: Date.now() });
+      save();
+    }
+    render();
+  };
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('click', () => commit(false));
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
+    if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  });
+  input.addEventListener('blur', () => { setTimeout(() => { if (!done) commit(input.value.trim() ? true : false); }, 200); });
+}
+
+// 编辑第四级子项
+function startEditSSS(sssRow, n, s, ss, sss) {
+  if (sssRow.querySelector('.sss-input')) return;
+  const textEl = sssRow.querySelector('.sss-text');
+  if (!textEl) return;
+
+  const form = document.createElement('div');
+  form.className = 'sss-add-form';
+
+  const input = document.createElement('input');
+  input.type = 'text'; input.className = 'sss-input';
+  input.value = plainOf(sss.text) || '';
+
+  const okBtn = document.createElement('button');
+  okBtn.type = 'button'; okBtn.className = 'sss-ok-btn'; okBtn.textContent = '保存';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
+
+  form.appendChild(input); form.appendChild(okBtn); form.appendChild(cancelBtn);
+  textEl.replaceWith(form);
+  input.focus(); input.select();
+
+  let done = false;
+  const commit = (saveIt) => {
+    if (done) return; done = true;
+    const text = input.value.trim();
+    if (saveIt && text) {
+      const liveN = notes.find(x => x.id === n.id) || n;
+      const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+      const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+      const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
+      liveSSS.text = esc(text); liveSSS.rich = false; save();
+    }
+    render();
+  };
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('click', () => commit(false));
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
+    if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
 }
 
