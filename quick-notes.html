@@ -2800,13 +2800,23 @@ function buildColorBar(richEl) {
   // 格式状态 — 独立追踪，不依赖 innerHTML 堆叠
   const fmt = { size: null, underline: false };
 
+  // 从现有 innerHTML 初始化 underline 状态（编辑已有下划线的内容时）
+  (function initFmt() {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = richEl.innerHTML;
+    if (tmp.childNodes.length === 1 &&
+        tmp.firstChild.nodeType === 1 &&
+        tmp.firstChild.tagName.toLowerCase() === 'u') {
+      fmt.underline = true;
+    }
+  })();
+
   // 剥掉已知格式包装层，取基础内容
   function getBase() {
     const tmp = document.createElement('div');
     tmp.innerHTML = richEl.innerHTML;
-    // 去最外层 <u>（下划线是最外层）
-    if (fmt.underline &&
-        tmp.childNodes.length === 1 &&
+    // 去最外层 <u>（无论 fmt.underline 状态，先剥掉再由 reapply 决定是否重新套回）
+    if (tmp.childNodes.length === 1 &&
         tmp.firstChild.nodeType === 1 &&
         tmp.firstChild.tagName.toLowerCase() === 'u') {
       tmp.innerHTML = tmp.firstChild.innerHTML;
@@ -2863,6 +2873,8 @@ function buildColorBar(richEl) {
     reapply();
   });
   fmtBar.appendChild(uBtn);
+  // 初始同步按钮高亮状态
+  uBtn.classList.toggle('on', fmt.underline);
 
   // 颜色 toggle（放在格式栏末尾）
   const toggle = document.createElement('button');
