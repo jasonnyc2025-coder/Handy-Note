@@ -247,18 +247,18 @@
   .tab {
     flex: 0 0 auto;
     border: none;
-    background: transparent;
+    background: var(--line);
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: 0.93rem;
     font-weight: 500;
     color: var(--ink-soft);
-    padding: 6px 14px;
+    padding: 8px 16px;
     border-radius: 9px;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
   }
-  .tab-add { font-size: 1.1rem; padding: 4px 12px; color: var(--accent); }
+  .tab-add { font-size: 1.1rem; padding: 6px 12px; color: var(--accent); background: transparent; }
   .tab-edit-hint { font-size: 0.65rem; opacity: 0.7; margin-left: 1px; }
   .tab.dragging {
     background: var(--accent);
@@ -295,8 +295,8 @@
     color: var(--paper);
   }
   .tab .count {
-    font-size: 0.72rem;
-    opacity: 0.6;
+    font-size: 0.75rem;
+    opacity: 0.75;
     margin-left: 3px;
   }
 
