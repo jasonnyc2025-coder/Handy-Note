@@ -3171,9 +3171,12 @@ function startEditSub(span, n, s) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || editAtts.length) {
-        s.text = html;
-        s.rich = true;
-        s.atts = editAtts;
+        // Re-find by ID in case cloudPull replaced the notes array
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        liveS.text = html;
+        liveS.rich = true;
+        liveS.atts = editAtts;
         save();
       }
     }
@@ -3388,7 +3391,11 @@ function startEditSubSub(ssRow, n, s, ss) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || editAtts.length) {
-        ss.text = html; ss.rich = true; ss.atts = editAtts;
+        // Re-find by ID in case cloudPull replaced the notes array
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        liveSS.text = html; liveSS.rich = true; liveSS.atts = editAtts;
         save();
       }
     }
