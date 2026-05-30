@@ -667,15 +667,14 @@
     text-decoration-color: var(--done);
   }
   .subsub-edit-btn {
-    background: var(--line); border: 1px solid var(--line);
-    color: var(--ink); font-size: 0.82rem;
-    font-family: inherit; font-weight: 500;
-    cursor: pointer; padding: 5px 12px;
+    background: none; border: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 0.85rem;
+    cursor: pointer; padding: 3px 7px;
     border-radius: 20px;
-    flex-shrink: 0; line-height: 1;
+    opacity: 0.75; flex-shrink: 0; line-height: 1;
     transition: all 0.2s;
   }
-  .subsub-edit-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .subsub-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
   .subsub-del {
     background: none; border: none;
     color: var(--ink-soft); font-size: 0.9rem;
@@ -803,10 +802,10 @@
   .sub-meta .sub-date { display: inline; margin-top: 0; }
   .sub-mini-btn {
     border: 1px solid var(--line);
-    background: transparent;
+    background: var(--line);
     font-family: inherit;
     font-size: 0.78rem;
-    color: var(--ink-soft);
+    color: var(--ink);
     padding: 5px 12px;
     border-radius: 20px;
     cursor: pointer;
@@ -2595,7 +2594,7 @@ function renderSubSubs(s, isTodo) {
         <span class="subsub-text">${highlight(ss)}</span>
         ${renderSubSubAtts(ss)}
       </div>
-      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">编辑</button>
+      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
   `).join('')}</div>`;
