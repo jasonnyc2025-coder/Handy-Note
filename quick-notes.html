@@ -750,7 +750,7 @@
   .sss-del { background: none; border: none; color: var(--ink-soft); font-size: 0.85rem; cursor: pointer; padding: 3px 4px; opacity: 0.5; flex-shrink: 0; }
   .sss-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 6px; border-radius: 20px; opacity: 0.7; flex-shrink: 0; line-height: 1; transition: all 0.2s; }
   .sss-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
-  .sss-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 3px 8px; font-family: inherit; transition: all 0.2s; margin-top: 2px; display: inline-block; }
+  .sss-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 3px 8px; font-family: inherit; transition: all 0.2s; margin-top: 2px; align-self: flex-start; }
   .sss-add-form { display: flex; gap: 6px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
   .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
   .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
@@ -3815,11 +3815,13 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   const textEl = sssRow.querySelector('.sss-text');
   if (!textEl) return;
 
-  // Hide sibling action buttons so the form has full width
-  const editBtn = sssRow.querySelector('.sss-edit-btn');
-  const delBtn  = sssRow.querySelector('.sss-del');
-  if (editBtn) editBtn.style.display = 'none';
-  if (delBtn)  delBtn.style.display  = 'none';
+  // Hide sibling elements so the form has full row width
+  const editBtn   = sssRow.querySelector('.sss-edit-btn');
+  const delBtn    = sssRow.querySelector('.sss-del');
+  const checkEl   = sssRow.querySelector('.sss-check, .sss-bullet');
+  if (editBtn)  editBtn.style.display  = 'none';
+  if (delBtn)   delBtn.style.display   = 'none';
+  if (checkEl)  checkEl.style.display  = 'none';
 
   const form = document.createElement('div');
   form.className = 'sss-add-form';
