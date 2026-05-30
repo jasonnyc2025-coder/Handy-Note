@@ -2869,8 +2869,18 @@ function buildColorBar(richEl) {
   uBtn.innerHTML = '<u style="text-underline-offset:2px">U</u>';
   uBtn.addEventListener('mousedown', e => e.preventDefault());
   uBtn.addEventListener('click', () => {
-    fmt.underline = !fmt.underline;
-    reapply();
+    const sel = window.getSelection();
+    const hasSelection = sel && !sel.isCollapsed && richEl.contains(sel.anchorNode);
+    if (hasSelection) {
+      // 有选区：只对选中文字加/去下划线，不影响前后空白
+      richEl.focus();
+      document.execCommand('underline', false, null);
+      uBtn.classList.toggle('on', document.queryCommandState('underline'));
+    } else {
+      // 无选区：整体切换
+      fmt.underline = !fmt.underline;
+      reapply();
+    }
   });
   fmtBar.appendChild(uBtn);
   // 初始同步按钮高亮状态
