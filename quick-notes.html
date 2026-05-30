@@ -3392,9 +3392,11 @@ function startEditSub(span, n, s) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || editAtts.length) {
-        s.text = html;
-        s.rich = true;
-        s.atts = editAtts;
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        liveS.text = html;
+        liveS.rich = true;
+        liveS.atts = editAtts;
         save();
       }
     }
@@ -3627,7 +3629,10 @@ function startEditSubSub(ssRow, n, s, ss) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || editAtts.length) {
-        ss.text = html; ss.rich = true; ss.atts = editAtts;
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        liveSS.text = html; liveSS.rich = true; liveSS.atts = editAtts;
         save();
       }
     }
@@ -3711,9 +3716,10 @@ function startEdit(item, n) {
       const html = sanitizeRich(ta.innerHTML);
       const plain = plainOf(ta.innerHTML);
       if (plain || editAtts.length) {
-        n.text = html;
-        n.rich = true;
-        n.atts = editAtts;
+        const liveN = notes.find(x => x.id === n.id) || n;
+        liveN.text = html;
+        liveN.rich = true;
+        liveN.atts = editAtts;
         save();
       }
     }
