@@ -391,7 +391,6 @@
     align-items: flex-start;
     box-shadow: 0 2px 8px var(--shadow);
     animation: rise 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-    zoom: var(--content-zoom, 1);
   }
   @keyframes rise {
     from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -5165,74 +5164,6 @@ document.addEventListener('visibilitychange', () => {
     }
   } catch {}
 });
-
-// ===== 双指缩放内容 =====
-// 通过 CSS 变量 --content-zoom 控制 .item 的 zoom 属性
-// header/sticky 标签栏、composer、FAB 完全不受影响，无需 transform 或 margin 补偿
-(function initPinchZoom() {
-  const ZOOM_KEY = 'quicknotes.zoom';
-  const MIN_ZOOM = 0.6;
-  const MAX_ZOOM = 3.0;
-  let zoom = 1;
-
-  function applyZoom(z) {
-    zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-    document.documentElement.style.setProperty('--content-zoom', zoom);
-  }
-
-  function saveZoom() {
-    try { localStorage.setItem(ZOOM_KEY, zoom.toFixed(3)); } catch {}
-  }
-
-  function loadZoom() {
-    try {
-      const v = parseFloat(localStorage.getItem(ZOOM_KEY));
-      if (v >= MIN_ZOOM && v <= MAX_ZOOM) applyZoom(v);
-    } catch {}
-  }
-
-  loadZoom();
-
-  let startDist = 0;
-  let startZoom = 1;
-  let pinching = false;
-
-  function dist(t) {
-    const dx = t[0].clientX - t[1].clientX;
-    const dy = t[0].clientY - t[1].clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  document.addEventListener('touchstart', e => {
-    if (e.touches.length === 2) {
-      pinching = true;
-      startDist = dist(e.touches);
-      startZoom = zoom;
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  document.addEventListener('touchmove', e => {
-    if (!pinching || e.touches.length !== 2) return;
-    const ratio = dist(e.touches) / startDist;
-    applyZoom(startZoom * ratio);
-    e.preventDefault();
-  }, { passive: false });
-
-  document.addEventListener('touchend', e => {
-    if (!pinching) return;
-    if (e.touches.length < 2) {
-      pinching = false;
-      saveZoom();
-    }
-  }, { passive: true });
-
-  // 双击列表区域重置缩放
-  document.getElementById('list').addEventListener('dblclick', () => {
-    applyZoom(1);
-    saveZoom();
-  });
-})();
 </script>
 </body>
 </html>
