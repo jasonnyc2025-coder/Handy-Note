@@ -391,6 +391,7 @@
     align-items: flex-start;
     box-shadow: 0 2px 8px var(--shadow);
     animation: rise 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+    zoom: var(--content-zoom, 1);
   }
   @keyframes rise {
     from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -5166,28 +5167,17 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ===== 双指缩放内容 =====
+// 通过 CSS 变量 --content-zoom 控制 .item 的 zoom 属性
+// header/sticky 标签栏、composer、FAB 完全不受影响，无需 transform 或 margin 补偿
 (function initPinchZoom() {
   const ZOOM_KEY = 'quicknotes.zoom';
   const MIN_ZOOM = 0.6;
   const MAX_ZOOM = 3.0;
   let zoom = 1;
 
-  // 只缩放 #list（笔记列表），header/sticky 标签栏和 fixed 元素均不受影响
-  // transform: scale 不改变子元素布局宽度，子项文字不会被压窄
   function applyZoom(z) {
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-    const list = document.getElementById('list');
-    if (!list) return;
-    if (zoom === 1) {
-      list.style.removeProperty('transform');
-      list.style.removeProperty('transform-origin');
-      list.style.removeProperty('margin-bottom');
-    } else {
-      list.style.transformOrigin = 'top center';
-      list.style.transform = `scale(${zoom})`;
-      // transform 不占实际布局高度，用 margin-bottom 撑开滚动空间
-      list.style.marginBottom = (list.scrollHeight * (zoom - 1)) + 'px';
-    }
+    document.documentElement.style.setProperty('--content-zoom', zoom);
   }
 
   function saveZoom() {
@@ -5233,11 +5223,6 @@ document.addEventListener('visibilitychange', () => {
     if (!pinching) return;
     if (e.touches.length < 2) {
       pinching = false;
-      // 缩放结束后重新计算高度补偿（内容高度可能已变化）
-      const list = document.getElementById('list');
-      if (list && zoom !== 1) {
-        list.style.marginBottom = (list.scrollHeight * (zoom - 1)) + 'px';
-      }
       saveZoom();
     }
   }, { passive: true });
