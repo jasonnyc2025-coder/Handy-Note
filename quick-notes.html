@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>随手记 · Quick Notes</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f4f1ea">
@@ -36,6 +36,8 @@
     background-image: radial-gradient(var(--line) 0.5px, transparent 0.5px);
     background-size: 22px 22px;
     transition: background-color 0.3s;
+    transform-origin: 0 0;
+    will-change: transform;
   }
 
   /* ===== 可选背景 ===== */
@@ -5164,6 +5166,107 @@ document.addEventListener('visibilitychange', () => {
     }
   } catch {}
 });
+
+// Photo-style pinch-to-zoom: scales the entire app with CSS transform,
+// so content never reflows (text stays same width, just visually larger).
+;(function(){
+  const B = document.body;
+  let s=1, tx=0, ty=0;                         // current scale & translation
+  let _s, _tx, _ty, _d, _mx, _my, _sy;         // pinch-gesture start state
+  let pan=null, _ptx=0, _pty=0;                 // single-finger pan state
+
+  function draw(anim){
+    B.style.transition = anim ? 'transform .22s ease' : 'none';
+    B.style.transform  = s === 1 ? '' : `translate(${tx}px,${ty}px) scale(${s})`;
+  }
+
+  function clampX(){
+    tx = Math.min(0, Math.max(tx, innerWidth - innerWidth * s));
+  }
+
+  function pdist(a, b){ return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY); }
+
+  // Prevent iOS Safari native gesture zoom
+  document.addEventListener('gesturestart',  e => e.preventDefault(), {passive:false});
+  document.addEventListener('gesturechange', e => e.preventDefault(), {passive:false});
+
+  document.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      [_s, _tx, _ty] = [s, tx, ty];
+      _d  = pdist(e.touches[0], e.touches[1]);
+      _mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      _my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      _sy = window.scrollY;
+      pan = null;
+    } else if (e.touches.length === 1 && s > 1) {
+      pan  = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+      [_ptx, _pty] = [tx, ty];
+    }
+  }, {passive: false});
+
+  document.addEventListener('touchmove', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const d  = pdist(e.touches[0], e.touches[1]);
+      const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const ns = Math.max(1, Math.min(5, _s * d / _d));
+      // Body-content coords of the start pinch centre (accounts for scroll)
+      const cx = (_mx - _tx) / _s;
+      const cy = (_my + _sy - _ty) / _s;
+      // Keep that content point under the current pinch centre
+      tx = mx - cx * ns;
+      ty = my + _sy - cy * ns;
+      s  = ns;
+      clampX();
+      draw(false);
+    } else if (e.touches.length === 1 && s > 1 && pan) {
+      e.preventDefault();
+      tx = _ptx + e.touches[0].clientX - pan.x;
+      ty = _pty + e.touches[0].clientY - pan.y;
+      clampX();
+      draw(false);
+    }
+  }, {passive: false});
+
+  document.addEventListener('touchend', e => {
+    if (e.touches.length < 2) pan = null;
+    if (e.touches.length === 1 && s > 1) {
+      pan = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+      [_ptx, _pty] = [tx, ty];
+    }
+    if (e.touches.length === 0 && s < 1.08) {
+      s = 1; tx = 0; ty = 0;
+      draw(true);
+    }
+  });
+
+  // Double-tap: zoom 2× at tap point, or reset to 1×
+  let _dt = 0;
+  document.addEventListener('touchend', e => {
+    if (e.changedTouches.length !== 1 || e.touches.length !== 0) return;
+    const now = Date.now();
+    const t   = e.changedTouches[0];
+    if (now - _dt < 300) {
+      _dt = 0;
+      if (s > 1) {
+        s = 1; tx = 0; ty = 0; draw(true);
+      } else {
+        const sy = window.scrollY;
+        const cx = (t.clientX - tx) / s;
+        const cy = (t.clientY + sy - ty) / s;
+        s = 2;
+        tx = t.clientX - cx * 2;
+        ty = t.clientY + sy - cy * 2;
+        clampX();
+        draw(true);
+      }
+    } else {
+      _dt = now;
+    }
+  });
+})();
 </script>
 </body>
 </html>
