@@ -5172,23 +5172,21 @@ document.addEventListener('visibilitychange', () => {
   const MAX_ZOOM = 3.0;
   let zoom = 1;
 
-  // 缩放 .wrap（正文区域），fixed 定位的 composer/fab/弹窗保持原样
+  // 只缩放 #list（笔记列表），header/sticky 标签栏和 fixed 元素均不受影响
+  // transform: scale 不改变子元素布局宽度，子项文字不会被压窄
   function applyZoom(z) {
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-    const wrap = document.querySelector('.wrap');
-    if (wrap) {
-      if (zoom === 1) {
-        wrap.style.removeProperty('transform');
-        wrap.style.removeProperty('transform-origin');
-        wrap.style.removeProperty('width');
-        wrap.style.removeProperty('margin-bottom');
-      } else {
-        // transform: scale 不改变 flex/block 布局宽度，子项文字不会被压窄
-        wrap.style.transformOrigin = 'top center';
-        wrap.style.transform = `scale(${zoom})`;
-        // 补偿 transform 不占实际高度：手动撑开页面高度
-        wrap.style.marginBottom = (wrap.scrollHeight * (zoom - 1)) + 'px';
-      }
+    const list = document.getElementById('list');
+    if (!list) return;
+    if (zoom === 1) {
+      list.style.removeProperty('transform');
+      list.style.removeProperty('transform-origin');
+      list.style.removeProperty('margin-bottom');
+    } else {
+      list.style.transformOrigin = 'top center';
+      list.style.transform = `scale(${zoom})`;
+      // transform 不占实际布局高度，用 margin-bottom 撑开滚动空间
+      list.style.marginBottom = (list.scrollHeight * (zoom - 1)) + 'px';
     }
   }
 
@@ -5236,9 +5234,9 @@ document.addEventListener('visibilitychange', () => {
     if (e.touches.length < 2) {
       pinching = false;
       // 缩放结束后重新计算高度补偿（内容高度可能已变化）
-      const wrap = document.querySelector('.wrap');
-      if (wrap && zoom !== 1) {
-        wrap.style.marginBottom = (wrap.scrollHeight * (zoom - 1)) + 'px';
+      const list = document.getElementById('list');
+      if (list && zoom !== 1) {
+        list.style.marginBottom = (list.scrollHeight * (zoom - 1)) + 'px';
       }
       saveZoom();
     }
