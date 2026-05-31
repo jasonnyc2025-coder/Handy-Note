@@ -5165,17 +5165,31 @@ document.addEventListener('visibilitychange', () => {
   } catch {}
 });
 
-// ===== 双指缩放列表内容 =====
+// ===== 双指缩放内容 =====
 (function initPinchZoom() {
   const ZOOM_KEY = 'quicknotes.zoom';
   const MIN_ZOOM = 0.6;
   const MAX_ZOOM = 3.0;
   let zoom = 1;
 
+  // 缩放 .wrap（正文区域），fixed 定位的 composer/fab/弹窗保持原样
   function applyZoom(z) {
     zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
-    const list = document.getElementById('list');
-    if (list) list.style.zoom = zoom;
+    const wrap = document.querySelector('.wrap');
+    if (wrap) {
+      if (zoom === 1) {
+        wrap.style.removeProperty('transform');
+        wrap.style.removeProperty('transform-origin');
+        wrap.style.removeProperty('width');
+        wrap.style.removeProperty('margin-bottom');
+      } else {
+        // transform: scale 不改变 flex/block 布局宽度，子项文字不会被压窄
+        wrap.style.transformOrigin = 'top center';
+        wrap.style.transform = `scale(${zoom})`;
+        // 补偿 transform 不占实际高度：手动撑开页面高度
+        wrap.style.marginBottom = (wrap.scrollHeight * (zoom - 1)) + 'px';
+      }
+    }
   }
 
   function saveZoom() {
@@ -5221,19 +5235,19 @@ document.addEventListener('visibilitychange', () => {
     if (!pinching) return;
     if (e.touches.length < 2) {
       pinching = false;
+      // 缩放结束后重新计算高度补偿（内容高度可能已变化）
+      const wrap = document.querySelector('.wrap');
+      if (wrap && zoom !== 1) {
+        wrap.style.marginBottom = (wrap.scrollHeight * (zoom - 1)) + 'px';
+      }
       saveZoom();
     }
   }, { passive: true });
 
   // 双击列表区域重置缩放
-  let lastTap = 0;
-  document.getElementById('list').addEventListener('dblclick', e => {
-    const now = Date.now();
-    if (now - lastTap < 350) {
-      applyZoom(1);
-      saveZoom();
-    }
-    lastTap = now;
+  document.getElementById('list').addEventListener('dblclick', () => {
+    applyZoom(1);
+    saveZoom();
   });
 })();
 </script>
