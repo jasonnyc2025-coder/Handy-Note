@@ -757,6 +757,13 @@
   .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
   .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
   .sss-cancel-btn { background: none; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; }
+  .sss-edit-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
+  .sss-rich-edit {
+    font-family: inherit; font-size: 0.9rem; line-height: 1.4;
+    border: 1px solid var(--accent); border-radius: 8px;
+    padding: 4px 8px; background: var(--paper); color: var(--ink);
+    outline: none; white-space: pre-wrap; word-break: break-word; min-height: 1.5em; max-height: 120px; overflow-y: auto;
+  }
   .sub-text {
     flex: 1;
     font-size: var(--note-font, 0.97rem);
@@ -3775,107 +3782,154 @@ function startEditSubSub(ssRow, n, s, ss) {
 // 在子子项下添加第四级子项
 function startAddSSS(ssRow, n, s, ss) {
   const body = ssRow.querySelector('.subsub-body');
-  if (body.querySelector('.sss-add-form')) return;
+  if (body.querySelector('.sss-edit-wrap')) return;
 
-  const form = document.createElement('div');
-  form.className = 'sss-add-form';
+  const wrap = document.createElement('div');
+  wrap.className = 'sss-edit-wrap';
 
-  const input = document.createElement('input');
-  input.type = 'text'; input.className = 'sss-input';
-  input.placeholder = '子项内容…';
+  const rich = document.createElement('div');
+  rich.className = 'sss-rich-edit';
+  rich.contentEditable = 'true';
+  rich.setAttribute('placeholder', '子子子项内容…');
 
+  const colorWrap = buildColorBar(rich);
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  toolbar.appendChild(fmtBar);
+
+  const actions = document.createElement('div');
+  actions.className = 'subsub-edit-actions';
   const okBtn = document.createElement('button');
-  okBtn.type = 'button'; okBtn.className = 'sss-ok-btn'; okBtn.textContent = '添加';
-
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '添加';
   const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  form.appendChild(input);
-  const btnRow1 = document.createElement('div');
-  btnRow1.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
-  btnRow1.appendChild(okBtn); btnRow1.appendChild(cancelBtn);
-  form.appendChild(btnRow1);
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(actions);
+
   const addBtn = body.querySelector('.sss-add-btn');
-  addBtn ? body.insertBefore(form, addBtn) : body.appendChild(form);
-  input.focus();
+  addBtn ? body.insertBefore(wrap, addBtn) : body.appendChild(wrap);
+  rich.focus();
 
-  let done = false;
+  let committed = false;
   const commit = (saveIt) => {
-    if (done) return; done = true;
-    const text = input.value.trim();
-    if (saveIt && text) {
-      const liveN = notes.find(x => x.id === n.id) || n;
-      const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
-      const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
-      if (!liveSS.subs) liveSS.subs = [];
-      liveSS.subs.push({ id: Date.now()+''+Math.random().toString(36).slice(2,6), text: esc(text), rich: false, done: false, ts: Date.now() });
-      save();
+    if (committed) return;
+    committed = true;
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain) {
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        if (!liveSS.subs) liveSS.subs = [];
+        liveSS.subs.push({ id: Date.now()+''+Math.random().toString(36).slice(2,6), text: html, rich: true, done: false, ts: Date.now() });
+        save();
+      }
     }
     render();
   };
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
   okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
   cancelBtn.addEventListener('click', () => commit(false));
-  input.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
-    if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
   });
-  input.addEventListener('blur', () => { setTimeout(() => { if (!done) commit(input.value.trim() ? true : false); }, 200); });
+  rich.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!committed && document.activeElement !== rich) {
+        const html = sanitizeRich(rich.innerHTML);
+        if (plainOf(html)) commit(true);
+      }
+    }, 220);
+  });
 }
 
-// 编辑第四级子项
+// 编辑第四级子项（富文本 + 颜色）
 function startEditSSS(sssRow, n, s, ss, sss) {
-  if (sssRow.querySelector('.sss-input')) return;
+  if (sssRow.querySelector('.sss-edit-wrap')) return;
   const textEl = sssRow.querySelector('.sss-text');
   if (!textEl) return;
 
-  // Hide sibling elements so the form has full row width
-  const editBtn   = sssRow.querySelector('.sss-edit-btn');
-  const delBtn    = sssRow.querySelector('.sss-del');
-  const checkEl   = sssRow.querySelector('.sss-check, .sss-bullet');
+  const editBtn  = sssRow.querySelector('.sss-edit-btn');
+  const delBtn   = sssRow.querySelector('.sss-del');
+  const checkEl  = sssRow.querySelector('.sss-check, .sss-bullet');
   if (editBtn)  editBtn.style.display  = 'none';
   if (delBtn)   delBtn.style.display   = 'none';
   if (checkEl)  checkEl.style.display  = 'none';
 
-  const form = document.createElement('div');
-  form.className = 'sss-add-form';
-  form.style.cssText = 'flex: 1; margin-top: 2px;';
+  const wrap = document.createElement('div');
+  wrap.className = 'sss-edit-wrap';
+  wrap.style.flex = '1';
 
-  const input = document.createElement('input');
-  input.type = 'text'; input.className = 'sss-input';
-  input.value = plainOf(sss.text) || '';
+  const rich = document.createElement('div');
+  rich.className = 'sss-rich-edit';
+  rich.contentEditable = 'true';
+  rich.innerHTML = sss.rich ? sanitizeRich(sss.text || '') : esc(sss.text || '');
 
+  const colorWrap = buildColorBar(rich);
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  toolbar.appendChild(fmtBar);
+
+  const actions = document.createElement('div');
+  actions.className = 'subsub-edit-actions';
   const okBtn = document.createElement('button');
-  okBtn.type = 'button'; okBtn.className = 'sss-ok-btn'; okBtn.textContent = '保存';
-
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '保存';
   const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button'; cancelBtn.className = 'sss-cancel-btn'; cancelBtn.textContent = '取消';
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  form.appendChild(input);
-  const btnRow2 = document.createElement('div');
-  btnRow2.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
-  btnRow2.appendChild(okBtn); btnRow2.appendChild(cancelBtn);
-  form.appendChild(btnRow2);
-  textEl.replaceWith(form);
-  input.focus(); input.select();
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(actions);
+  textEl.replaceWith(wrap);
+  rich.focus();
+  try {
+    const sel = window.getSelection(), range = document.createRange();
+    range.selectNodeContents(rich); range.collapse(false);
+    sel.removeAllRanges(); sel.addRange(range);
+  } catch {}
 
-  let done = false;
+  let committed = false;
   const commit = (saveIt) => {
-    if (done) return; done = true;
-    const text = input.value.trim();
-    if (saveIt && text) {
-      const liveN = notes.find(x => x.id === n.id) || n;
-      const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
-      const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
-      const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
-      liveSSS.text = esc(text); liveSSS.rich = false; save();
+    if (committed) return;
+    committed = true;
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      const plain = plainOf(html);
+      if (plain) {
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
+        liveSSS.text = html; liveSSS.rich = true; save();
+      }
     }
     render();
   };
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
   okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
   cancelBtn.addEventListener('click', () => commit(false));
-  input.addEventListener('keydown', ev => {
-    if (ev.key === 'Enter') { ev.preventDefault(); commit(true); }
-    if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  });
+  rich.addEventListener('blur', () => {
+    setTimeout(() => { if (!committed && document.activeElement !== rich) commit(true); }, 220);
   });
 }
 
