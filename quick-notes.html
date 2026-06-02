@@ -757,8 +757,8 @@
   .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
   .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
   .sss-cancel-btn { background: none; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; }
-  .sub-pin-btn, .subsub-pin-btn, .sss-pin-btn { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 4px; opacity: 0.4; flex-shrink: 0; transition: opacity 0.15s, color 0.15s; }
-  .sub-pin-btn:hover, .subsub-pin-btn:hover, .sss-pin-btn:hover { opacity: 1; color: var(--accent); }
+  .sss-pin-btn { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 4px; opacity: 0.65; flex-shrink: 0; transition: opacity 0.15s, color 0.15s; }
+  .sss-pin-btn:hover { opacity: 1; color: var(--accent); }
   .sss-edit-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
   .sss-rich-edit {
     font-family: inherit; font-size: 0.9rem; line-height: 1.4;
@@ -2659,9 +2659,9 @@ function renderSubSubs(s, isTodo) {
         <span class="subsub-text">${highlight(ss)}</span>
         ${renderSubSubAtts(ss)}
         ${renderSSS(ss, isTodo, s.id)}
+        ${ssIdx > 0 ? `<button class="sss-add-btn subsub-pin-inline" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
         <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
       </div>
-      ${ssIdx > 0 ? `<button class="subsub-pin-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}" title="置顶">↑</button>` : ''}
       <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
@@ -2687,11 +2687,11 @@ function renderSubs(n) {
         <div class="sub-meta">
           ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
+          ${i > 0 ? `<button class="sub-mini-btn sub-pin-inline" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
           <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
           <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
         </div>
       </div>
-      ${i > 0 ? `<button class="sub-pin-btn" data-act="subpin" data-sub="${s.id}" title="置顶">↑</button>` : ''}
       <button class="sub-del" data-act="subdel" data-sub="${s.id}">×</button>
     </div>
   `).join('');
