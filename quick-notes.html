@@ -757,6 +757,8 @@
   .sss-input { flex: 1; min-width: 0; font-family: inherit; font-size: 0.9rem; border: 1px solid var(--accent); border-radius: 8px; padding: 4px 8px; background: var(--paper); color: var(--ink); outline: none; }
   .sss-ok-btn { background: var(--accent); color: white; border: none; border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; font-weight: 500; }
   .sss-cancel-btn { background: none; color: var(--ink-soft); border: 1px solid var(--line); border-radius: 8px; padding: 5px 14px; font-size: 0.88rem; font-family: inherit; cursor: pointer; }
+  .sub-pin-btn, .subsub-pin-btn, .sss-pin-btn { background: none; border: none; color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 4px; opacity: 0.4; flex-shrink: 0; transition: opacity 0.15s, color 0.15s; }
+  .sub-pin-btn:hover, .subsub-pin-btn:hover, .sss-pin-btn:hover { opacity: 1; color: var(--accent); }
   .sss-edit-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
   .sss-rich-edit {
     font-family: inherit; font-size: 0.9rem; line-height: 1.4;
@@ -2631,13 +2633,14 @@ function renderSubSubAtts(ss) {
 
 function renderSSS(ss, isTodo, sid) {
   if (!ss.subs || !ss.subs.length) return '';
-  return `<div class="sss-list">${ss.subs.map(sss => `
+  return `<div class="sss-list">${ss.subs.map((sss, sssIdx) => `
     <div class="sss-row ${isTodo && sss.done ? 'done' : ''}" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">
       ${isTodo
         ? `<div class="sss-check ${sss.done ? 'on' : ''}" data-act="ssstoggle" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}"></div>`
         : `<div class="sss-bullet"></div>`
       }
       <span class="sss-text">${highlight(sss)}</span>
+      ${sssIdx > 0 ? `<button class="sss-pin-btn" data-act="ssspin" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}" title="置顶">↑</button>` : ''}
       <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
       <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
     </div>
@@ -2646,7 +2649,7 @@ function renderSSS(ss, isTodo, sid) {
 
 function renderSubSubs(s, isTodo) {
   if (!s.subs || !s.subs.length) return '';
-  return `<div class="subsub-list">${s.subs.map(ss => `
+  return `<div class="subsub-list">${s.subs.map((ss, ssIdx) => `
     <div class="subsub-row ${isTodo && ss.done ? 'done' : ''}" data-subsub="${ss.id}" data-sub="${s.id}">
       ${isTodo
         ? `<div class="subsub-check ${ss.done ? 'on' : ''}" data-act="subsubtoggle" data-subsub="${ss.id}" data-sub="${s.id}"></div>`
@@ -2658,6 +2661,7 @@ function renderSubSubs(s, isTodo) {
         ${renderSSS(ss, isTodo, s.id)}
         <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
       </div>
+      ${ssIdx > 0 ? `<button class="subsub-pin-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}" title="置顶">↑</button>` : ''}
       <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
@@ -2687,6 +2691,7 @@ function renderSubs(n) {
           <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
         </div>
       </div>
+      ${i > 0 ? `<button class="sub-pin-btn" data-act="subpin" data-sub="${s.id}" title="置顶">↑</button>` : ''}
       <button class="sub-del" data-act="subdel" data-sub="${s.id}">×</button>
     </div>
   `).join('');
@@ -3253,6 +3258,30 @@ document.getElementById('list').addEventListener('click', async e => {
     const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
     const sssRow = e.target.closest('.sss-row');
     if (sss && sssRow) startEditSSS(sssRow, n, s, ss, sss);
+  } else if (act === 'subpin') {
+    const sid = actEl.dataset.sub;
+    if (n && n.subs) {
+      const idx = n.subs.findIndex(x => x.id === sid);
+      if (idx > 0) { n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
+    }
+  } else if (act === 'subsubpin') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s && s.subs) {
+      const idx = s.subs.findIndex(x => x.id === ssid);
+      if (idx > 0) { s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
+    }
+  } else if (act === 'ssspin') {
+    const sid = actEl.dataset.sub;
+    const ssid = actEl.dataset.subsub;
+    const sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    if (ss && ss.subs) {
+      const idx = ss.subs.findIndex(x => x.id === sssid);
+      if (idx > 0) { ss.subs.unshift(ss.subs.splice(idx, 1)[0]); save(); render(); }
+    }
   }
 });
 
