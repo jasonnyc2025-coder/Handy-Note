@@ -2659,8 +2659,10 @@ function renderSubSubs(s, isTodo) {
         <span class="subsub-text">${highlight(ss)}</span>
         ${renderSubSubAtts(ss)}
         ${renderSSS(ss, isTodo, s.id)}
-        ${ssIdx > 0 ? `<button class="sss-add-btn subsub-pin-inline" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
-        <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
+          ${ssIdx > 0 ? `<button class="sss-add-btn subsub-pin-inline" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
+          <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
+        </div>
       </div>
       <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
       <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
