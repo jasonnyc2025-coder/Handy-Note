@@ -3845,7 +3845,9 @@ function startAddSSS(ssRow, n, s, ss) {
   wrap.appendChild(actions);
 
   const addBtn = body.querySelector('.sss-add-btn');
-  addBtn ? body.insertBefore(wrap, addBtn) : body.appendChild(wrap);
+  // addBtn may be nested inside a flex-wrapper div, not a direct child of body
+  const insertRef = addBtn ? (addBtn.parentNode === body ? addBtn : addBtn.parentNode) : null;
+  insertRef ? body.insertBefore(wrap, insertRef) : body.appendChild(wrap);
   rich.focus();
 
   let committed = false;
