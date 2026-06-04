@@ -2679,9 +2679,9 @@ function renderSSS(ss, isTodo, sid) {
         <span class="sss-text">${highlight(sss)}</span>
         <div class="sss-l5-wrap">
           ${renderL5(sss, isTodo, ss.id, sid)}
-          <button class="l5-add-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
         </div>
         <div class="sss-actions">
+          <button class="l5-add-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
           <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
           <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
         </div>
@@ -4037,8 +4037,9 @@ function startEditSSS(sssRow, n, s, ss, sss) {
 
 // 添加第五级子项
 function startAddL5(sssRow, n, s, ss, sss) {
+  const body = sssRow.querySelector('.sss-body');
+  if (!body || body.querySelector('.l5-edit-wrap')) return;
   const l5wrap = sssRow.querySelector('.sss-l5-wrap');
-  if (!l5wrap || l5wrap.querySelector('.l5-edit-wrap')) return;
 
   const wrap = document.createElement('div');
   wrap.className = 'l5-edit-wrap';
@@ -4069,8 +4070,8 @@ function startAddL5(sssRow, n, s, ss, sss) {
   wrap.appendChild(colorBar);
   wrap.appendChild(actionsDiv);
 
-  const addBtn = l5wrap.querySelector('.l5-add-btn');
-  l5wrap.insertBefore(wrap, addBtn);
+  const actionsEl = body.querySelector('.sss-actions');
+  actionsEl ? body.insertBefore(wrap, actionsEl) : body.appendChild(wrap);
   rich.focus();
 
   let committed = false;
