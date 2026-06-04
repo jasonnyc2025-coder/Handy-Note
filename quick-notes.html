@@ -2640,7 +2640,6 @@ function renderSSS(ss, isTodo, sid) {
         : `<div class="sss-bullet"></div>`
       }
       <span class="sss-text">${highlight(sss)}</span>
-      ${sssIdx > 0 ? `<button class="sss-pin-btn" data-act="ssspin" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}" title="置顶">↑</button>` : ''}
       <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
       <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
     </div>
@@ -3276,16 +3275,6 @@ document.getElementById('list').addEventListener('click', async e => {
     if (s && s.subs) {
       const idx = s.subs.findIndex(x => x.id === ssid);
       if (idx > 0) { if (n) n.modified = Date.now(); s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
-    }
-  } else if (act === 'ssspin') {
-    const sid = actEl.dataset.sub;
-    const ssid = actEl.dataset.subsub;
-    const sssid = actEl.dataset.sss;
-    const s = n && n.subs && n.subs.find(x => x.id === sid);
-    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
-    if (ss && ss.subs) {
-      const idx = ss.subs.findIndex(x => x.id === sssid);
-      if (idx > 0) { if (n) n.modified = Date.now(); ss.subs.unshift(ss.subs.splice(idx, 1)[0]); save(); render(); }
     }
   }
 });
