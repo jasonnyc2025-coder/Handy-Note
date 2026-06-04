@@ -668,21 +668,24 @@
     text-decoration: line-through;
     text-decoration-color: var(--done);
   }
+  .subsub-actions { display: flex; gap: 5px; margin-top: 3px; }
   .subsub-edit-btn {
     background: none; border: 1px solid var(--line);
-    color: var(--ink-soft); font-size: 0.85rem;
-    cursor: pointer; padding: 3px 7px;
+    color: var(--ink-soft); font-size: 0.78rem;
+    cursor: pointer; padding: 2px 8px;
     border-radius: 20px;
-    opacity: 0.75; flex-shrink: 0; line-height: 1;
+    opacity: 0.75; line-height: 1;
     transition: all 0.2s;
   }
   .subsub-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
   .subsub-del {
-    background: none; border: none;
-    color: var(--ink-soft); font-size: 0.9rem;
-    cursor: pointer; padding: 4px 6px;
-    opacity: 0.6; flex-shrink: 0;
+    background: none; border: 1px solid var(--line);
+    color: var(--ink-soft); font-size: 0.78rem;
+    cursor: pointer; padding: 2px 8px;
+    border-radius: 20px; opacity: 0.6;
+    transition: all 0.2s;
   }
+  .subsub-del:hover { border-color: var(--danger, #c8553d); color: var(--danger, #c8553d); opacity: 1; }
   .subsub-add-btn {
     font-size: 0.78rem;
     color: var(--ink-soft);
@@ -2668,9 +2671,11 @@ function renderSubSubs(s, isTodo) {
           ${ssIdx > 0 ? `<button class="sss-add-btn subsub-pin-inline" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
           <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
         </div>
+        <div class="subsub-actions">
+          <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎ 编辑</button>
+          <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">× 删除</button>
+        </div>
       </div>
-      <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎</button>
-      <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">×</button>
     </div>
   `).join('')}</div>`;
 }
@@ -3703,10 +3708,6 @@ function startEditSubSub(ssRow, n, s, ss) {
 
   const body = ssRow.querySelector('.subsub-body');
   if (body) body.style.display = 'none';
-  const editBtn = ssRow.querySelector('.subsub-edit-btn');
-  if (editBtn) editBtn.style.display = 'none';
-  const delBtn = ssRow.querySelector('.subsub-del');
-  if (delBtn) delBtn.style.display = 'none';
 
   let editAtts = (ss.atts || []).map(a => Object.assign({}, a));
   let picking = false;
@@ -3758,7 +3759,7 @@ function startEditSubSub(ssRow, n, s, ss) {
   wrap.appendChild(colorBar);
   wrap.appendChild(attList);
   wrap.appendChild(actions);
-  ssRow.insertBefore(wrap, ssRow.querySelector('.subsub-del'));
+  ssRow.appendChild(wrap);
   rich.focus();
   try {
     const sel = window.getSelection(), range = document.createRange();
