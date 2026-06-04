@@ -731,7 +731,7 @@
   .subsub-row-atts .pdf-chip { font-size: 0.72rem; color: var(--ink-soft); background: var(--hover); border-radius: 4px; padding: 2px 6px; display: flex; align-items: center; gap: 3px; }
 
   /* Sub-sub-sub (level 4) items */
-  .sss-list { margin: 4px 0 2px 16px; border-left: 2px dotted var(--line); padding-left: 8px; }
+  .sss-list { margin: 4px 0 2px 10px; border-left: 2px dotted var(--line); padding-left: 6px; }
   .sss-row { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; }
   .sss-check {
     width: 11px; height: 11px;
@@ -747,10 +747,12 @@
   .sss-check.on { background: var(--accent); border-color: var(--accent); }
   .sss-check.on::after { content: ''; width: 2px; height: 5px; border: solid var(--paper); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg) translateY(-1px); }
   .sss-bullet { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 7px; opacity: 0.5; }
-  .sss-text { flex: 1; font-size: 0.93rem; line-height: 1.4; color: var(--ink); word-break: break-word; }
+  .sss-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .sss-text { font-size: 0.93rem; line-height: 1.4; color: var(--ink); word-break: break-word; }
   .sss-row.done .sss-text { color: var(--done); text-decoration: line-through; text-decoration-color: var(--done); }
-  .sss-del { background: none; border: none; color: var(--ink-soft); font-size: 0.85rem; cursor: pointer; padding: 3px 4px; opacity: 0.5; flex-shrink: 0; }
-  .sss-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 6px; border-radius: 20px; opacity: 0.7; flex-shrink: 0; line-height: 1; transition: all 0.2s; }
+  .sss-actions { display: flex; gap: 4px; margin-top: 1px; }
+  .sss-del { background: none; border: none; color: var(--ink-soft); font-size: 0.85rem; cursor: pointer; padding: 3px 4px; opacity: 0.5; }
+  .sss-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 2px 6px; border-radius: 20px; opacity: 0.7; line-height: 1; transition: all 0.2s; }
   .sss-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
   .sss-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 3px 8px; font-family: inherit; transition: all 0.2s; margin-top: 2px; align-self: flex-start; }
   .sss-add-form { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
@@ -2639,9 +2641,13 @@ function renderSSS(ss, isTodo, sid) {
         ? `<div class="sss-check ${sss.done ? 'on' : ''}" data-act="ssstoggle" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}"></div>`
         : `<div class="sss-bullet"></div>`
       }
-      <span class="sss-text">${highlight(sss)}</span>
-      <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
-      <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
+      <div class="sss-body">
+        <span class="sss-text">${highlight(sss)}</span>
+        <div class="sss-actions">
+          <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
+          <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
+        </div>
+      </div>
     </div>
   `).join('')}</div>`;
 }
@@ -3889,16 +3895,13 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   const textEl = sssRow.querySelector('.sss-text');
   if (!textEl) return;
 
-  const editBtn  = sssRow.querySelector('.sss-edit-btn');
-  const delBtn   = sssRow.querySelector('.sss-del');
-  const checkEl  = sssRow.querySelector('.sss-check, .sss-bullet');
-  if (editBtn)  editBtn.style.display  = 'none';
-  if (delBtn)   delBtn.style.display   = 'none';
-  if (checkEl)  checkEl.style.display  = 'none';
+  const actionsEl = sssRow.querySelector('.sss-actions');
+  const checkEl   = sssRow.querySelector('.sss-check, .sss-bullet');
+  if (actionsEl) actionsEl.style.display = 'none';
+  if (checkEl)   checkEl.style.display   = 'none';
 
   const wrap = document.createElement('div');
   wrap.className = 'sss-edit-wrap';
-  wrap.style.flex = '1';
 
   const rich = document.createElement('div');
   rich.className = 'sss-rich-edit';
