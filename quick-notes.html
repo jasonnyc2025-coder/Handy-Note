@@ -771,6 +771,21 @@
     padding: 4px 8px; background: var(--paper); color: var(--ink);
     outline: none; white-space: pre-wrap; word-break: break-word; min-height: 1.5em; max-height: 120px; overflow-y: auto;
   }
+  /* Level-5 items */
+  .l5-list { margin: 3px 0 2px 8px; border-left: 2px dotted var(--line); padding-left: 5px; opacity: 0.9; }
+  .l5-row { display: flex; align-items: flex-start; gap: 5px; padding: 2px 0; }
+  .l5-bullet { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 8px; opacity: 0.35; }
+  .l5-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .l5-text { font-size: 0.88rem; line-height: 1.35; color: var(--ink); word-break: break-word; }
+  .l5-row.done .l5-text { color: var(--done); text-decoration: line-through; text-decoration-color: var(--done); }
+  .l5-actions { display: flex; gap: 3px; margin-top: 1px; }
+  .l5-edit-btn { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.76rem; cursor: pointer; padding: 1px 5px; border-radius: 20px; opacity: 0.7; line-height: 1; transition: all 0.2s; }
+  .l5-edit-btn:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+  .l5-del { background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.76rem; cursor: pointer; padding: 1px 5px; border-radius: 20px; opacity: 0.6; transition: all 0.2s; }
+  .l5-del:hover { border-color: var(--danger,#c8553d); color: var(--danger,#c8553d); opacity: 1; }
+  .l5-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 2px 7px; font-family: inherit; transition: all 0.2s; margin-top: 2px; }
+  .l5-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .sss-l5-wrap { display: flex; flex-direction: column; }
   .sub-text {
     flex: 1;
     font-size: var(--note-font, 0.97rem);
@@ -2636,6 +2651,22 @@ function renderSubSubAtts(ss) {
   ).join('')}</div>`;
 }
 
+function renderL5(sss, isTodo, ssid, sid) {
+  if (!sss.subs || !sss.subs.length) return '';
+  return `<div class="l5-list">${sss.subs.map(l5 => `
+    <div class="l5-row ${isTodo && l5.done ? 'done' : ''}" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">
+      <div class="l5-bullet"></div>
+      <div class="l5-body">
+        <span class="l5-text">${highlight(l5)}</span>
+        <div class="l5-actions">
+          <button class="l5-edit-btn" data-act="l5edit" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">✎</button>
+          <button class="l5-del" data-act="l5del" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">×</button>
+        </div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
 function renderSSS(ss, isTodo, sid) {
   if (!ss.subs || !ss.subs.length) return '';
   return `<div class="sss-list">${ss.subs.map((sss, sssIdx) => `
@@ -2646,6 +2677,10 @@ function renderSSS(ss, isTodo, sid) {
       }
       <div class="sss-body">
         <span class="sss-text">${highlight(sss)}</span>
+        <div class="sss-l5-wrap">
+          ${renderL5(sss, isTodo, ss.id, sid)}
+          <button class="l5-add-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
+        </div>
         <div class="sss-actions">
           <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
           <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
@@ -3273,6 +3308,35 @@ document.getElementById('list').addEventListener('click', async e => {
     const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
     const sssRow = e.target.closest('.sss-row');
     if (sss && sssRow) startEditSSS(sssRow, n, s, ss, sss);
+  } else if (act === 'l5add') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub, sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    const sssRow = e.target.closest('.sss-row');
+    if (sss && sssRow) startAddL5(sssRow, n, s, ss, sss);
+  } else if (act === 'l5edit') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub, sssid = actEl.dataset.sss, l5id = actEl.dataset.l5;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    const l5 = sss && sss.subs && sss.subs.find(x => x.id === l5id);
+    const l5Row = e.target.closest('.l5-row');
+    if (l5 && l5Row) startEditL5(l5Row, n, s, ss, sss, l5);
+  } else if (act === 'l5del') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub, sssid = actEl.dataset.sss, l5id = actEl.dataset.l5;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    if (sss && sss.subs) {
+      const l5 = sss.subs.find(x => x.id === l5id);
+      const preview = (plainOf(l5 && l5.text || '') || '（无文字）').slice(0, 20);
+      if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
+        if (n) n.modified = Date.now();
+        sss.subs = sss.subs.filter(x => x.id !== l5id);
+        save(); render();
+      }
+    }
   } else if (act === 'subpin') {
     const sid = actEl.dataset.sub;
     if (n && n.subs) {
@@ -3898,8 +3962,10 @@ function startEditSSS(sssRow, n, s, ss, sss) {
 
   const actionsEl = sssRow.querySelector('.sss-actions');
   const checkEl   = sssRow.querySelector('.sss-check, .sss-bullet');
-  if (actionsEl) actionsEl.style.display = 'none';
-  if (checkEl)   checkEl.style.display   = 'none';
+  const l5WrapEl  = sssRow.querySelector('.sss-l5-wrap');
+  if (actionsEl)  actionsEl.style.display  = 'none';
+  if (checkEl)    checkEl.style.display    = 'none';
+  if (l5WrapEl)   l5WrapEl.style.display   = 'none';
 
   const wrap = document.createElement('div');
   wrap.className = 'sss-edit-wrap';
@@ -3967,6 +4033,149 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   rich.addEventListener('blur', () => {
     setTimeout(() => { if (!committed && document.activeElement !== rich) commit(true); }, 220);
   });
+}
+
+// 添加第五级子项
+function startAddL5(sssRow, n, s, ss, sss) {
+  const l5wrap = sssRow.querySelector('.sss-l5-wrap');
+  if (!l5wrap || l5wrap.querySelector('.l5-edit-wrap')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'l5-edit-wrap';
+
+  const rich = document.createElement('div');
+  rich.className = 'sss-rich-edit';
+  rich.contentEditable = 'true';
+  rich.setAttribute('placeholder', '第五层子项…');
+
+  const colorWrap = buildColorBar(rich);
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  toolbar.appendChild(fmtBar);
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'subsub-edit-actions';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '添加';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actionsDiv.appendChild(okBtn); actionsDiv.appendChild(cancelBtn);
+
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(actionsDiv);
+
+  const addBtn = l5wrap.querySelector('.l5-add-btn');
+  l5wrap.insertBefore(wrap, addBtn);
+  rich.focus();
+
+  let committed = false;
+  const commit = (saveIt) => {
+    if (committed) return;
+    committed = true;
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      if (plainOf(html)) {
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
+        if (!liveSSS.subs) liveSSS.subs = [];
+        liveSSS.subs.push({ id: Date.now()+Math.random().toString(36).slice(2,6), text: html, rich: true, done: false, ts: Date.now() });
+        liveN.modified = Date.now();
+        save();
+      }
+    }
+    render();
+  };
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
+  cancelBtn.addEventListener('click', () => commit(false));
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  });
+  rich.addEventListener('blur', () => { setTimeout(() => { if (!committed && document.activeElement !== rich) commit(true); }, 220); });
+}
+
+// 编辑第五级子项
+function startEditL5(l5Row, n, s, ss, sss, l5) {
+  if (l5Row.querySelector('.l5-edit-wrap')) return;
+  const textEl = l5Row.querySelector('.l5-text');
+  if (!textEl) return;
+
+  const actionsEl = l5Row.querySelector('.l5-actions');
+  if (actionsEl) actionsEl.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'l5-edit-wrap';
+
+  const rich = document.createElement('div');
+  rich.className = 'sss-rich-edit';
+  rich.contentEditable = 'true';
+  rich.innerHTML = l5.rich ? sanitizeRich(l5.text || '') : esc(l5.text || '');
+
+  const colorWrap = buildColorBar(rich);
+  const fmtBar = colorWrap.querySelector('.fmt-bar');
+  const colorBar = colorWrap.querySelector('.color-bar');
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'subsub-toolbar';
+  toolbar.appendChild(fmtBar);
+
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'subsub-edit-actions';
+  const okBtn = document.createElement('button');
+  okBtn.className = 'subsub-ok-btn'; okBtn.textContent = '保存';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
+  actionsDiv.appendChild(okBtn); actionsDiv.appendChild(cancelBtn);
+
+  wrap.appendChild(rich);
+  wrap.appendChild(toolbar);
+  wrap.appendChild(colorBar);
+  wrap.appendChild(actionsDiv);
+  textEl.replaceWith(wrap);
+  rich.focus();
+  try {
+    const sel = window.getSelection(), range = document.createRange();
+    range.selectNodeContents(rich); range.collapse(false);
+    sel.removeAllRanges(); sel.addRange(range);
+  } catch {}
+
+  let committed = false;
+  const commit = (saveIt) => {
+    if (committed) return;
+    committed = true;
+    if (saveIt) {
+      const html = sanitizeRich(rich.innerHTML);
+      if (plainOf(html)) {
+        const liveN = notes.find(x => x.id === n.id) || n;
+        const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
+        const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
+        const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
+        const liveL5 = (liveSSS.subs || []).find(x => x.id === l5.id) || l5;
+        liveL5.text = html; liveL5.rich = true;
+        liveN.modified = Date.now();
+        save();
+      }
+    }
+    render();
+  };
+  okBtn.addEventListener('mousedown', e => e.preventDefault());
+  okBtn.addEventListener('click', () => commit(true));
+  cancelBtn.addEventListener('mousedown', e => e.preventDefault());
+  cancelBtn.addEventListener('click', () => commit(false));
+  rich.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); commit(true); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); commit(false); }
+  });
+  rich.addEventListener('blur', () => { setTimeout(() => { if (!committed && document.activeElement !== rich) commit(true); }, 220); });
 }
 
 // 进入行内编辑
