@@ -3137,9 +3137,9 @@ document.getElementById('list').addEventListener('click', async e => {
       save(); render();
     }
   } else if (act === 'toggle') {
-    if (n) { n.done = !n.done; save(); render(); }
+    if (n) { n.modified = Date.now(); n.done = !n.done; save(); render(); }
   } else if (act === 'pin') {
-    if (n) { n.pinned = !n.pinned; save(); render(); }
+    if (n) { n.modified = Date.now(); n.pinned = !n.pinned; save(); render(); }
   } else if (act === 'view') {
     const att = n && n.atts[+actEl.dataset.idx];
     if (att) openLightbox(await getAttData(att));
@@ -3157,13 +3157,14 @@ document.getElementById('list').addEventListener('click', async e => {
   } else if (act === 'subtoggle') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
-    if (s) { s.done = !s.done; save(); render(); }
+    if (s) { if (n) n.modified = Date.now(); s.done = !s.done; save(); render(); }
   } else if (act === 'subdel') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s) {
       const preview = (plainOf(s.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
+        if (n) n.modified = Date.now();
         n.subs = n.subs.filter(x => x.id !== sid);
         save(); render();
       }
@@ -3202,7 +3203,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const ssid = actEl.dataset.subsub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
-    if (ss) { ss.done = !ss.done; save(); render(); }
+    if (ss) { if (n) n.modified = Date.now(); ss.done = !ss.done; save(); render(); }
   } else if (act === 'subsubdel') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
@@ -3211,6 +3212,7 @@ document.getElementById('list').addEventListener('click', async e => {
     if (ss) {
       const preview = (plainOf(ss.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
+        if (n) n.modified = Date.now();
         s.subs = s.subs.filter(x => x.id !== ssid);
         save(); render();
       }
@@ -3236,7 +3238,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
     const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
-    if (sss) { sss.done = !sss.done; save(); render(); }
+    if (sss) { if (n) n.modified = Date.now(); sss.done = !sss.done; save(); render(); }
   } else if (act === 'sssdel') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
@@ -3247,6 +3249,7 @@ document.getElementById('list').addEventListener('click', async e => {
     if (ss && sss) {
       const preview = (plainOf(sss.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除「${preview}」吗？`)) {
+        if (n) n.modified = Date.now();
         ss.subs = ss.subs.filter(x => x.id !== sssid);
         save(); render();
       }
@@ -3264,7 +3267,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const sid = actEl.dataset.sub;
     if (n && n.subs) {
       const idx = n.subs.findIndex(x => x.id === sid);
-      if (idx > 0) { n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
+      if (idx > 0) { n.modified = Date.now(); n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
     }
   } else if (act === 'subsubpin') {
     const sid = actEl.dataset.sub;
@@ -3272,7 +3275,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s && s.subs) {
       const idx = s.subs.findIndex(x => x.id === ssid);
-      if (idx > 0) { s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
+      if (idx > 0) { if (n) n.modified = Date.now(); s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
     }
   } else if (act === 'ssspin') {
     const sid = actEl.dataset.sub;
@@ -3282,7 +3285,7 @@ document.getElementById('list').addEventListener('click', async e => {
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
     if (ss && ss.subs) {
       const idx = ss.subs.findIndex(x => x.id === sssid);
-      if (idx > 0) { ss.subs.unshift(ss.subs.splice(idx, 1)[0]); save(); render(); }
+      if (idx > 0) { if (n) n.modified = Date.now(); ss.subs.unshift(ss.subs.splice(idx, 1)[0]); save(); render(); }
     }
   }
 });
@@ -3403,6 +3406,7 @@ function startAddSub(item, n) {
           text: html, rich: true, done: false,
           atts: subAtts.slice(), ts: Date.now()
         });
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -3555,6 +3559,7 @@ function startEditSub(span, n, s) {
         liveS.text = html;
         liveS.rich = true;
         liveS.atts = editAtts;
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -3671,6 +3676,7 @@ function startAddSubSub(subRow, n, s) {
           id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
           text: html, rich: true, atts: ssAtts.slice(), done: false, ts: Date.now()
         });
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -3791,6 +3797,7 @@ function startEditSubSub(ssRow, n, s, ss) {
         const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         liveSS.text = html; liveSS.rich = true; liveSS.atts = editAtts;
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -3863,6 +3870,7 @@ function startAddSSS(ssRow, n, s, ss) {
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         if (!liveSS.subs) liveSS.subs = [];
         liveSS.subs.push({ id: Date.now()+''+Math.random().toString(36).slice(2,6), text: html, rich: true, done: false, ts: Date.now() });
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -3948,7 +3956,9 @@ function startEditSSS(sssRow, n, s, ss, sss) {
         const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
-        liveSSS.text = html; liveSSS.rich = true; save();
+        liveSSS.text = html; liveSSS.rich = true;
+        liveN.modified = Date.now();
+        save();
       }
     }
     render();
@@ -4034,6 +4044,7 @@ function startEdit(item, n) {
         liveN.text = html;
         liveN.rich = true;
         liveN.atts = editAtts;
+        liveN.modified = Date.now();
         save();
       }
     }
@@ -4779,8 +4790,10 @@ function mergeNotes(incoming) {
     const cur = byId[n.id];
     if (!cur) { byId[n.id] = n; }
     else {
-      // 取 ts 较新的版本（编辑过的记录 ts 不变，这里简单保留已有，除非导入的有更多字段）
-      byId[n.id] = (n.ts >= cur.ts) ? n : cur;
+      // 用 modified（最后编辑时间）比较；旧数据没有 modified 则回退到 ts
+      const nTime  = n.modified   || n.ts;
+      const curTime = cur.modified || cur.ts;
+      byId[n.id] = (nTime >= curTime) ? n : cur;
     }
   });
   notes = Object.values(byId).sort((a,b) => b.ts - a.ts);
@@ -4980,15 +4993,19 @@ async function cloudPull() {
   if (!cloud || !cloud.token) return;
   const remote = await cloudFetch();
   if (!remote || !Array.isArray(remote.notes)) return;
-  const before = JSON.stringify(notes.map(n => n.id).sort());
+  // 对比完整内容（不只是 ID），确保子项/编辑内容变化也能触发更新
+  const before = JSON.stringify(notes);
   await extractInlineAtts(remote.notes);
   mergeNotes(remote.notes);
   if (Array.isArray(remote.cats)) {
     const have = new Set(cats.map(c => c.id));
     remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
   }
-  const after = JSON.stringify(notes.map(n => n.id).sort());
-  if (before !== after) { localStorage.setItem(KEY, JSON.stringify(notes)); render(); }
+  const after = JSON.stringify(notes);
+  if (before !== after) {
+    try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
+    render();
+  }
 }
 
 function updateCloudStatus() {
