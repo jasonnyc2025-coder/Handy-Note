@@ -36,8 +36,12 @@
     background-image: radial-gradient(var(--line) 0.5px, transparent 0.5px);
     background-size: 22px 22px;
     transition: background-color 0.3s;
+  }
+
+  #app-wrap {
     transform-origin: 0 0;
     will-change: transform;
+    min-height: 100vh;
   }
 
   /* ===== 可选背景 ===== */
@@ -1848,6 +1852,7 @@
 </style>
 </head>
 <body>
+<div id="app-wrap">
 <div id="lock-screen" class="hidden">
   <div class="lock-inner">
     <div class="lock-brand">随手<em>记</em></div>
@@ -1938,6 +1943,7 @@
   <button class="close" id="lb-close">×</button>
   <img id="lb-img" src="" alt="">
 </div>
+</div><!-- #app-wrap -->
 
 <div class="modal" id="remind-modal">
   <div class="modal-card">
@@ -5558,7 +5564,7 @@ document.addEventListener('visibilitychange', () => {
 // Photo-style pinch-to-zoom: scales the entire app with CSS transform,
 // so content never reflows (text stays same width, just visually larger).
 ;(function(){
-  const B = document.body;
+  const B = document.getElementById('app-wrap');
   let s=1, tx=0, ty=0;                         // current scale & translation
   let _s, _tx, _ty, _d, _mx, _my, _sy;         // pinch-gesture start state
   let pan=null, _ptx=0, _pty=0;                 // single-finger pan state
