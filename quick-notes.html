@@ -488,6 +488,25 @@
     border-top: 1px dashed var(--line);
   }
   .meta-actions.show { display: flex; }
+  /* 所有展开的 ⋯ 面板中，按钮统一使用强调色背景，删除按钮保持红色 */
+  .meta-actions.show button,
+  .sub-more-panel.open button,
+  .ss-more-panel.open button,
+  .sss-more-panel.open button,
+  .l5-more-panel.open button {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    opacity: 1;
+  }
+  .sub-more-panel.open [data-act*="del"],
+  .ss-more-panel.open [data-act*="del"],
+  .sss-more-panel.open [data-act*="del"],
+  .l5-more-panel.open [data-act*="del"] {
+    background: rgba(200,85,61,0.12);
+    border-color: var(--danger, #c8553d);
+    color: var(--danger, #c8553d);
+  }
   .pin-badge {
     font-size: 0.7rem;
     color: var(--accent);
