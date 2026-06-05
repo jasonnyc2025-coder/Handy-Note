@@ -2760,9 +2760,9 @@ function renderSubs(n) {
           <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
           <button class="sub-more-btn" data-act="submore" data-sub="${s.id}">⋯</button>
         </div>
+        ${(() => { const ts = s.ts || (parseInt(s.id) > 1e12 ? parseInt(s.id) : 0); return ts ? `<span class="sub-date">${fullDate(ts)}</span>` : ''; })()}
         ${renderSubAtts(s)}
         ${renderSubSubs(s, isTodo)}
-        ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
         <div class="sub-more-panel">
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
           ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
