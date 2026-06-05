@@ -2962,8 +2962,24 @@ function buildRecBtn(onDone) {
   btn.type = 'button';
   btn.textContent = '🎤 录音';
   let mediaRec = null, chunks = [], active = false;
+  function showErr(msg) {
+    const prev = btn.nextElementSibling;
+    if (prev && prev.classList.contains('rec-err')) prev.remove();
+    const span = document.createElement('span');
+    span.className = 'rec-err';
+    span.style.cssText = 'font-size:0.72rem;color:#c8553d;margin-left:4px;vertical-align:middle;';
+    span.textContent = '⚠ ' + msg;
+    btn.after(span);
+    setTimeout(() => span.remove(), 6000);
+  }
   btn.addEventListener('click', async () => {
+    const prev = btn.nextElementSibling;
+    if (prev && prev.classList.contains('rec-err')) prev.remove();
     if (!active) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showErr('录音需要 HTTPS 才能使用');
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/mp4',''].find(m => !m || MediaRecorder.isTypeSupported(m));
@@ -2989,7 +3005,7 @@ function buildRecBtn(onDone) {
         btn.classList.add('recording');
         btn.textContent = '⏹ 停止';
       } catch (err) {
-        alert('无法访问麦克风：' + (err.message || err));
+        showErr(err.message || '无法访问麦克风');
       }
     } else {
       if (mediaRec && mediaRec.state !== 'inactive') mediaRec.stop();
@@ -4635,7 +4651,6 @@ document.getElementById('attach').addEventListener('click', async e => {
     });
     recArea.appendChild(composerRecBtn);
     document.getElementById('pending').before(recArea);
-    composerRecBtn.click();
     return;
   }
   const got = await pickFilesByKind(kind);
