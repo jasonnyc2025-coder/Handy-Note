@@ -786,6 +786,27 @@
   .l5-add-btn { font-size: 0.72rem; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); border-radius: 20px; cursor: pointer; padding: 2px 7px; font-family: inherit; transition: all 0.2s; margin-top: 2px; }
   .l5-add-btn:hover { border-color: var(--accent); color: var(--accent); }
   .sss-l5-wrap { display: flex; flex-direction: column; }
+  /* Sub-level ⋯ more menus (levels 2–5) */
+  .sub-head { display: flex; align-items: flex-start; gap: 4px; }
+  .sub-more-btn { flex-shrink: 0; margin-top: 1px; background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.82rem; cursor: pointer; padding: 0 7px; border-radius: 20px; opacity: 0.55; line-height: 1.7; transition: all 0.2s; }
+  .sub-more-btn.open, .sub-more-btn:hover { opacity: 1; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .sub-more-panel { display: none; flex-wrap: wrap; gap: 6px; margin-top: 5px; padding-top: 5px; border-top: 1px dashed var(--line); }
+  .sub-more-panel.open { display: flex; align-items: center; }
+  .ss-head { display: flex; align-items: flex-start; gap: 4px; }
+  .ss-more-btn { flex-shrink: 0; margin-top: 1px; background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.78rem; cursor: pointer; padding: 0 6px; border-radius: 20px; opacity: 0.5; line-height: 1.6; transition: all 0.2s; }
+  .ss-more-btn.open, .ss-more-btn:hover { opacity: 1; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .ss-more-panel { display: none; flex-wrap: wrap; gap: 5px; margin-top: 3px; padding-top: 3px; border-top: 1px dashed var(--line); }
+  .ss-more-panel.open { display: flex; align-items: center; }
+  .sss-head { display: flex; align-items: flex-start; gap: 4px; }
+  .sss-more-btn { flex-shrink: 0; margin-top: 1px; background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.76rem; cursor: pointer; padding: 0 5px; border-radius: 20px; opacity: 0.45; line-height: 1.5; transition: all 0.2s; }
+  .sss-more-btn.open, .sss-more-btn:hover { opacity: 1; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .sss-more-panel { display: none; flex-wrap: wrap; gap: 4px; margin-top: 2px; padding-top: 2px; border-top: 1px dashed var(--line); }
+  .sss-more-panel.open { display: flex; align-items: center; }
+  .l5-head { display: flex; align-items: flex-start; gap: 4px; }
+  .l5-more-btn { flex-shrink: 0; margin-top: 1px; background: none; border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.72rem; cursor: pointer; padding: 0 5px; border-radius: 20px; opacity: 0.4; line-height: 1.5; transition: all 0.2s; }
+  .l5-more-btn.open, .l5-more-btn:hover { opacity: 1; background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .l5-more-panel { display: none; flex-wrap: wrap; gap: 3px; margin-top: 1px; padding-top: 2px; border-top: 1px dashed var(--line); }
+  .l5-more-panel.open { display: flex; align-items: center; }
   .sub-text {
     flex: 1;
     font-size: var(--note-font, 0.97rem);
@@ -2657,10 +2678,13 @@ function renderL5(sss, isTodo, ssid, sid) {
     <div class="l5-row ${isTodo && l5.done ? 'done' : ''}" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">
       <div class="l5-bullet"></div>
       <div class="l5-body">
-        <span class="l5-text">${highlight(l5)}</span>
-        <div class="l5-actions">
-          <button class="l5-edit-btn" data-act="l5edit" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">✎</button>
-          <button class="l5-del" data-act="l5del" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">×</button>
+        <div class="l5-head">
+          <span class="l5-text">${highlight(l5)}</span>
+          <button class="l5-more-btn" data-act="l5more" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">⋯</button>
+        </div>
+        <div class="l5-more-panel">
+          <button class="l5-edit-btn" data-act="l5edit" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">✎ 编辑</button>
+          <button class="l5-del" data-act="l5del" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">× 删除</button>
         </div>
       </div>
     </div>
@@ -2676,14 +2700,17 @@ function renderSSS(ss, isTodo, sid) {
         : `<div class="sss-bullet"></div>`
       }
       <div class="sss-body">
-        <span class="sss-text">${highlight(sss)}</span>
+        <div class="sss-head">
+          <span class="sss-text">${highlight(sss)}</span>
+          <button class="sss-more-btn" data-act="sssmore" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">⋯</button>
+        </div>
         <div class="sss-l5-wrap">
           ${renderL5(sss, isTodo, ss.id, sid)}
         </div>
-        <div class="sss-actions">
-          <button class="l5-add-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
-          <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎</button>
-          <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">×</button>
+        <div class="sss-more-panel">
+          <button class="sss-edit-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
+          <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎ 编辑</button>
+          <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">× 删除</button>
         </div>
       </div>
     </div>
@@ -2699,14 +2726,15 @@ function renderSubSubs(s, isTodo) {
         : `<div class="subsub-bullet"></div>`
       }
       <div class="subsub-body">
-        <span class="subsub-text">${highlight(ss)}</span>
+        <div class="ss-head">
+          <span class="subsub-text">${highlight(ss)}</span>
+          <button class="ss-more-btn" data-act="ssmore" data-subsub="${ss.id}" data-sub="${s.id}">⋯</button>
+        </div>
         ${renderSubSubAtts(ss)}
         ${renderSSS(ss, isTodo, s.id)}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;">
-          ${ssIdx > 0 ? `<button class="sss-add-btn subsub-pin-inline" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
-          <button class="sss-add-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
-        </div>
-        <div class="subsub-actions">
+        <div class="ss-more-panel">
+          ${ssIdx > 0 ? `<button class="subsub-edit-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
+          <button class="subsub-edit-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
           <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎ 编辑</button>
           <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">× 删除</button>
         </div>
@@ -2728,18 +2756,21 @@ function renderSubs(n) {
         : ''
       }
       <div class="sub-main">
-        <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
+        <div class="sub-head">
+          <span class="sub-text" data-sub="${s.id}">${highlight(s)}</span>
+          <button class="sub-more-btn" data-act="submore" data-sub="${s.id}">⋯</button>
+        </div>
         ${renderSubAtts(s)}
         ${renderSubSubs(s, isTodo)}
-        <div class="sub-meta">
-          ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
+        <div class="sub-more-panel">
+          ${s.ts ? `<span class="sub-date" style="display:inline">${fullDate(s.ts)}</span>` : ''}
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
-          ${i > 0 ? `<button class="sub-mini-btn sub-pin-inline" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
+          ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
           <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
           <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
+          <button class="sub-mini-btn" style="color:var(--danger,#c8553d);border-color:var(--danger,#c8553d)" data-act="subdel" data-sub="${s.id}">× 删除</button>
         </div>
       </div>
-      <button class="sub-del" data-act="subdel" data-sub="${s.id}">×</button>
     </div>
   `).join('');
   return `
@@ -3163,6 +3194,30 @@ document.getElementById('list').addEventListener('click', async e => {
     const box = item.querySelector('.meta-actions');
     if (box) box.classList.toggle('show');
     e.target.classList.toggle('on');
+    return;
+  }
+  if (act === 'submore') {
+    const row = e.target.closest('.sub-row');
+    const panel = row && row.querySelector('.sub-more-panel');
+    if (panel) { panel.classList.toggle('open'); e.target.classList.toggle('open'); }
+    return;
+  }
+  if (act === 'ssmore') {
+    const row = e.target.closest('.subsub-row');
+    const panel = row && row.querySelector('.ss-more-panel');
+    if (panel) { panel.classList.toggle('open'); e.target.classList.toggle('open'); }
+    return;
+  }
+  if (act === 'sssmore') {
+    const row = e.target.closest('.sss-row');
+    const panel = row && row.querySelector('.sss-more-panel');
+    if (panel) { panel.classList.toggle('open'); e.target.classList.toggle('open'); }
+    return;
+  }
+  if (act === 'l5more') {
+    const row = e.target.closest('.l5-row');
+    const panel = row && row.querySelector('.l5-more-panel');
+    if (panel) { panel.classList.toggle('open'); e.target.classList.toggle('open'); }
     return;
   }
   if (act === 'subtoggle-all') {
@@ -3911,10 +3966,8 @@ function startAddSSS(ssRow, n, s, ss) {
   wrap.appendChild(colorBar);
   wrap.appendChild(actions);
 
-  const addBtn = body.querySelector('.sss-add-btn');
-  // addBtn may be nested inside a flex-wrapper div, not a direct child of body
-  const insertRef = addBtn ? (addBtn.parentNode === body ? addBtn : addBtn.parentNode) : null;
-  insertRef ? body.insertBefore(wrap, insertRef) : body.appendChild(wrap);
+  const morePanelEl = body.querySelector('.ss-more-panel');
+  morePanelEl ? body.insertBefore(wrap, morePanelEl) : body.appendChild(wrap);
   rich.focus();
 
   let committed = false;
@@ -3960,10 +4013,12 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   const textEl = sssRow.querySelector('.sss-text');
   if (!textEl) return;
 
-  const actionsEl = sssRow.querySelector('.sss-actions');
+  const moreBtnEl  = sssRow.querySelector('.sss-more-btn');
+  const morePanelEl = sssRow.querySelector('.sss-more-panel');
   const checkEl   = sssRow.querySelector('.sss-check, .sss-bullet');
   const l5WrapEl  = sssRow.querySelector('.sss-l5-wrap');
-  if (actionsEl)  actionsEl.style.display  = 'none';
+  if (moreBtnEl)   moreBtnEl.style.display   = 'none';
+  if (morePanelEl) morePanelEl.style.display = 'none';
   if (checkEl)    checkEl.style.display    = 'none';
   if (l5WrapEl)   l5WrapEl.style.display   = 'none';
 
@@ -4070,8 +4125,8 @@ function startAddL5(sssRow, n, s, ss, sss) {
   wrap.appendChild(colorBar);
   wrap.appendChild(actionsDiv);
 
-  const actionsEl = body.querySelector('.sss-actions');
-  actionsEl ? body.insertBefore(wrap, actionsEl) : body.appendChild(wrap);
+  const morePanelEl = body.querySelector('.sss-more-panel');
+  morePanelEl ? body.insertBefore(wrap, morePanelEl) : body.appendChild(wrap);
   rich.focus();
 
   let committed = false;
@@ -4110,8 +4165,10 @@ function startEditL5(l5Row, n, s, ss, sss, l5) {
   const textEl = l5Row.querySelector('.l5-text');
   if (!textEl) return;
 
-  const actionsEl = l5Row.querySelector('.l5-actions');
-  if (actionsEl) actionsEl.style.display = 'none';
+  const moreBtnEl  = l5Row.querySelector('.l5-more-btn');
+  const morePanelEl = l5Row.querySelector('.l5-more-panel');
+  if (moreBtnEl)   moreBtnEl.style.display   = 'none';
+  if (morePanelEl) morePanelEl.style.display = 'none';
 
   const wrap = document.createElement('div');
   wrap.className = 'l5-edit-wrap';
