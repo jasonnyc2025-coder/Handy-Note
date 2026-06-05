@@ -988,57 +988,6 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  /* 录音按钮 */
-  .rec-btn {
-    border: 1px solid var(--line);
-    background: transparent;
-    font-family: inherit;
-    font-size: 0.78rem;
-    color: var(--ink-soft);
-    padding: 5px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: all 0.2s;
-  }
-  .rec-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .rec-btn.recording {
-    background: rgba(200,85,61,0.12);
-    border-color: var(--danger, #c8553d);
-    color: var(--danger, #c8553d);
-    animation: rec-pulse 1s ease-in-out infinite;
-  }
-  @keyframes rec-pulse { 0%,100%{opacity:1}50%{opacity:0.45} }
-  /* 音频附件显示卡片 */
-  .att-audio-card {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: var(--accent-soft);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    padding: 4px 8px;
-    flex-wrap: wrap;
-    max-width: 100%;
-    margin-top: 4px;
-  }
-  .att-audio-card audio { height: 28px; flex: 1; min-width: 160px; max-width: 100%; }
-  .att-audio-card .att-audio-name { font-size: 0.7rem; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-  /* 编辑态音频条目 */
-  .edit-att-audio {
-    display: flex;
-    align-items: center;
-    height: 60px;
-    padding: 0 10px;
-    gap: 6px;
-    background: var(--accent-soft);
-    border: 1px solid var(--line);
-    border-radius: 9px;
-    font-size: 0.72rem;
-    color: var(--ink);
-    max-width: 200px;
-  }
-
   /* 编辑态 */
   .edit-area {
     width: 100%;
@@ -2166,7 +2115,6 @@ function confirmDialog(message) {
       <button class="ap-opt" data-pick="camera"><span class="ap-ic">📷</span><span data-i18n="camera">拍照</span></button>
       <button class="ap-opt" data-pick="image"><span class="ap-ic">🖼️</span><span data-i18n="album">从相册选</span></button>
       <button class="ap-opt" data-pick="pdf"><span class="ap-ic">📄</span><span data-i18n="pdf">选 PDF</span></button>
-      <button class="ap-opt" data-pick="audio"><span class="ap-ic">🎤</span><span>录音</span></button>
     </div>
     <div class="modal-actions">
       <span style="flex:1"></span>
@@ -2742,7 +2690,6 @@ function render() {
     list.innerHTML = items.map(renderItem).join('');
   }
   hydrateImages(list);
-  hydrateAudio(list);
 }
 
 function renderSubSubAtts(ss) {
@@ -2750,9 +2697,7 @@ function renderSubSubAtts(ss) {
   return `<div class="subsub-row-atts">${ss.atts.map(a =>
     a.kind === 'image'
       ? `<img ${imgSrcAttr(a)} alt="">`
-      : a.kind === 'audio'
-        ? `<div class="att-audio-card"><span class="att-audio-name">🎤 ${esc(a.name||'录音')}</span><audio controls ${audioSrcAttr(a)}></audio></div>`
-        : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
+      : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
   ).join('')}</div>`;
 }
 
@@ -2761,9 +2706,7 @@ function renderL5Atts(l5) {
   return `<div class="subsub-row-atts">${l5.atts.map(a =>
     a.kind === 'image'
       ? `<img ${imgSrcAttr(a)} alt="">`
-      : a.kind === 'audio'
-        ? `<div class="att-audio-card"><span class="att-audio-name">🎤 ${esc(a.name||'录音')}</span><audio controls ${audioSrcAttr(a)}></audio></div>`
-        : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
+      : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
   ).join('')}</div>`;
 }
 
@@ -2792,9 +2735,7 @@ function renderSSSAtts(sss) {
   return `<div class="subsub-row-atts">${sss.atts.map(a =>
     a.kind === 'image'
       ? `<img ${imgSrcAttr(a)} alt="">`
-      : a.kind === 'audio'
-        ? `<div class="att-audio-card"><span class="att-audio-name">🎤 ${esc(a.name||'录音')}</span><audio controls ${audioSrcAttr(a)}></audio></div>`
-        : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
+      : `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name||'PDF')}</span></span>`
   ).join('')}</div>`;
 }
 
@@ -2904,9 +2845,6 @@ function renderSubAtts(s) {
     if (a.kind === 'image') {
       return `<img class="sub-att-img" ${imgSrcAttr(a)} data-act="subview" data-sub="${s.id}" data-idx="${i}" alt="">`;
     }
-    if (a.kind === 'audio') {
-      return `<div class="att-audio-card"><span class="att-audio-name">🎤 ${esc(a.name||'录音')}</span><audio controls ${audioSrcAttr(a)}></audio></div>`;
-    }
     return `<span class="sub-att-pdf" data-act="subpdf" data-sub="${s.id}" data-idx="${i}">📄 ${esc(a.name)}</span>`;
   }).join('');
   return `<div class="sub-atts">${html}</div>`;
@@ -2917,9 +2855,6 @@ function renderAtts(atts) {
   const html = atts.map((a, i) => {
     if (a.kind === 'image') {
       return `<img class="att-img" ${imgSrcAttr(a)} data-act="view" data-idx="${i}" alt="${esc(a.name)}">`;
-    }
-    if (a.kind === 'audio') {
-      return `<div class="att-audio-card"><span class="att-audio-name">🎤 ${esc(a.name||'录音')}</span><audio controls ${audioSrcAttr(a)}></audio></div>`;
     }
     return `<span class="att-pdf" data-act="openpdf" data-idx="${i}"><span class="pic">📄</span><span class="nm">${esc(a.name)}</span></span>`;
   }).join('');
@@ -2935,83 +2870,6 @@ async function hydrateImages(root) {
     const data = await idbGet(id);
     if (data) img.src = data;
   }
-}
-
-// 同理，填充音频 src
-async function hydrateAudio(root) {
-  const audios = (root || document).querySelectorAll('audio[data-audioblobid]');
-  for (const el of audios) {
-    const id = el.getAttribute('data-audioblobid');
-    el.removeAttribute('data-audioblobid');
-    const data = await idbGet(id);
-    if (data) el.src = data;
-  }
-}
-
-// 音频附件的 src 属性字符串（同 imgSrcAttr）
-function audioSrcAttr(a) {
-  if (a.data) return `src="${a.data}"`;
-  if (a.blobId) return `data-audioblobid="${a.blobId}"`;
-  return '';
-}
-
-// 创建一个录音按钮；录完后调 onDone(attObj)
-function buildRecBtn(onDone) {
-  const btn = document.createElement('button');
-  btn.className = 'rec-btn';
-  btn.type = 'button';
-  btn.textContent = '🎤 录音';
-  let mediaRec = null, chunks = [], active = false;
-  function showErr(msg) {
-    const prev = btn.nextElementSibling;
-    if (prev && prev.classList.contains('rec-err')) prev.remove();
-    const span = document.createElement('span');
-    span.className = 'rec-err';
-    span.style.cssText = 'font-size:0.72rem;color:#c8553d;margin-left:4px;vertical-align:middle;';
-    span.textContent = '⚠ ' + msg;
-    btn.after(span);
-    setTimeout(() => span.remove(), 6000);
-  }
-  btn.addEventListener('click', async () => {
-    const prev = btn.nextElementSibling;
-    if (prev && prev.classList.contains('rec-err')) prev.remove();
-    if (!active) {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showErr('录音需要 HTTPS 才能使用');
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/mp4',''].find(m => !m || MediaRecorder.isTypeSupported(m));
-        const opts = mimeType ? { mimeType } : {};
-        mediaRec = new MediaRecorder(stream, opts);
-        chunks = [];
-        mediaRec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-        mediaRec.onstop = async () => {
-          stream.getTracks().forEach(t => t.stop());
-          const ext = (mimeType || '').includes('mp4') ? 'm4a' : 'webm';
-          const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-          const ts = new Date().toLocaleString('zh-CN', {hour12:false}).replace(/[/:]/g,'-').replace(/\s/g,'_');
-          const name = `录音_${ts}.${ext}`;
-          const reader = new FileReader();
-          reader.onload = async () => { onDone(await storeBlob('audio', name, reader.result)); };
-          reader.readAsDataURL(blob);
-          btn.textContent = '🎤 录音';
-          btn.classList.remove('recording');
-          active = false;
-        };
-        mediaRec.start();
-        active = true;
-        btn.classList.add('recording');
-        btn.textContent = '⏹ 停止';
-      } catch (err) {
-        showErr(err.message || '无法访问麦克风');
-      }
-    } else {
-      if (mediaRec && mediaRec.state !== 'inactive') mediaRec.stop();
-    }
-  });
-  return btn;
 }
 
 function esc(s) {
@@ -3108,7 +2966,6 @@ function renderPending() {
   box.innerHTML = pending.map((a, i) => {
     let inner;
     if (a.kind === 'image') inner = `<img ${imgSrcAttr(a)} alt="">`;
-    else if (a.kind === 'audio') inner = `<span class="pdf-chip"><span>🎤</span><span class="nm">${esc(a.name||'录音')}</span></span>`;
     else inner = `<span class="pdf-chip"><span>📄</span><span class="nm">${esc(a.name)}</span></span>`;
     return `<div class="pend">${inner}<button class="rm" data-rm="${i}">×</button></div>`;
   }).join('');
@@ -3640,7 +3497,7 @@ function startAddSub(item, n) {
   const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
-  // Toolbar: [🎨] [＋ 附件] [🎤 录音]
+  // Toolbar: [🎨] [＋ 附件]
   const toolbar = document.createElement('div');
   toolbar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;';
   const attBtn = document.createElement('button');
@@ -3658,14 +3515,10 @@ function startAddSub(item, n) {
     attListEl.innerHTML = subAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="edit-att edit-att-audio"><span>🎤 ${esc(a.name||'录音')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(attListEl);
   };
-  const l2AddRecBtn = buildRecBtn(att => { subAtts.push(att); renderAttList(); });
-  toolbar.appendChild(l2AddRecBtn);
 
   // Actions
   const actionsEl = document.createElement('div');
@@ -3803,7 +3656,7 @@ function startEditSub(span, n, s) {
   const fmtBar = colorWrap.querySelector('.fmt-bar');
   const colorBar = colorWrap.querySelector('.color-bar');
 
-  // Toolbar row: [🎨] [＋ 附件] [🎤 录音]
+  // Toolbar row: [🎨] [＋ 附件]
   const toolbar = document.createElement('div');
   toolbar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
   const addAttBtn = document.createElement('button');
@@ -3820,15 +3673,11 @@ function startEditSub(span, n, s) {
     attList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="edit-att edit-att-audio"><span>🎤 ${esc(a.name||'录音')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(attList);
   };
   renderEA();
-  const l2EditRecBtn = buildRecBtn(att => { editAtts.push(att); renderEA(); });
-  toolbar.appendChild(l2EditRecBtn);
 
   const actions = document.createElement('div');
   actions.className = 'edit-actions';
@@ -3943,14 +3792,10 @@ function startAddSubSub(subRow, n, s) {
     attList.innerHTML = ssAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(attList);
   };
-  const l3AddRecBtn = buildRecBtn(att => { ssAtts.push(att); renderAtts(); });
-  toolbar.appendChild(l3AddRecBtn);
 
   const actions = document.createElement('div');
   actions.className = 'subsub-edit-actions';
@@ -4063,15 +3908,11 @@ function startEditSubSub(ssRow, n, s, ss) {
     attList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(attList);
   };
   renderAtts();
-  const l3EditRecBtn = buildRecBtn(att => { editAtts.push(att); renderAtts(); });
-  toolbar.appendChild(l3EditRecBtn);
 
   const actions = document.createElement('div');
   actions.className = 'subsub-edit-actions';
@@ -4168,9 +4009,7 @@ function startAddSSS(ssRow, n, s, ss) {
     sssAttList.innerHTML = sssAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(sssAttList);
   };
@@ -4178,8 +4017,6 @@ function startAddSSS(ssRow, n, s, ss) {
     const rm = e.target.closest('.subsub-att-rm');
     if (rm) { sssAtts.splice(+rm.dataset.i, 1); renderSSSAttList(); }
   });
-  const sssRecBtn = buildRecBtn(att => { sssAtts.push(att); renderSSSAttList(); });
-  toolbar.appendChild(sssRecBtn);
 
   const actions = document.createElement('div');
   actions.className = 'subsub-edit-actions';
@@ -4274,9 +4111,7 @@ function startEditSSS(sssRow, n, s, ss, sss) {
     sssEditAttList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(sssEditAttList);
   };
@@ -4285,8 +4120,6 @@ function startEditSSS(sssRow, n, s, ss, sss) {
     const rm = e.target.closest('.subsub-att-rm');
     if (rm) { editAtts.splice(+rm.dataset.i, 1); renderSSSEditAtts(); }
   });
-  const sssEditRecBtn = buildRecBtn(att => { editAtts.push(att); renderSSSEditAtts(); });
-  toolbar.appendChild(sssEditRecBtn);
 
   const actions = document.createElement('div');
   actions.className = 'subsub-edit-actions';
@@ -4370,9 +4203,7 @@ function startAddL5(sssRow, n, s, ss, sss) {
     l5AttList.innerHTML = l5Atts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(l5AttList);
   };
@@ -4380,8 +4211,6 @@ function startAddL5(sssRow, n, s, ss, sss) {
     const rm = e.target.closest('.subsub-att-rm');
     if (rm) { l5Atts.splice(+rm.dataset.i, 1); renderL5AttList(); }
   });
-  const l5AddRecBtn = buildRecBtn(att => { l5Atts.push(att); renderL5AttList(); });
-  toolbar.appendChild(l5AddRecBtn);
 
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'subsub-edit-actions';
@@ -4465,9 +4294,7 @@ function startEditL5(l5Row, n, s, ss, sss, l5) {
     l5EditAttList.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="subsub-att"><img ${imgSrcAttr(a)} alt=""><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="subsub-att"><div class="subsub-att-pdf">🎤 ${esc(a.name||'录音')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="subsub-att"><div class="subsub-att-pdf">📄 ${esc(a.name||'PDF')}</div><button class="subsub-att-rm" data-i="${i}">×</button></div>`
     ).join('');
     hydrateImages(l5EditAttList);
   };
@@ -4476,8 +4303,6 @@ function startEditL5(l5Row, n, s, ss, sss, l5) {
     const rm = e.target.closest('.subsub-att-rm');
     if (rm) { editAtts.splice(+rm.dataset.i, 1); renderL5EditAtts(); }
   });
-  const l5EditRecBtn = buildRecBtn(att => { editAtts.push(att); renderL5EditAtts(); });
-  toolbar.appendChild(l5EditRecBtn);
 
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'subsub-edit-actions';
@@ -4558,14 +4383,11 @@ function startEdit(item, n) {
     attBox.innerHTML = editAtts.map((a, i) =>
       a.kind === 'image'
         ? `<div class="edit-att"><img ${imgSrcAttr(a)} alt=""><button class="edit-att-rm" data-i="${i}">×</button></div>`
-        : a.kind === 'audio'
-          ? `<div class="edit-att edit-att-audio"><span>🎤 ${esc(a.name||'录音')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
-          : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
+        : `<div class="edit-att edit-att-pdf"><span>📄 ${esc(a.name||'PDF')}</span><button class="edit-att-rm" data-i="${i}">×</button></div>`
     ).join('') + `<button class="edit-att-add" type="button">＋ 附件</button>`;
     hydrateImages(attBox);
   };
   renderEditAtts();
-  const l1RecBtn = buildRecBtn(att => { editAtts.push(att); renderEditAtts(); });
 
   const actions = document.createElement('div');
   actions.className = 'edit-actions';
@@ -4573,7 +4395,6 @@ function startEdit(item, n) {
 
   wrap.appendChild(ta);
   wrap.appendChild(colorBar);
-  wrap.appendChild(l1RecBtn);
   wrap.appendChild(attBox);
   wrap.appendChild(actions);
   if (textEl) textEl.replaceWith(wrap); else body.insertBefore(wrap, body.firstChild);
@@ -4641,18 +4462,6 @@ document.getElementById('attach').addEventListener('click', async e => {
   e.stopPropagation();
   const kind = await attachPicker();
   if (!kind) return;
-  if (kind === 'audio') {
-    const recArea = document.createElement('div');
-    recArea.style.cssText = 'padding:4px 0;';
-    const composerRecBtn = buildRecBtn(async att => {
-      pending.push(att);
-      renderPending(); refreshSendState();
-      recArea.remove();
-    });
-    recArea.appendChild(composerRecBtn);
-    document.getElementById('pending').before(recArea);
-    return;
-  }
   const got = await pickFilesByKind(kind);
   if (got.length) { pending.push(...got); renderPending(); refreshSendState(); }
 });
