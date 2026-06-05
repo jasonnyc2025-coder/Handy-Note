@@ -445,6 +445,9 @@
     gap: 7px;
     flex-wrap: wrap;
   }
+  .note-head { display: flex; align-items: flex-start; gap: 6px; }
+  .note-head .text { flex: 1; min-width: 0; }
+  .note-head .more-btn { flex-shrink: 0; margin-left: 0; margin-top: 2px; }
   /* 类别小标签（常显，只读） */
   .cat-tag {
     font-size: 0.66rem;
@@ -2581,7 +2584,10 @@ function renderItem(n) {
     <div class="item ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:3px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;opacity:0.35;"></div>`}
       <div class="body">
-        ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+        <div class="note-head">
+          ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+          <button class="more-btn" data-act="more">⋯</button>
+        </div>
         ${renderAtts(n.atts)}
         <div class="meta">
           ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
@@ -2589,7 +2595,6 @@ function renderItem(n) {
           ${n.subs && n.subs.length ? `<span class="sub-count">${n.type==='todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : n.subs.length}</span>` : ''}
           ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
           ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
-          <button class="more-btn" data-act="more">⋯</button>
         </div>
         <div class="meta-actions" data-actions="${n.id}">
           ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
