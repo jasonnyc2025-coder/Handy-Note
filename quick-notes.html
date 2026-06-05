@@ -2762,8 +2762,8 @@ function renderSubs(n) {
         </div>
         ${renderSubAtts(s)}
         ${renderSubSubs(s, isTodo)}
+        ${s.ts ? `<span class="sub-date">${fullDate(s.ts)}</span>` : ''}
         <div class="sub-more-panel">
-          ${s.ts ? `<span class="sub-date" style="display:inline">${fullDate(s.ts)}</span>` : ''}
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
           ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
           <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
