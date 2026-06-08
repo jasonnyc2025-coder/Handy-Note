@@ -2607,11 +2607,11 @@ function renderItem(n) {
           ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
         </div>
         <div class="meta-actions" data-actions="${n.id}">
-          ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
           <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
-          <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
+          ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
           <button class="edit-btn del-btn" data-act="del">× 删除</button>
+          <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
         </div>
         ${renderSubs(n)}
       </div>
@@ -2768,10 +2768,10 @@ function renderSubSubs(s, isTodo) {
         ${renderSubSubAtts(ss)}
         ${renderSSS(ss, isTodo, s.id)}
         <div class="ss-more-panel">
-          ${ssIdx > 0 ? `<button class="subsub-edit-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
           <button class="subsub-edit-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
           <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎ 编辑</button>
           <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">× 删除</button>
+          ${ssIdx > 0 ? `<button class="subsub-edit-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
         </div>
       </div>
     </div>
@@ -2799,11 +2799,11 @@ function renderSubs(n) {
         ${renderSubAtts(s)}
         ${renderSubSubs(s, isTodo)}
         <div class="sub-more-panel">
-          ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
-          ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
-          <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
           <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
+          <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
+          ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
           <button class="sub-mini-btn" style="color:var(--danger,#c8553d);border-color:var(--danger,#c8553d)" data-act="subdel" data-sub="${s.id}">× 删除</button>
+          ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
         </div>
       </div>
     </div>
