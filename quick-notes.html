@@ -2620,7 +2620,7 @@ function renderItem(n) {
 
 function render() {
   const list = document.getElementById('list');
-  let items = notes.slice().sort((a,b) => {
+  let items = notes.filter(n => !n._deleted).sort((a,b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
     return b.ts - a.ts;
@@ -3268,7 +3268,8 @@ document.getElementById('list').addEventListener('click', async e => {
       ? `确定删除这条记录「${preview}」吗？\n它的 ${subN} 个子项也会一起删除，无法恢复。`
       : `确定删除这条记录「${preview}」吗？此操作无法恢复。`;
     if (await confirmDialog(msg)) {
-      notes = notes.filter(x => x.id !== id);
+      const idx = notes.findIndex(x => x.id === id);
+      if (idx !== -1) { notes[idx]._deleted = true; notes[idx]._deletedAt = Date.now(); }
       save(); render();
     }
   } else if (act === 'toggle') {
@@ -5153,15 +5154,20 @@ function mergeNotes(incoming) {
   incoming.forEach(n => {
     if (!n || !n.id) return;
     const cur = byId[n.id];
-    if (!cur) { byId[n.id] = n; }
-    else {
-      // 用 modified（最后编辑时间）比较；旧数据没有 modified 则回退到 ts
-      const nTime  = n.modified   || n.ts;
-      const curTime = cur.modified || cur.ts;
+    if (!cur) {
+      byId[n.id] = n; // 包括删除标记（tombstone），让本机也感知到删除
+    } else {
+      // 比较时间：删除时间 / 编辑时间 / 创建时间，取最新
+      const nTime   = n._deletedAt   || n.modified || n.ts;
+      const curTime = cur._deletedAt || cur.modified || cur.ts;
       byId[n.id] = (nTime >= curTime) ? n : cur;
     }
   });
-  notes = Object.values(byId).sort((a,b) => b.ts - a.ts);
+  // 清理超过 60 天的 tombstone，避免数据无限增长
+  const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
+  notes = Object.values(byId)
+    .filter(n => !n._deleted || (n._deletedAt && n._deletedAt > cutoff))
+    .sort((a,b) => b.ts - a.ts);
 }
 
 document.getElementById('import-file').addEventListener('change', e => {
