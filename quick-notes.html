@@ -492,6 +492,7 @@
     border-top: 1px dashed var(--line);
   }
   .meta-actions.show { display: flex; }
+  .meta-actions.show .del-btn { background: rgba(200,85,61,0.09); border-color: var(--danger,#c8553d); color: var(--danger,#c8553d); }
   /* 所有展开的 ⋯ 面板中，按钮统一使用强调色背景，删除按钮保持红色 */
   .meta-actions.show button,
   .sub-more-panel.open button,
@@ -1372,21 +1373,6 @@
     white-space: nowrap;
   }
 
-  .del {
-    border: 1px solid var(--line);
-    background: var(--bg);
-    color: var(--ink-soft);
-    font-size: 1rem;
-    cursor: pointer;
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    line-height: 1;
-    transition: all 0.2s;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-  }
-  .del:hover, .del:active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
   /* attachments on cards */
   .atts {
@@ -2625,10 +2611,10 @@ function renderItem(n) {
           <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
           <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
+          <button class="edit-btn del-btn" data-act="del">× 删除</button>
         </div>
         ${renderSubs(n)}
       </div>
-      <button class="del" data-act="del">×</button>
     </div>`;
 }
 
