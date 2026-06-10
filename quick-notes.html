@@ -4740,6 +4740,67 @@ input.addEventListener('keydown', e => {
 });
 document.getElementById('send').addEventListener('click', add);
 
+// ── 行内计算器：在任意输入框中，表达式后按 = 自动求值 ──────────────
+function safeCalc(expr) {
+  const s = expr.trim().replace(/,/g, '');
+  // 必须含至少一个运算符才触发（避免误触 a=b 这类赋值写法）
+  if (!s || !/[+\-*\/%()]/.test(s)) return null;
+  // 白名单校验：只允许数字和安全运算符，防止代码注入
+  if (!/^[\d\s+\-*\/.()\%]+$/.test(s) || !/\d/.test(s)) return null;
+  try {
+    const r = Function('"use strict";return(' + s + ')')();
+    if (typeof r !== 'number' || !isFinite(r)) return null;
+    return parseFloat(r.toPrecision(10));
+  } catch { return null; }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key !== '=') return;
+  const el = e.target;
+  if (!el || el.contentEditable !== 'true') return;
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !sel.getRangeAt(0).collapsed) return;
+  const range = sel.getRangeAt(0);
+
+  // 取光标前的文本
+  const pre = range.cloneRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(range.startContainer, range.startOffset);
+  const before = pre.toString();
+
+  // 匹配末尾数学表达式（必须以数字或左括号开头）
+  const m = before.match(/([\d(][\d\s+\-*\/.()\%,]*)$/);
+  if (!m) return;
+  const val = safeCalc(m[1]);
+  if (val === null) return;
+
+  e.preventDefault();
+  const formatted = Number.isInteger(val) ? String(val) : String(parseFloat(val.toPrecision(10)));
+  const exprLen = m[1].length;
+  const node = range.startContainer;
+  const offset = range.startOffset;
+
+  if (node.nodeType === Node.TEXT_NODE && offset >= exprLen) {
+    // 简单情况：表达式在同一个文本节点内
+    const t = node.textContent;
+    node.textContent = t.slice(0, offset - exprLen) + formatted + t.slice(offset);
+    const nr = document.createRange();
+    nr.setStart(node, offset - exprLen + formatted.length);
+    nr.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(nr);
+  } else {
+    // 跨节点回退：用 Selection.modify + execCommand
+    try {
+      sel.removeAllRanges(); sel.addRange(range.cloneRange());
+      for (let i = 0; i < exprLen; i++) sel.modify('extend', 'backward', 'character');
+      document.execCommand('insertText', false, formatted);
+    } catch {}
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  showToast('= ' + formatted);
+}, true);
+
 // 底部输入框的颜色条
 document.getElementById('color-bar-holder').appendChild(buildColorBar(input));
 
