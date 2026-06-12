@@ -4776,25 +4776,23 @@ document.addEventListener('keydown', function(e) {
 
   e.preventDefault();
   const formatted = Number.isInteger(val) ? String(val) : String(parseFloat(val.toPrecision(10)));
-  const exprLen = m[1].length;
+  const insert = '=' + formatted;  // keep expression, append =result
   const node = range.startContainer;
   const offset = range.startOffset;
 
-  if (node.nodeType === Node.TEXT_NODE && offset >= exprLen) {
-    // 简单情况：表达式在同一个文本节点内
+  if (node.nodeType === Node.TEXT_NODE) {
+    // 简单情况：在光标处插入 =结果
     const t = node.textContent;
-    node.textContent = t.slice(0, offset - exprLen) + formatted + t.slice(offset);
+    node.textContent = t.slice(0, offset) + insert + t.slice(offset);
     const nr = document.createRange();
-    nr.setStart(node, offset - exprLen + formatted.length);
+    nr.setStart(node, offset + insert.length);
     nr.collapse(true);
     sel.removeAllRanges();
     sel.addRange(nr);
   } else {
-    // 跨节点回退：用 Selection.modify + execCommand
+    // 跨节点回退：直接插入文本
     try {
-      sel.removeAllRanges(); sel.addRange(range.cloneRange());
-      for (let i = 0; i < exprLen; i++) sel.modify('extend', 'backward', 'character');
-      document.execCommand('insertText', false, formatted);
+      document.execCommand('insertText', false, insert);
     } catch {}
   }
   el.dispatchEvent(new Event('input', { bubbles: true }));
