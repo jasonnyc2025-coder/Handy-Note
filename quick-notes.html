@@ -4743,9 +4743,7 @@ document.getElementById('send').addEventListener('click', add);
 // ── 行内计算器：在任意输入框中，表达式后按 = 自动求值 ──────────────
 function safeCalc(expr) {
   const s = expr.trim().replace(/,/g, '');
-  // 必须含至少一个运算符才触发（避免误触 a=b 这类赋值写法）
   if (!s || !/[+\-*\/%()]/.test(s)) return null;
-  // 白名单校验：只允许数字和安全运算符，防止代码注入
   if (!/^[\d\s+\-*\/.()\%]+$/.test(s) || !/\d/.test(s)) return null;
   try {
     const r = Function('"use strict";return(' + s + ')')();
@@ -4754,49 +4752,60 @@ function safeCalc(expr) {
   } catch { return null; }
 }
 
-document.addEventListener('keydown', function(e) {
-  if (e.key !== '=') return;
-  const el = e.target;
-  if (!el || el.contentEditable !== 'true') return;
-  const sel = window.getSelection();
-  if (!sel || !sel.rangeCount || !sel.getRangeAt(0).collapsed) return;
-  const range = sel.getRangeAt(0);
+// Guard flag prevents the input-event handler from re-firing on our own insertions
+let _calcGuard = false;
 
-  // 取光标前的文本
+function _doCalc(el, equalsAlreadyInserted) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !sel.getRangeAt(0).collapsed) return false;
+  const range = sel.getRangeAt(0);
   const pre = range.cloneRange();
   pre.selectNodeContents(el);
   pre.setEnd(range.startContainer, range.startOffset);
   const before = pre.toString();
-
-  // 匹配末尾数学表达式（必须以数字或左括号开头）
-  const m = before.match(/([\d(][\d\s+\-*\/.()\%,]*)$/);
-  if (!m) return;
+  // When = is already in DOM, exclude it before matching the expression
+  const exprText = equalsAlreadyInserted ? before.slice(0, -1) : before;
+  const m = exprText.match(/([\d(][\d\s+\-*\/.()\%,]*)$/);
+  if (!m) return false;
   const val = safeCalc(m[1]);
-  if (val === null) return;
+  if (val === null) return false;
 
-  e.preventDefault();
   const formatted = Number.isInteger(val) ? String(val) : String(parseFloat(val.toPrecision(10)));
-  const insert = '=' + formatted;  // keep expression, append =result
+  const toInsert = equalsAlreadyInserted ? formatted : ('=' + formatted);
   const node = range.startContainer;
   const offset = range.startOffset;
 
+  _calcGuard = true;
   if (node.nodeType === Node.TEXT_NODE) {
-    // 简单情况：在光标处插入 =结果
     const t = node.textContent;
-    node.textContent = t.slice(0, offset) + insert + t.slice(offset);
+    node.textContent = t.slice(0, offset) + toInsert + t.slice(offset);
     const nr = document.createRange();
-    nr.setStart(node, offset + insert.length);
+    nr.setStart(node, offset + toInsert.length);
     nr.collapse(true);
     sel.removeAllRanges();
     sel.addRange(nr);
   } else {
-    // 跨节点回退：直接插入文本
-    try {
-      document.execCommand('insertText', false, insert);
-    } catch {}
+    try { document.execCommand('insertText', false, toInsert); } catch {}
   }
-  el.dispatchEvent(new Event('input', { bubbles: true }));
+  requestAnimationFrame(() => { _calcGuard = false; });
   showToast('= ' + formatted);
+  return true;
+}
+
+// Desktop: keydown fires with key='='
+document.addEventListener('keydown', function(e) {
+  if (e.key !== '=') return;
+  const el = e.target;
+  if (!el || el.contentEditable !== 'true') return;
+  if (_doCalc(el, false)) e.preventDefault();
+}, true);
+
+// Mobile (Android IME): = arrives via input event, not keydown
+document.addEventListener('input', function(e) {
+  if (_calcGuard || e.data !== '=') return;
+  const el = e.target;
+  if (!el || el.contentEditable !== 'true') return;
+  _doCalc(el, true);
 }, true);
 
 // 底部输入框的颜色条
