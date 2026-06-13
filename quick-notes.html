@@ -4770,7 +4770,7 @@ function _doCalc(el, equalsAlreadyInserted) {
   const val = safeCalc(m[1]);
   if (val === null) return false;
 
-  const formatted = Number.isInteger(val) ? String(val) : String(parseFloat(val.toPrecision(10)));
+  const formatted = Number.isInteger(val) ? String(val) : String(parseFloat(val.toFixed(2)));
   const toInsert = equalsAlreadyInserted ? formatted : ('=' + formatted);
   const node = range.startContainer;
   const offset = range.startOffset;
