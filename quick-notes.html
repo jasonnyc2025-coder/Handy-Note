@@ -4745,8 +4745,10 @@ function safeCalc(expr) {
   const s = expr.trim().replace(/,/g, '');
   if (!s || !/[+\-*\/%()]/.test(s)) return null;
   if (!/^[\d\s+\-*\/.()\%]+$/.test(s) || !/\d/.test(s)) return null;
+  // Convert percentage: 20% → (20/100) so 100*20% = 100*(20/100) = 20
+  const jsExpr = s.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
   try {
-    const r = Function('"use strict";return(' + s + ')')();
+    const r = Function('"use strict";return(' + jsExpr + ')')();
     if (typeof r !== 'number' || !isFinite(r)) return null;
     return parseFloat(r.toPrecision(10));
   } catch { return null; }
