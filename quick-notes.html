@@ -3525,9 +3525,9 @@ function startAddSub(item, n) {
   // Wrap into a sub-main div so it fits the sub-row layout
   const mainDiv = document.createElement('div');
   mainDiv.className = 'sub-main';
-  mainDiv.appendChild(rich);
   mainDiv.appendChild(toolbar);
   mainDiv.appendChild(colorBar);
+  mainDiv.appendChild(rich);
   mainDiv.appendChild(attListEl);
   mainDiv.appendChild(actionsEl);
 
@@ -3675,10 +3675,9 @@ function startEditSub(span, n, s) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
-  // toolbar (🎨 + 附件) first → checkbox aligns with this row
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(attList);
   wrap.appendChild(actions);
   main.innerHTML = '';
@@ -3797,9 +3796,9 @@ function startAddSubSub(subRow, n, s) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(attList);
   wrap.appendChild(actions);
   subsubList.appendChild(wrap);
@@ -3914,9 +3913,9 @@ function startEditSubSub(ssRow, n, s, ss) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(attList);
   wrap.appendChild(actions);
   ssRow.appendChild(wrap);
@@ -4018,9 +4017,9 @@ function startAddSSS(ssRow, n, s, ss) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(sssAttList);
   wrap.appendChild(actions);
 
@@ -4121,9 +4120,9 @@ function startEditSSS(sssRow, n, s, ss, sss) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actions.appendChild(okBtn); actions.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(sssEditAttList);
   wrap.appendChild(actions);
   textEl.replaceWith(wrap);
@@ -4212,9 +4211,9 @@ function startAddL5(sssRow, n, s, ss, sss) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actionsDiv.appendChild(okBtn); actionsDiv.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(l5AttList);
   wrap.appendChild(actionsDiv);
 
@@ -4304,9 +4303,9 @@ function startEditL5(l5Row, n, s, ss, sss, l5) {
   cancelBtn.className = 'subsub-cancel-btn'; cancelBtn.textContent = '取消';
   actionsDiv.appendChild(okBtn); actionsDiv.appendChild(cancelBtn);
 
-  wrap.appendChild(rich);
   wrap.appendChild(toolbar);
   wrap.appendChild(colorBar);
+  wrap.appendChild(rich);
   wrap.appendChild(l5EditAttList);
   wrap.appendChild(actionsDiv);
   textEl.replaceWith(wrap);
@@ -4385,8 +4384,8 @@ function startEdit(item, n) {
   actions.className = 'edit-actions';
   actions.innerHTML = '<button class="edit-ok">保存</button><button class="edit-cancel">取消</button>';
 
-  wrap.appendChild(ta);
   wrap.appendChild(colorBar);
+  wrap.appendChild(ta);
   wrap.appendChild(attBox);
   wrap.appendChild(actions);
   if (textEl) textEl.replaceWith(wrap); else body.insertBefore(wrap, body.firstChild);
