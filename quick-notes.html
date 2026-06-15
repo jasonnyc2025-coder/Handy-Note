@@ -3024,6 +3024,16 @@ function buildColorBar(richEl) {
     if (fmt.size)      result = `<span style="font-size:${fmt.size}">${result}</span>`;
     if (fmt.underline) result = `<u>${result}</u>`;
     richEl.innerHTML = result;
+    // Restore focus + move cursor to end so iOS keyboard stays open
+    try {
+      richEl.focus();
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(richEl);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {}
     sizeButtons.forEach(({ btn, fs }) => btn.classList.toggle('on', fmt.size === FS_EM[fs]));
     uBtn.classList.toggle('on', fmt.underline);
   }
