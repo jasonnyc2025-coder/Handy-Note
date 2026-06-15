@@ -1839,6 +1839,105 @@
   .lk-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
   .lk-ok:active { filter: brightness(0.88); background: var(--accent); }
   .lock-footer { font-size: 0.72rem; color: var(--ink-soft); margin-top: 4px; cursor: pointer; text-decoration: underline; }
+
+  /* ===== Desktop layout (≥ 900 px) ===== */
+  #desktop-pane { display: none; }
+  .desktop-new-btn { display: none; }
+
+  @media (min-width: 900px) {
+    body { overflow: hidden; height: 100vh; }
+    #app-wrap {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      align-items: stretch;
+      transform: none !important;
+    }
+    .wrap {
+      width: 380px;
+      max-width: 380px;
+      min-width: 260px;
+      flex-shrink: 0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--line);
+      height: 100vh;
+      overflow: hidden;
+    }
+    .wrap header { flex-shrink: 0; padding: 0 10px; }
+    #list { flex: 1; overflow-y: auto; padding: 0 10px 20px; }
+    .fab { display: none !important; }
+    .composer { display: none !important; }
+    #desktop-pane #composer {
+      display: block !important;
+      position: static !important;
+      width: 100%;
+      max-width: 100%;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      padding: 20px 24px;
+      margin: 0;
+    }
+    #desktop-pane {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--bg);
+      min-width: 0;
+    }
+    #desktop-pane .item {
+      margin: 20px 24px;
+      max-width: 100%;
+    }
+    .desktop-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      color: var(--ink-soft);
+      font-size: 1rem;
+      padding: 40px;
+      text-align: center;
+      min-height: 300px;
+    }
+    .desktop-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+    .desktop-new-btn {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 4px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      font-weight: 600;
+      font-family: inherit;
+      margin-right: 4px;
+    }
+    .desktop-new-btn:hover { opacity: 0.85; }
+    #list .item.desktop-selected {
+      border-color: var(--accent) !important;
+      background: color-mix(in srgb, var(--accent) 8%, var(--card)) !important;
+    }
+    .desktop-pane-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--ink);
+      padding: 16px 24px 8px;
+      border-bottom: 1px solid var(--line);
+      margin: 0;
+      flex-shrink: 0;
+    }
+  }
 </style>
 </head>
 <body>
@@ -1874,6 +1973,7 @@
       <div class="title">随手<em>记</em></div>
       <div class="sub" data-i18n="subtitle">想到什么随时记 · 自动保存</div>
       <span style="flex:1"></span>
+      <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear" id="search-btn" data-i18n-title="search" title="搜索">🔍</button>
       <button class="gear" id="gear" title="⋯">⋯</button>
     </div>
@@ -1901,6 +2001,8 @@
 
   <div class="list" id="list"></div>
 </div>
+
+<div id="desktop-pane" class="desktop-pane"></div>
 
 <button class="fab" id="fab" title="记一笔">＋</button>
 <div class="composer collapsed" id="composer">
@@ -2681,6 +2783,10 @@ function render() {
     list.innerHTML = items.map(renderItem).join('');
   }
   hydrateImages(list);
+  if (typeof renderDesktopPane === 'function' && window.innerWidth >= 900) {
+    renderDesktopPane();
+    highlightSelectedInList();
+  }
 }
 
 function renderSubSubAtts(ss) {
@@ -3235,7 +3341,10 @@ function readFile(file) {
 }
 
 // events
-document.getElementById('list').addEventListener('click', async e => {
+document.addEventListener('click', async e => {
+  const _inList = !!e.target.closest('#list');
+  const _inPane = !!e.target.closest('#desktop-pane');
+  if (!_inList && !_inPane) return;
   // 类别分组折叠头
   const head = e.target.closest('.cat-group-head');
   if (head) {
@@ -3249,6 +3358,11 @@ document.getElementById('list').addEventListener('click', async e => {
   const actEl = e.target.closest('[data-act]');
   const act = actEl ? actEl.dataset.act : e.target.dataset.act;
   const n = notes.find(n => n.id === id);
+  // Desktop: clicking note body in left column (no specific action) → show in right pane
+  if (_inList && !act && window.innerWidth >= 900 && id) {
+    if (typeof selectDesktopNote === 'function') selectDesktopNote(id);
+    return;
+  }
   if (act === 'more') {
     const box = item.querySelector('.meta-actions');
     if (box) box.classList.toggle('show');
@@ -5835,6 +5949,109 @@ document.addEventListener('visibilitychange', () => {
     }
   });
 })();
+
+// ===== Desktop two-column layout (≥ 900 px) =====
+let desktopSelectedId = null;
+let _composerHomeParent = null;
+let _composerHomeNext = null;
+
+function isDesktopMode() { return window.innerWidth >= 900; }
+
+function highlightSelectedInList() {
+  document.querySelectorAll('#list .item').forEach(el => {
+    el.classList.toggle('desktop-selected', el.dataset.id === desktopSelectedId);
+  });
+}
+
+function renderDesktopPane() {
+  if (!isDesktopMode()) return;
+  const pane = document.getElementById('desktop-pane');
+  if (!pane) return;
+  // Don't overwrite if composer is currently in the pane
+  if (pane.querySelector('#composer')) return;
+
+  if (!desktopSelectedId) {
+    pane.innerHTML = `<div class="desktop-empty">
+      <div class="desktop-empty-icon">📝</div>
+      <div>从左侧选择一条记录<br><small style="opacity:0.7">或点击右上角 ＋ 新建</small></div>
+    </div>`;
+    return;
+  }
+  const n = notes.find(x => x.id === desktopSelectedId && !x._deleted);
+  if (!n) {
+    desktopSelectedId = null;
+    renderDesktopPane();
+    return;
+  }
+  pane.innerHTML = renderItem(n);
+  // Force-expand all sub-item lists in the right pane
+  pane.querySelectorAll('.subs').forEach(el => el.style.display = '');
+  pane.querySelectorAll('.subs-toggle').forEach(el => el.classList.remove('collapsed'));
+  hydrateImages(pane);
+}
+
+function selectDesktopNote(id) {
+  desktopSelectedId = id;
+  renderDesktopPane();
+  highlightSelectedInList();
+}
+
+function openDesktopComposer() {
+  if (!isDesktopMode()) return;
+  const pane = document.getElementById('desktop-pane');
+  const composer = document.getElementById('composer');
+  if (!_composerHomeParent) {
+    _composerHomeParent = composer.parentNode;
+    _composerHomeNext = composer.nextSibling;
+  }
+  desktopSelectedId = null;
+  highlightSelectedInList();
+  pane.innerHTML = '<div class="desktop-pane-title">新建记录</div>';
+  pane.appendChild(composer);
+  composer.classList.remove('collapsed');
+  try { document.getElementById('input').focus(); } catch {}
+}
+
+function closeDesktopComposer() {
+  const composer = document.getElementById('composer');
+  if (_composerHomeParent) {
+    _composerHomeParent.insertBefore(composer, _composerHomeNext);
+    _composerHomeParent = null;
+    _composerHomeNext = null;
+  }
+  composer.classList.add('collapsed');
+}
+
+// Hook into add() → window.closeComposer
+const _prevCloseComposer = window.closeComposer;
+window.closeComposer = function() {
+  if (isDesktopMode() && _composerHomeParent) {
+    closeDesktopComposer();
+    // Show the newly added note in the right pane
+    const fresh = notes.filter(n => !n._deleted).sort((a, b) => b.ts - a.ts)[0];
+    if (fresh) { desktopSelectedId = fresh.id; renderDesktopPane(); highlightSelectedInList(); }
+    return;
+  }
+  if (typeof _prevCloseComposer === 'function') _prevCloseComposer();
+};
+
+// Desktop new-note button
+const desktopNewBtn = document.getElementById('desktop-new-btn');
+if (desktopNewBtn) desktopNewBtn.addEventListener('click', openDesktopComposer);
+
+// Keyboard shortcuts (desktop only)
+document.addEventListener('keydown', function(ev) {
+  if (!isDesktopMode()) return;
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 'n') { ev.preventDefault(); openDesktopComposer(); }
+  if (ev.key === 'Escape' && desktopSelectedId && !document.querySelector('#desktop-pane .edit-area')) {
+    desktopSelectedId = null;
+    renderDesktopPane();
+    highlightSelectedInList();
+  }
+});
+
+// Initial render of desktop pane on load
+if (isDesktopMode()) renderDesktopPane();
 </script>
 </body>
 </html>
