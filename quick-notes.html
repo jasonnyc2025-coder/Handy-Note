@@ -3051,8 +3051,17 @@ function buildColorBar(richEl) {
     btn.innerHTML = `<span style="${css}">${label}</span>`;
     btn.addEventListener('mousedown', e => e.preventDefault());
     btn.addEventListener('click', () => {
-      fmt.size = (fmt.size === FS_EM[fs]) ? null : FS_EM[fs];
-      reapply();
+      const sel = window.getSelection();
+      const hasSelection = sel && !sel.isCollapsed && richEl.contains(sel.anchorNode);
+      if (hasSelection) {
+        // Apply size only to selected text
+        richEl.focus();
+        document.execCommand('fontSize', false, fs);
+      } else {
+        // No selection: toggle size for whole content
+        fmt.size = (fmt.size === FS_EM[fs]) ? null : FS_EM[fs];
+        reapply();
+      }
     });
     sizeButtons.push({ btn, fs });
     fmtBar.appendChild(btn);
