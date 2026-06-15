@@ -1,6 +1,6 @@
 # 随手记 (Handy Note)
 
-A single-file Progressive Web App (PWA) for capturing ideas and to-dos, with 5-level nested sub-items, cloud sync, and offline support.
+A single-file Progressive Web App (PWA) for capturing ideas and to-dos, with 5-level nested sub-items, cloud sync, offline support, and a full desktop layout.
 
 ## Features
 
@@ -38,9 +38,41 @@ Each note supports up to 5 levels of sub-items:
 - Cross-device deletes propagated via tombstone flags (`_deleted` + `_deletedAt`)
 - Tombstones pruned after 60 days
 
+### Inline Calculator
+- Type any math expression followed by `=` in any editor to get the result inline
+- Example: `1500*12=` → `1500*12=18000`
+- Supports `+`, `-`, `*`, `/`, `()`, and percentages (`69*3%=` → `2.07`)
+- Results rounded to 2 decimal places; whole numbers shown without decimals
+- Works on desktop (keydown) and Android IME keyboards (input event)
+
+### Desktop Layout
+At screen widths ≥ 900 px the app automatically switches to a two-column layout:
+
+```
+┌──────────────────┬────────────────────────────────┐
+│ 🔍  ＋ 新建      │  [Note title / content]         │
+│──────────────────│  [idea / todo tag] [category]   │
+│ Note 1       ←── │                                 │
+│ Note 2           │  ▸ Sub-item 1                   │
+│ Note 3           │  ▸ Sub-item 2                   │
+│  ...             │  [＋ 子项]  [编辑]  [删除]       │
+└──────────────────┴────────────────────────────────┘
+```
+
+- **Left column** (380 px): scrollable note list; click any card to load it on the right
+- **Right column**: selected note in full view with all sub-levels expanded; all editing and sub-item forms open inline here
+- **＋ 新建** button in the header opens the composer in the right column; after saving, the new note is auto-selected
+- Keyboard shortcuts: `Ctrl/Cmd+N` — new note; `Esc` — deselect
+- Mobile layout (< 900 px) is completely unchanged
+
+### Rich Text Editing
+- Font size (small / normal / large / extra-large) — applies to selected text when text is highlighted, otherwise toggles the whole editor
+- Text color picker with presets and custom color
+- Underline — selection-based or whole-content toggle
+- Formatting toolbar sits **above** the editor so the iOS system callout never covers it
+
 ### UI & UX
 - Pinch-to-zoom (`transform: scale`) on the app canvas; modals stay outside the scaled layer
-- Rich text editing: bold, italic, font size, color picker
 - Pin notes to top
 - Dark / Midnight themes; Nature themes (Sunrise, Ocean, Forest, Sky, Lavender…)
 - Custom photo background
