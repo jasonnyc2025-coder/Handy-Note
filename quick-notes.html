@@ -2369,7 +2369,7 @@ async function loadFromIDB() {
     });
     const [n, c] = await Promise.all([get('notes'), get('cats')]);
     if (n == null) return null;
-    return { notes: JSON.parse(n), cats: c ? JSON.parse(c) : [] };
+    return { notes: JSON.parse(n), cats: c != null ? JSON.parse(c) : null };
   } catch { return null; }
 }
 async function idbPut(key, value) {
@@ -5627,7 +5627,13 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
   const idbData = await loadFromIDB();
   if (idbData) {
     notes = idbData.notes;
-    cats = idbData.cats;
+    // idbData.cats === null means the 'cats' key was never written to IDB —
+    // keep whatever localStorage loaded. Otherwise use IDB value (even if []).
+    if (idbData.cats !== null) {
+      cats = idbData.cats;
+    } else {
+      saveToIDB(); // back-fill missing cats key into IDB
+    }
     if (filter !== 'all' && filter !== '__overdue' && !cats.find(c => c.id === filter)) {
       filter = 'all';
     }

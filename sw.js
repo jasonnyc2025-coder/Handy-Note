@@ -1,5 +1,5 @@
 // 随手记 Service Worker —— 离线缓存
-const CACHE = 'quicknotes-v135';
+const CACHE = 'quicknotes-v136';
 const ASSETS = [
   'index.html',
   'quick-notes.html',
