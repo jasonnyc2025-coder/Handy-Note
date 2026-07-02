@@ -1745,7 +1745,10 @@
     align-items: center;
     justify-content: center;
     z-index: 100;
-    padding: 24px;
+    padding: calc(env(safe-area-inset-top, 0px) + 60px)
+             calc(env(safe-area-inset-right, 0px) + 24px)
+             calc(env(safe-area-inset-bottom, 0px) + 24px)
+             calc(env(safe-area-inset-left, 0px) + 24px);
   }
   .lightbox.show { display: flex; }
   .lightbox img {
@@ -1756,11 +1759,12 @@
   }
   .lightbox .close {
     position: absolute;
-    top: 20px; right: 22px;
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    right: calc(env(safe-area-inset-right, 0px) + 16px);
     color: #fff;
     background: rgba(255,255,255,0.15);
     border: none;
-    width: 40px; height: 40px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     font-size: 1.4rem;
     cursor: pointer;
