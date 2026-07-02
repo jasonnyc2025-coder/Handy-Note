@@ -1944,6 +1944,69 @@
       flex-shrink: 0;
     }
   }
+
+  /* ===== TTS 朗读控制条 ===== */
+  #tts-bar {
+    position: fixed;
+    bottom: calc(var(--composer-h, 96px) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(28,26,24,0.94);
+    color: #fff;
+    border-radius: 28px;
+    padding: 8px 8px 8px 16px;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    z-index: 30;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    font-size: 0.88rem;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+  }
+  #tts-bar.show { display: flex; }
+  #tts-bar .tts-label { opacity: 0.85; margin-right: 4px; }
+  #tts-bar .tts-btn {
+    background: rgba(255,255,255,0.12);
+    border: none; color: #fff;
+    font-size: 1rem; cursor: pointer;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  #tts-bar .tts-btn:hover { background: rgba(255,255,255,0.22); }
+  #tts-bar .tts-speed {
+    background: rgba(255,255,255,0.12);
+    border: none; color: #fff;
+    font-size: 0.8rem; cursor: pointer;
+    padding: 4px 10px; border-radius: 12px;
+    transition: background 0.15s;
+  }
+  #tts-bar .tts-speed:hover { background: rgba(255,255,255,0.22); }
+
+  /* 划选朗读气泡 */
+  #sel-speak-btn {
+    position: fixed;
+    background: rgba(28,26,24,0.92);
+    color: #fff; border: none;
+    border-radius: 18px;
+    padding: 7px 15px;
+    font-size: 0.85rem; cursor: pointer;
+    z-index: 300; display: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    transform: translateX(-50%);
+    backdrop-filter: blur(6px);
+  }
+  #sel-speak-btn::after {
+    content: '';
+    position: absolute;
+    top: 100%; left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(28,26,24,0.92);
+  }
 </style>
 </head>
 <body>
@@ -2724,6 +2787,7 @@ function renderItem(n) {
         <div class="meta-actions" data-actions="${n.id}">
           <button class="sub-add-btn" data-act="addsub">${t('plusSub')}</button>
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
+          <button class="edit-btn" data-act="tts">🔊 朗读</button>
           ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
           <button class="edit-btn del-btn" data-act="del">× 删除</button>
           <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
@@ -3580,6 +3644,8 @@ document.addEventListener('click', async e => {
       const idx = n.subs.findIndex(x => x.id === sid);
       if (idx > 0) { n.modified = Date.now(); n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
     }
+  } else if (act === 'tts') {
+    if (n && window.ttsSpeak) window.ttsSpeak(window.noteToSpeakText(n));
   } else if (act === 'subsubpin') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
@@ -6065,8 +6131,111 @@ document.addEventListener('keydown', function(ev) {
   }
 });
 
+// ===== TTS 朗读引擎 =====
+(function initTTS() {
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+
+  const ttsBar      = document.getElementById('tts-bar');
+  const ttsPauseBtn = document.getElementById('tts-pause');
+  const ttsStopBtn  = document.getElementById('tts-stop');
+  const ttsSpeedBtn = document.getElementById('tts-speed');
+  const selSpeakBtn = document.getElementById('sel-speak-btn');
+
+  const SPEEDS = [1, 1.25, 1.5, 0.75];
+  let speedIdx = 0, ttsPaused = false, currentText = '';
+
+  function detectLang(text) {
+    const thai = (text.match(/[฀-๿]/g) || []).length;
+    const cjk  = (text.match(/[一-鿿]/g) || []).length;
+    if (thai > cjk && thai > 3) return 'th-TH';
+    if (cjk > 0) return 'zh-CN';
+    return navigator.language || 'zh-CN';
+  }
+
+  // 把 note 对象的所有文字拼成可朗读的字符串
+  window.noteToSpeakText = function(n) {
+    const parts = [];
+    if (n.text) parts.push(plainOf(n.text));
+    function addSubs(subs) {
+      if (!subs) return;
+      subs.forEach(s => { if (s.text) parts.push(plainOf(s.text)); addSubs(s.subs); });
+    }
+    addSubs(n.subs);
+    return parts.filter(Boolean).join('。 ');
+  };
+
+  window.ttsSpeak = function(text) {
+    if (!text || !text.trim()) return;
+    currentText = text.trim();
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(currentText);
+    u.lang = detectLang(currentText);
+    u.rate = SPEEDS[speedIdx];
+    u.onend = u.onerror = () => { ttsBar.classList.remove('show'); ttsPaused = false; };
+    synth.speak(u);
+    ttsPaused = false;
+    ttsPauseBtn.textContent = '⏸';
+    ttsBar.classList.add('show');
+  };
+
+  ttsPauseBtn.addEventListener('click', () => {
+    if (ttsPaused) { synth.resume(); ttsPaused = false; ttsPauseBtn.textContent = '⏸'; }
+    else           { synth.pause();  ttsPaused = true;  ttsPauseBtn.textContent = '▶'; }
+  });
+
+  ttsStopBtn.addEventListener('click', () => {
+    synth.cancel(); ttsBar.classList.remove('show'); ttsPaused = false;
+  });
+
+  ttsSpeedBtn.addEventListener('click', () => {
+    speedIdx = (speedIdx + 1) % SPEEDS.length;
+    ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
+    if (synth.speaking && currentText) window.ttsSpeak(currentText); // 重新开始用新语速
+  });
+
+  // ── 划选朗读气泡 ──
+  let selTimer = null, selText = '';
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selTimer);
+    selTimer = setTimeout(() => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) { selSpeakBtn.style.display = 'none'; return; }
+      const txt = sel.toString().trim();
+      if (txt.length < 2) { selSpeakBtn.style.display = 'none'; return; }
+      try {
+        const rect = sel.getRangeAt(0).getBoundingClientRect();
+        if (!rect.width && !rect.height) { selSpeakBtn.style.display = 'none'; return; }
+        selText = txt;
+        const midX = Math.max(50, Math.min(window.innerWidth - 50, (rect.left + rect.right) / 2));
+        const topY = rect.top - 46;
+        selSpeakBtn.style.left = midX + 'px';
+        selSpeakBtn.style.top  = (topY < 60 ? rect.bottom + 10 : topY) + 'px';
+        selSpeakBtn.style.display = 'block';
+      } catch { selSpeakBtn.style.display = 'none'; }
+    }, 250);
+  });
+
+  selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
+  selSpeakBtn.addEventListener('click', () => {
+    if (selText) window.ttsSpeak(selText);
+    selSpeakBtn.style.display = 'none';
+  });
+})();
+
 // Initial render of desktop pane on load
 if (isDesktopMode()) renderDesktopPane();
 </script>
+
+<!-- TTS 朗读控制条 -->
+<div id="tts-bar">
+  <span class="tts-label">🔊 朗读中…</span>
+  <button class="tts-btn" id="tts-pause" title="暂停/继续">⏸</button>
+  <button class="tts-btn" id="tts-stop" title="停止">⏹</button>
+  <button class="tts-speed" id="tts-speed">1×</button>
+</div>
+<!-- 划选朗读气泡 -->
+<button id="sel-speak-btn">🔊 朗读</button>
+
 </body>
 </html>
