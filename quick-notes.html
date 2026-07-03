@@ -2039,7 +2039,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v148</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v149</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -2484,6 +2484,7 @@ async function getAttData(att) {
 const KEY = 'quicknotes.v1';
 let notes = [];
 let filter = 'all';
+let desktopSelectedId = null; // hoisted: referenced during initial render, before its old declaration ran (TDZ fix)
 const FILTER_KEY = 'quicknotes.filter';
 function saveFilter() { try { localStorage.setItem(FILTER_KEY, filter); } catch {} }
 function loadFilter() {
@@ -6086,7 +6087,7 @@ document.addEventListener('visibilitychange', () => {
 })();
 
 // ===== Desktop two-column layout (≥ 900 px) =====
-let desktopSelectedId = null;
+// desktopSelectedId is declared up top (hoisted to avoid a TDZ error at boot)
 let _composerHomeParent = null;
 let _composerHomeNext = null;
 
@@ -6247,14 +6248,32 @@ document.addEventListener('keydown', function(ev) {
     return parts.filter(Boolean).join('。 ');
   };
 
+  function pickVoice(lang) {
+    const voices = synth.getVoices() || [];
+    if (!voices.length) return null;
+    const p = lang.slice(0, 2);
+    return voices.find(v => v.lang === lang)
+        || voices.find(v => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(p))
+        || voices.find(v => v.default)
+        || voices[0];
+  }
+
   function doSpeak(text) {
-    try { synth.cancel(); } catch(e) {}
     stopKeepAlive();
+    const lang = detectLang(text);
     const u = new SpeechSynthesisUtterance(text);
     currentUtterance = u;
-    u.lang = detectLang(text);
+    u.lang = lang;
+    // Explicitly assign a voice — Chrome stays SILENT if the lang has no
+    // matching voice and none is set, instead of falling back automatically.
+    const v = pickVoice(lang);
+    if (v) u.voice = v;
     u.rate = SPEEDS[speedIdx];
     u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
+    try { synth.cancel(); } catch(e) {}
+    // Defensive: if the engine was left in a paused state (by keepAlive or an
+    // interrupted prior session), speak() silently queues but never plays.
+    try { synth.resume(); } catch(e) {}
     synth.speak(u);
     startKeepAlive();
   }
