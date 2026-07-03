@@ -2039,7 +2039,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v150</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v151</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6192,7 +6192,7 @@ document.addEventListener('keydown', function(ev) {
   // NOTE: the #tts-bar / #sel-speak-btn elements live later in the document
   // (after this script). getElementById at parse time would return null, so we
   // bind lazily in bindTTS() once the DOM is ready.
-  let ttsBar, ttsPauseBtn, ttsStopBtn, ttsSpeedBtn, ttsPreview, selSpeakBtn,
+  let ttsBar, ttsPauseBtn, ttsStopBtn, ttsSpeedBtn, ttsPreview, ttsLabel, selSpeakBtn,
       ttsHeaderBar, ttsHPauseBtn, ttsHStopBtn;
 
   const SPEEDS = [1, 1.25, 1.5, 0.75];
@@ -6304,12 +6304,36 @@ document.addEventListener('keydown', function(ev) {
     stopKeepAlive();
     speakQueue = segmentByScript(text);
     speakIdx = 0;
+    warnMissingVoices(speakQueue);
     try { synth.cancel(); } catch(e) {}
     // Defensive: if the engine was left paused (by keepAlive or an interrupted
     // session), speak() silently queues but never plays.
     try { synth.resume(); } catch(e) {}
     speakNext();
     startKeepAlive();
+  }
+
+  const LANG_CN = { 'th': '泰语', 'zh': '中文', 'en': '英语', 'ja': '日语', 'ko': '韩语' };
+  let warnedLangs = {};
+  // Detect which required languages have no installed voice and tell the user —
+  // otherwise those segments are silently skipped and Thai just "doesn't read".
+  function warnMissingVoices(queue) {
+    const voices = synth.getVoices() || [];
+    if (!voices.length) return;                   // voices not loaded yet; can't judge
+    const needed = [...new Set(queue.map(s => s.lang))];
+    const missing = needed.filter(l => !pickVoice(l));
+    if (ttsLabel) {
+      const names = missing.map(l => LANG_CN[l.slice(0,2)] || l);
+      ttsLabel.textContent = missing.length ? ('🔊 朗读中（' + names.join('、') + '无语音）') : '🔊 朗读中';
+    }
+    // One alert per language per session with install guidance
+    missing.forEach(l => {
+      const key = l.slice(0, 2);
+      if (warnedLangs[key]) return;
+      warnedLangs[key] = true;
+      const name = LANG_CN[key] || l;
+      alert('未检测到「' + name + '」语音，' + name + '部分将没有声音。\n\n请在系统设置里安装' + name + '语音包：\n设置 → 系统 → 语言 → 文字转语音输出(TTS) → 安装' + name + '语音数据，然后重新打开本页。');
+    });
   }
 
   window.ttsSpeak = function(text) {
@@ -6378,10 +6402,23 @@ document.addEventListener('keydown', function(ev) {
     ttsStopBtn  = document.getElementById('tts-stop');
     ttsSpeedBtn = document.getElementById('tts-speed');
     ttsPreview  = document.getElementById('tts-preview');
+    ttsLabel    = document.getElementById('tts-label');
     selSpeakBtn = document.getElementById('sel-speak-btn');
     ttsHeaderBar = document.getElementById('tts-header-bar');
     ttsHPauseBtn = document.getElementById('tts-h-pause');
     ttsHStopBtn  = document.getElementById('tts-h-stop');
+
+    // Tap the version label to list installed TTS voices — quick way to check
+    // whether a Thai (or any) voice is actually installed on this device.
+    const verEl = document.getElementById('app-ver');
+    if (verEl) {
+      verEl.style.cursor = 'pointer';
+      verEl.addEventListener('click', () => {
+        const vs = (synth ? synth.getVoices() : []) || [];
+        alert('已安装语音（' + vs.length + '）：\n\n' +
+          (vs.length ? vs.map(v => v.lang + ' — ' + v.name).join('\n') : '（无 / 尚未加载，请稍后再点）'));
+      });
+    }
 
     if (ttsPauseBtn) ttsPauseBtn.addEventListener('click', togglePause);
     if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
@@ -6420,7 +6457,7 @@ if (isDesktopMode()) renderDesktopPane();
 
 <!-- TTS 朗读控制面板 -->
 <div id="tts-bar">
-  <span class="tts-label">🔊 朗读中</span>
+  <span class="tts-label" id="tts-label">🔊 朗读中</span>
   <span class="tts-text-preview" id="tts-preview"></span>
   <div class="tts-controls">
     <button class="tts-btn" id="tts-stop" title="停止">⏹</button>
