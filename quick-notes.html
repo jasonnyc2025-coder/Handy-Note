@@ -2045,6 +2045,11 @@
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
       <button class="gear" id="search-btn" data-i18n-title="search" title="搜索">🔍</button>
+      <div id="tts-header-bar" style="display:none;align-items:center;gap:4px;background:rgba(28,26,24,0.88);border-radius:20px;padding:4px 10px;color:#fff;font-size:0.8rem">
+        <span style="opacity:.8">🔊</span>
+        <button id="tts-h-pause" style="background:none;border:none;color:#fff;font-size:1rem;cursor:pointer;padding:0 4px;line-height:1">⏸</button>
+        <button id="tts-h-stop"  style="background:none;border:none;color:#fff;font-size:1rem;cursor:pointer;padding:0 4px;line-height:1">⏹</button>
+      </div>
       <button class="gear" id="gear" title="⋯">⋯</button>
     </div>
     <div class="search-bar" id="search-bar">
@@ -6160,6 +6165,9 @@ document.addEventListener('keydown', function(ev) {
   const ttsStopBtn  = document.getElementById('tts-stop');
   const ttsSpeedBtn = document.getElementById('tts-speed');
   const selSpeakBtn = document.getElementById('sel-speak-btn');
+  const ttsHeaderBar   = document.getElementById('tts-header-bar');
+  const ttsHPauseBtn   = document.getElementById('tts-h-pause');
+  const ttsHStopBtn    = document.getElementById('tts-h-stop');
 
   const SPEEDS = [1, 1.25, 1.5, 0.75];
   let speedIdx = 0, ttsPaused = false, currentText = '';
@@ -6178,8 +6186,18 @@ document.addEventListener('keydown', function(ev) {
     }, 10000);
   }
 
+  function setTtsPauseIcon(paused) {
+    const icon = paused ? '▶' : '⏸';
+    ttsPauseBtn.textContent = icon;
+    ttsHPauseBtn.textContent = icon;
+  }
+  function showTtsControls() {
+    ttsBar.classList.add('show');
+    ttsHeaderBar.style.display = 'flex';
+  }
   function hideTtsBar() {
     ttsBar.classList.remove('show');
+    ttsHeaderBar.style.display = 'none';
     ttsPaused = false;
     stopKeepAlive();
     currentUtterance = null;
@@ -6217,19 +6235,21 @@ document.addEventListener('keydown', function(ev) {
     u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
     synth.speak(u);
     ttsPaused = false;
-    ttsPauseBtn.textContent = '⏸';
-    ttsBar.classList.add('show');
+    setTtsPauseIcon(false);
+    showTtsControls();
     startKeepAlive();
   };
 
-  ttsPauseBtn.addEventListener('click', () => {
-    if (ttsPaused) { synth.resume(); ttsPaused = false; ttsPauseBtn.textContent = '⏸'; startKeepAlive(); }
-    else           { synth.pause();  ttsPaused = true;  ttsPauseBtn.textContent = '▶'; stopKeepAlive(); }
-  });
+  function togglePause() {
+    if (ttsPaused) { synth.resume(); ttsPaused = false; setTtsPauseIcon(false); startKeepAlive(); }
+    else           { synth.pause();  ttsPaused = true;  setTtsPauseIcon(true);  stopKeepAlive(); }
+  }
+  ttsPauseBtn.addEventListener('click', togglePause);
+  ttsHPauseBtn.addEventListener('click', togglePause);
 
-  ttsStopBtn.addEventListener('click', () => {
-    synth.cancel(); hideTtsBar();
-  });
+  function doStop() { synth.cancel(); hideTtsBar(); }
+  ttsStopBtn.addEventListener('click', doStop);
+  ttsHStopBtn.addEventListener('click', doStop);
 
   ttsSpeedBtn.addEventListener('click', () => {
     speedIdx = (speedIdx + 1) % SPEEDS.length;
