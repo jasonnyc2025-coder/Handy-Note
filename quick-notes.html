@@ -2046,7 +2046,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v153</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v154</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6203,8 +6203,16 @@ document.addEventListener('keydown', function(ev) {
       ttsHeaderBar, ttsHPauseBtn, ttsHStopBtn;
   let langFilter = 'all'; // 'all' | 'zh' | 'th' | ... — which language to read
 
-  const SPEEDS = [0.8, 0.6, 0.5, 1, 1.25]; // default 0.8× (slower, good for learning); tap to cycle
+  const SPEEDS = [0.8, 0.6, 0.5, 0.4, 1, 1.25]; // default 0.8×; tap to cycle (down to 0.4× for slow desktop voices)
+  const TTS_RATE_KEY = 'quicknotes.ttsRate';
   let speedIdx = 0, ttsPaused = false, currentText = '';
+  // Restore the last chosen speed so it persists across reloads (esp. on
+  // desktop where the voice engine's baseline is faster).
+  try {
+    const savedRate = parseFloat(localStorage.getItem(TTS_RATE_KEY));
+    const i = SPEEDS.indexOf(savedRate);
+    if (i >= 0) speedIdx = i;
+  } catch (e) {}
   let keepAliveTimer = null, currentUtterance = null;
 
   function stopKeepAlive() {
@@ -6457,11 +6465,15 @@ document.addEventListener('keydown', function(ev) {
     if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
     if (ttsStopBtn) ttsStopBtn.addEventListener('click', doStop);
     if (ttsHStopBtn) ttsHStopBtn.addEventListener('click', doStop);
-    if (ttsSpeedBtn) ttsSpeedBtn.addEventListener('click', () => {
-      speedIdx = (speedIdx + 1) % SPEEDS.length;
-      ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
-      if (synth && synth.speaking && currentText) window.ttsSpeak(currentText);
-    });
+    if (ttsSpeedBtn) {
+      ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×'; // reflect restored speed
+      ttsSpeedBtn.addEventListener('click', () => {
+        speedIdx = (speedIdx + 1) % SPEEDS.length;
+        ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
+        try { localStorage.setItem(TTS_RATE_KEY, SPEEDS[speedIdx]); } catch (e) {}
+        if (synth && synth.speaking && currentText) window.ttsSpeak(currentText);
+      });
+    }
     if (selSpeakBtn) {
       selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
       selSpeakBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
