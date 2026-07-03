@@ -2436,7 +2436,9 @@ async function loadFromIDB() {
     });
     const [n, c] = await Promise.all([get('notes'), get('cats')]);
     if (n == null) return null;
-    return { notes: JSON.parse(n), cats: c != null ? JSON.parse(c) : null };
+    const parsedCats = c != null ? JSON.parse(c) : null;
+    // Treat [] same as null: old buggy code may have written [] to IDB, fall through to localStorage
+    return { notes: JSON.parse(n), cats: (Array.isArray(parsedCats) && parsedCats.length > 0) ? parsedCats : null };
   } catch { return null; }
 }
 async function idbPut(key, value) {
@@ -5697,12 +5699,24 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
   const idbData = await loadFromIDB();
   if (idbData) {
     notes = idbData.notes;
-    // idbData.cats === null means the 'cats' key was never written to IDB —
-    // keep whatever localStorage loaded. Otherwise use IDB value (even if []).
+    // idbData.cats === null means key absent or was [] (treated as missing) —
+    // keep whatever localStorage loaded and write it back to heal IDB.
     if (idbData.cats !== null) {
       cats = idbData.cats;
     } else {
-      saveToIDB(); // back-fill missing cats key into IDB
+      saveToIDB(); // back-fill cats into IDB
+    }
+    // Recovery: if cats is still empty but notes reference category IDs,
+    // the definitions were lost (old bug). Rebuild numbered placeholders so
+    // notes return to their correct tabs; user can rename them.
+    if (cats.length === 0) {
+      const catIds = new Set();
+      (function collectIds(arr) { arr.forEach(n => { if (n.cat) catIds.add(n.cat); if (n.subs) collectIds(n.subs); }); })(notes);
+      if (catIds.size > 0) {
+        let i = 1;
+        catIds.forEach(id => cats.push({ id, name: '类别 ' + (i++) }));
+        saveToIDB(); save();
+      }
     }
     if (filter !== 'all' && filter !== '__overdue' && !cats.find(c => c.id === filter)) {
       filter = 'all';
