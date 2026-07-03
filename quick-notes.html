@@ -2039,7 +2039,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v149</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v150</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6251,30 +6251,64 @@ document.addEventListener('keydown', function(ev) {
   function pickVoice(lang) {
     const voices = synth.getVoices() || [];
     if (!voices.length) return null;
-    const p = lang.slice(0, 2);
+    const p = lang.slice(0, 2).toLowerCase();
     return voices.find(v => v.lang === lang)
         || voices.find(v => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(p))
-        || voices.find(v => v.default)
-        || voices[0];
+        || null; // no fallback: a mismatched voice (e.g. Chinese voice on Thai text) plays nothing
+  }
+
+  // Split mixed text into runs of the same script so each part can use the
+  // right voice. Notes here mix Chinese labels with Thai words on one line,
+  // and a single utterance can only speak one language.
+  function segmentByScript(text) {
+    const runs = [];
+    for (const ch of text) {
+      let cls = null;                                   // neutral: latin/digit/punct/space
+      if (/[฀-๿]/.test(ch)) cls = 'th';       // Thai
+      else if (/[一-鿿㐀-䶿]/.test(ch)) cls = 'zh'; // CJK
+      const last = runs[runs.length - 1];
+      if (cls === null) {
+        if (last) last.text += ch; else runs.push({ cls: null, text: ch });
+      } else if (last && (last.cls === cls || last.cls === null)) {
+        last.cls = cls; last.text += ch;                // absorb neutral run into this script
+      } else {
+        runs.push({ cls, text: ch });
+      }
+    }
+    return runs
+      .filter(r => r.text.trim().length)
+      .map(r => ({
+        text: r.text,
+        lang: r.cls === 'th' ? 'th-TH' : r.cls === 'zh' ? 'zh-CN' : (navigator.language || 'zh-CN')
+      }));
+  }
+
+  let speakQueue = [], speakIdx = 0;
+
+  function speakNext() {
+    if (speakIdx >= speakQueue.length) { hideTtsBar(); return; }
+    const seg = speakQueue[speakIdx];
+    const u = new SpeechSynthesisUtterance(seg.text);
+    currentUtterance = u;
+    u.lang = seg.lang;
+    const v = pickVoice(seg.lang);
+    if (v) u.voice = v;
+    u.rate = SPEEDS[speedIdx];
+    const advance = () => { if (currentUtterance === u) { speakIdx++; speakNext(); } };
+    u.onend = advance;
+    u.onerror = advance;                                // missing-voice segment → skip to next
+    synth.speak(u);
   }
 
   function doSpeak(text) {
     stopKeepAlive();
-    const lang = detectLang(text);
-    const u = new SpeechSynthesisUtterance(text);
-    currentUtterance = u;
-    u.lang = lang;
-    // Explicitly assign a voice — Chrome stays SILENT if the lang has no
-    // matching voice and none is set, instead of falling back automatically.
-    const v = pickVoice(lang);
-    if (v) u.voice = v;
-    u.rate = SPEEDS[speedIdx];
-    u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
+    speakQueue = segmentByScript(text);
+    speakIdx = 0;
     try { synth.cancel(); } catch(e) {}
-    // Defensive: if the engine was left in a paused state (by keepAlive or an
-    // interrupted prior session), speak() silently queues but never plays.
+    // Defensive: if the engine was left paused (by keepAlive or an interrupted
+    // session), speak() silently queues but never plays.
     try { synth.resume(); } catch(e) {}
-    synth.speak(u);
+    speakNext();
     startKeepAlive();
   }
 
