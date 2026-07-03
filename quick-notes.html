@@ -2046,7 +2046,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v154</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v155</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6274,29 +6274,47 @@ document.addEventListener('keydown', function(ev) {
   }
 
   // Split mixed text into runs of the same script so each part can use the
-  // right voice. Notes here mix Chinese labels with Thai words on one line,
-  // and a single utterance can only speak one language.
+  // right voice — a single utterance can only speak one language. Handles
+  // Thai, Chinese and Japanese mixed on one line.
   function segmentByScript(text) {
+    // Pass 1: runs of th / ja / han / neutral. Neutral (space/punct/latin) is
+    // kept as its own run so it can act as a boundary between scripts.
     const runs = [];
     for (const ch of text) {
-      let cls = null;                                   // neutral: latin/digit/punct/space
-      if (/[฀-๿]/.test(ch)) cls = 'th';       // Thai
-      else if (/[一-鿿㐀-䶿]/.test(ch)) cls = 'zh'; // CJK
+      let cls = 'neutral';
+      if (/[฀-๿]/.test(ch)) cls = 'th';                         // Thai
+      else if (/[぀-ゟ゠-ヿㇰ-ㇿ]/.test(ch)) cls = 'ja'; // kana → Japanese
+      else if (/[㐀-䶿一-鿿豈-﫿]/.test(ch)) cls = 'han'; // CJK ideographs (zh or ja kanji)
       const last = runs[runs.length - 1];
-      if (cls === null) {
-        if (last) last.text += ch; else runs.push({ cls: null, text: ch });
-      } else if (last && (last.cls === cls || last.cls === null)) {
-        last.cls = cls; last.text += ch;                // absorb neutral run into this script
-      } else {
-        runs.push({ cls, text: ch });
-      }
+      if (last && last.cls === cls) last.text += ch;
+      else runs.push({ cls, text: ch });
     }
-    return runs
-      .filter(r => r.text.trim().length)
-      .map(r => ({
-        text: r.text,
-        lang: r.cls === 'th' ? 'th-TH' : r.cls === 'zh' ? 'zh-CN' : (navigator.language || 'zh-CN')
-      }));
+    // Pass 2: resolve ambiguous 'han'. Kanji counts as Japanese only when kana
+    // touches it DIRECTLY (no neutral run between) — e.g. 猫は. A space before a
+    // Chinese phrase (かわいい 猫很可爱) keeps that phrase Chinese.
+    runs.forEach((r, i) => {
+      if (r.cls !== 'han') return;
+      const prev = runs[i - 1], next = runs[i + 1];
+      r.cls = ((prev && prev.cls === 'ja') || (next && next.cls === 'ja')) ? 'ja' : 'zh';
+    });
+    // Pass 3: map to BCP-47 langs; neutral runs attach to the previous segment
+    // (or the next script if leading); merge consecutive same-language runs.
+    const LANG = { th: 'th-TH', ja: 'ja-JP', zh: 'zh-CN' };
+    const out = [];
+    runs.forEach((r, i) => {
+      let lang;
+      if (r.cls === 'neutral') {
+        if (out.length) { out[out.length - 1].text += r.text; return; }
+        const nx = runs.slice(i + 1).find(x => x.cls !== 'neutral');
+        lang = nx ? LANG[nx.cls] : (navigator.language || 'zh-CN');
+      } else {
+        lang = LANG[r.cls];
+      }
+      const last = out[out.length - 1];
+      if (last && last.lang === lang) last.text += r.text;
+      else out.push({ text: r.text, lang });
+    });
+    return out.filter(s => s.text.trim().length);
   }
 
   let speakQueue = [], speakIdx = 0;
