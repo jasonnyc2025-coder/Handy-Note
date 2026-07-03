@@ -5810,6 +5810,12 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
+  // Auto-reload when new SW activates so users always see the latest version
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SW_UPDATED') {
+      window.location.reload();
+    }
+  });
 }
 
 // ===== 密码锁 =====
@@ -6241,28 +6247,41 @@ document.addEventListener('keydown', function(ev) {
     return parts.filter(Boolean).join('。 ');
   };
 
-  window.ttsSpeak = function(text) {
-    if (!text || !text.trim()) { alert('没有可朗读的文字'); return; }
-    if (!synth) { alert('您的浏览器不支持朗读功能，请使用 Chrome'); return; }
-    currentText = text.trim();
+  function doSpeak(text) {
     try { synth.cancel(); } catch(e) {}
     stopKeepAlive();
-    // Show panel FIRST so user sees controls immediately
+    const u = new SpeechSynthesisUtterance(text);
+    currentUtterance = u;
+    u.lang = detectLang(text);
+    u.rate = SPEEDS[speedIdx];
+    u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
+    synth.speak(u);
+    startKeepAlive();
+  }
+
+  window.ttsSpeak = function(text) {
+    if (!text || !text.trim()) { alert('没有可朗读的文字'); return; }
+    if (!synth) { alert('您的浏览器不支持朗读功能，请使用 Chrome 浏览器'); return; }
+    currentText = text.trim();
+    // Show panel FIRST — user sees controls before speech starts
     ttsPaused = false;
     setTtsPauseIcon(false);
     showTtsControls(currentText);
-    // Then start speech
-    try {
-      const u = new SpeechSynthesisUtterance(currentText);
-      currentUtterance = u;
-      u.lang = detectLang(currentText);
-      u.rate = SPEEDS[speedIdx];
-      u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
-      synth.speak(u);
-      startKeepAlive();
-    } catch(e) {
-      hideTtsBar();
-      alert('朗读启动失败：' + e.message);
+    // Android Chrome: voices load async — wait if not ready yet
+    const voices = synth.getVoices();
+    if (voices.length > 0) {
+      doSpeak(currentText);
+    } else {
+      synth.onvoiceschanged = () => {
+        synth.onvoiceschanged = null;
+        doSpeak(currentText);
+      };
+      // Fallback: try anyway after 800ms even if voiceschanged never fires
+      setTimeout(() => {
+        if (currentUtterance === null && ttsBar.classList.contains('show')) {
+          doSpeak(currentText);
+        }
+      }, 800);
     }
   };
 
