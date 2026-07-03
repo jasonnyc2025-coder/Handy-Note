@@ -2986,6 +2986,7 @@ function renderSubs(n) {
         <div class="sub-more-panel">
           <button class="subsub-add-btn" data-act="subsubadd" data-sub="${s.id}">＋ 子项</button>
           <button class="sub-mini-btn" data-act="subedit2" data-sub="${s.id}">${t('edit')}</button>
+          <button class="sub-mini-btn" data-act="subtts" data-sub="${s.id}">🔊 朗读</button>
           ${s.remindAt ? `<span class="sub-remind ${(s.remindAt < Date.now() && (!s.repeat||s.repeat==='none')) ? 'past':''}" data-act="subremind" data-sub="${s.id}">⏰ ${fullDate(s.remindAt)}${s.repeat&&s.repeat!=='none'?' · '+REPEAT_LABEL[s.repeat]:''}</span>` : `<button class="sub-mini-btn" data-act="subremind" data-sub="${s.id}">${t('plusAlarm')}</button>`}
           <button class="sub-mini-btn" style="color:var(--danger,#c8553d);border-color:var(--danger,#c8553d)" data-act="subdel" data-sub="${s.id}">× 删除</button>
           ${i > 0 ? `<button class="sub-mini-btn" data-act="subpin" data-sub="${s.id}">↑ 置顶</button>` : ''}
@@ -3646,6 +3647,10 @@ document.addEventListener('click', async e => {
       const idx = n.subs.findIndex(x => x.id === sid);
       if (idx > 0) { n.modified = Date.now(); n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
     }
+  } else if (act === 'subtts') {
+    const sid = actEl.dataset.sub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    if (s && window.ttsSpeak) window.ttsSpeak(window.noteToSpeakText(s));
   } else if (act === 'tts') {
     if (n && window.ttsSpeak) window.ttsSpeak(window.noteToSpeakText(n));
   } else if (act === 'subsubpin') {
@@ -6210,7 +6215,8 @@ document.addEventListener('keydown', function(ev) {
 
   // ── 划选朗读气泡 ──
   let selTimer = null, selText = '';
-  document.addEventListener('selectionchange', () => {
+
+  function checkSelection() {
     clearTimeout(selTimer);
     selTimer = setTimeout(() => {
       const sel = window.getSelection();
@@ -6221,16 +6227,22 @@ document.addEventListener('keydown', function(ev) {
         const rect = sel.getRangeAt(0).getBoundingClientRect();
         if (!rect.width && !rect.height) { selSpeakBtn.style.display = 'none'; return; }
         selText = txt;
-        const midX = Math.max(50, Math.min(window.innerWidth - 50, (rect.left + rect.right) / 2));
-        const topY = rect.top - 46;
+        const midX = Math.max(60, Math.min(window.innerWidth - 60, (rect.left + rect.right) / 2));
+        const topY = rect.top - 50;
         selSpeakBtn.style.left = midX + 'px';
-        selSpeakBtn.style.top  = (topY < 60 ? rect.bottom + 10 : topY) + 'px';
+        selSpeakBtn.style.top  = (topY < 80 ? rect.bottom + 12 : topY) + 'px';
         selSpeakBtn.style.display = 'block';
       } catch { selSpeakBtn.style.display = 'none'; }
-    }, 250);
-  });
+    }, 300);
+  }
+
+  // selectionchange fires on Android/desktop; touchend catches iOS after long-press select
+  document.addEventListener('selectionchange', checkSelection);
+  document.addEventListener('touchend', () => setTimeout(checkSelection, 100));
+  document.addEventListener('mouseup', checkSelection);
 
   selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
+  selSpeakBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
   selSpeakBtn.addEventListener('click', () => {
     if (selText) window.ttsSpeak(selText);
     selSpeakBtn.style.display = 'none';
