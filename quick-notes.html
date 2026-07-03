@@ -2899,6 +2899,7 @@ function renderL5(sss, isTodo, ssid, sid) {
         ${renderL5Atts(l5)}
         <div class="l5-more-panel">
           <button class="l5-edit-btn" data-act="l5edit" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">✎ 编辑</button>
+          <button class="l5-edit-btn" data-act="l5tts" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">🔊 朗读</button>
           <button class="l5-del" data-act="l5del" data-l5="${l5.id}" data-sss="${sss.id}" data-subsub="${ssid}" data-sub="${sid}">× 删除</button>
         </div>
       </div>
@@ -2935,6 +2936,7 @@ function renderSSS(ss, isTodo, sid) {
         <div class="sss-more-panel">
           <button class="sss-edit-btn" data-act="l5add" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">＋ 子项</button>
           <button class="sss-edit-btn" data-act="sssedit" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">✎ 编辑</button>
+          <button class="sss-edit-btn" data-act="ssstts" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">🔊 朗读</button>
           <button class="sss-del" data-act="sssdel" data-sss="${sss.id}" data-subsub="${ss.id}" data-sub="${sid}">× 删除</button>
         </div>
       </div>
@@ -2960,6 +2962,7 @@ function renderSubSubs(s, isTodo) {
         <div class="ss-more-panel">
           <button class="subsub-edit-btn" data-act="sssadd" data-subsub="${ss.id}" data-sub="${s.id}">＋ 子项</button>
           <button class="subsub-edit-btn" data-act="subsubedit" data-subsub="${ss.id}" data-sub="${s.id}">✎ 编辑</button>
+          <button class="subsub-edit-btn" data-act="subsubtts" data-subsub="${ss.id}" data-sub="${s.id}">🔊 朗读</button>
           <button class="subsub-del" data-act="subsubdel" data-subsub="${ss.id}" data-sub="${s.id}">× 删除</button>
           ${ssIdx > 0 ? `<button class="subsub-edit-btn" data-act="subsubpin" data-subsub="${ss.id}" data-sub="${s.id}">↑ 置顶</button>` : ''}
         </div>
@@ -3656,6 +3659,24 @@ document.addEventListener('click', async e => {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s && window.ttsSpeak) window.ttsSpeak(plainOf(s.text || ''));
+  } else if (act === 'subsubtts') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    if (ss && window.ttsSpeak) window.ttsSpeak(plainOf(ss.text || ''));
+  } else if (act === 'ssstts') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub, sssid = actEl.dataset.sss;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    if (sss && window.ttsSpeak) window.ttsSpeak(plainOf(sss.text || ''));
+  } else if (act === 'l5tts') {
+    const sid = actEl.dataset.sub, ssid = actEl.dataset.subsub, sssid = actEl.dataset.sss, l5id = actEl.dataset.l5;
+    const s = n && n.subs && n.subs.find(x => x.id === sid);
+    const ss = s && s.subs && s.subs.find(x => x.id === ssid);
+    const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
+    const l5 = sss && sss.subs && sss.subs.find(x => x.id === l5id);
+    if (l5 && window.ttsSpeak) window.ttsSpeak(plainOf(l5.text || ''));
   } else if (act === 'tts') {
     if (n && window.ttsSpeak) window.ttsSpeak(plainOf(n.text || ''));
   } else if (act === 'subsubpin') {
