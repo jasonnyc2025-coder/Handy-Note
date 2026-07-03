@@ -1948,7 +1948,7 @@
   /* ===== TTS 朗读控制条 ===== */
   #tts-bar {
     position: fixed;
-    bottom: calc(var(--composer-h, 96px) + 10px);
+    top: calc(env(safe-area-inset-top, 0px) + 58px);
     left: 50%;
     transform: translateX(-50%);
     background: rgba(28,26,24,0.94);
@@ -1958,7 +1958,7 @@
     display: none;
     align-items: center;
     gap: 6px;
-    z-index: 30;
+    z-index: 90;
     box-shadow: 0 4px 24px rgba(0,0,0,0.35);
     font-size: 0.88rem;
     white-space: nowrap;
@@ -6163,6 +6163,27 @@ document.addEventListener('keydown', function(ev) {
 
   const SPEEDS = [1, 1.25, 1.5, 0.75];
   let speedIdx = 0, ttsPaused = false, currentText = '';
+  let keepAliveTimer = null, currentUtterance = null;
+
+  function stopKeepAlive() {
+    if (keepAliveTimer) { clearInterval(keepAliveTimer); keepAliveTimer = null; }
+  }
+  function startKeepAlive() {
+    stopKeepAlive();
+    // Android Chrome bug: speech silently stops after ~15s; pause+resume keeps it alive
+    keepAliveTimer = setInterval(() => {
+      if (synth.speaking && !synth.paused && !ttsPaused) {
+        synth.pause(); synth.resume();
+      }
+    }, 10000);
+  }
+
+  function hideTtsBar() {
+    ttsBar.classList.remove('show');
+    ttsPaused = false;
+    stopKeepAlive();
+    currentUtterance = null;
+  }
 
   function detectLang(text) {
     const thai = (text.match(/[฀-๿]/g) || []).length;
@@ -6188,29 +6209,32 @@ document.addEventListener('keydown', function(ev) {
     if (!text || !text.trim()) return;
     currentText = text.trim();
     synth.cancel();
+    stopKeepAlive();
     const u = new SpeechSynthesisUtterance(currentText);
+    currentUtterance = u;
     u.lang = detectLang(currentText);
     u.rate = SPEEDS[speedIdx];
-    u.onend = u.onerror = () => { ttsBar.classList.remove('show'); ttsPaused = false; };
+    u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
     synth.speak(u);
     ttsPaused = false;
     ttsPauseBtn.textContent = '⏸';
     ttsBar.classList.add('show');
+    startKeepAlive();
   };
 
   ttsPauseBtn.addEventListener('click', () => {
-    if (ttsPaused) { synth.resume(); ttsPaused = false; ttsPauseBtn.textContent = '⏸'; }
-    else           { synth.pause();  ttsPaused = true;  ttsPauseBtn.textContent = '▶'; }
+    if (ttsPaused) { synth.resume(); ttsPaused = false; ttsPauseBtn.textContent = '⏸'; startKeepAlive(); }
+    else           { synth.pause();  ttsPaused = true;  ttsPauseBtn.textContent = '▶'; stopKeepAlive(); }
   });
 
   ttsStopBtn.addEventListener('click', () => {
-    synth.cancel(); ttsBar.classList.remove('show'); ttsPaused = false;
+    synth.cancel(); hideTtsBar();
   });
 
   ttsSpeedBtn.addEventListener('click', () => {
     speedIdx = (speedIdx + 1) % SPEEDS.length;
     ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
-    if (synth.speaking && currentText) window.ttsSpeak(currentText); // 重新开始用新语速
+    if (synth.speaking && currentText) window.ttsSpeak(currentText);
   });
 
   // ── 划选朗读气泡 ──
