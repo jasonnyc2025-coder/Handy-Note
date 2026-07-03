@@ -1983,6 +1983,13 @@
     background: rgba(255,255,255,0.12); border: none; color: #fff;
     font-size: 0.85rem; cursor: pointer; padding: 6px 14px; border-radius: 14px;
   }
+  #tts-bar .tts-langs { display: none; gap: 6px; align-items: center; }
+  #tts-bar .tts-lang {
+    background: rgba(255,255,255,0.12); border: none; color: #fff;
+    font-size: 0.82rem; cursor: pointer; padding: 5px 13px; border-radius: 14px;
+    transition: background 0.15s;
+  }
+  #tts-bar .tts-lang.active { background: rgba(255,255,255,0.92); color: #1c1a18; font-weight: 600; }
 
   /* 划选朗读气泡 */
   #sel-speak-btn {
@@ -2039,7 +2046,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v152</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v153</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6192,8 +6199,9 @@ document.addEventListener('keydown', function(ev) {
   // NOTE: the #tts-bar / #sel-speak-btn elements live later in the document
   // (after this script). getElementById at parse time would return null, so we
   // bind lazily in bindTTS() once the DOM is ready.
-  let ttsBar, ttsPauseBtn, ttsStopBtn, ttsSpeedBtn, ttsPreview, ttsLabel, selSpeakBtn,
+  let ttsBar, ttsPauseBtn, ttsStopBtn, ttsSpeedBtn, ttsPreview, ttsLabel, ttsLangs, selSpeakBtn,
       ttsHeaderBar, ttsHPauseBtn, ttsHStopBtn;
+  let langFilter = 'all'; // 'all' | 'zh' | 'th' | ... — which language to read
 
   const SPEEDS = [0.8, 0.6, 0.5, 1, 1.25]; // default 0.8× (slower, good for learning); tap to cycle
   let speedIdx = 0, ttsPaused = false, currentText = '';
@@ -6285,6 +6293,20 @@ document.addEventListener('keydown', function(ev) {
 
   let speakQueue = [], speakIdx = 0;
 
+  const LANG_LABEL = { zh: '中文', th: 'ไทย', en: 'EN', ja: '日', ko: '한' };
+  // Build the language filter chips based on which scripts appear in this text.
+  // Only shown when the text mixes ≥2 languages (otherwise nothing to filter).
+  function buildLangChips(segments) {
+    if (!ttsLangs) return;
+    const langs = [...new Set(segments.map(s => s.lang.slice(0, 2)))];
+    // If the current filter's language isn't present, reset to 全部
+    if (langFilter !== 'all' && !langs.includes(langFilter)) langFilter = 'all';
+    if (langs.length <= 1) { ttsLangs.style.display = 'none'; ttsLangs.innerHTML = ''; return; }
+    ttsLangs.style.display = 'flex';
+    const chip = (val, label) => '<button class="tts-lang' + (langFilter === val ? ' active' : '') + '" data-lang="' + val + '">' + label + '</button>';
+    ttsLangs.innerHTML = chip('all', '全部') + langs.map(l => chip(l, LANG_LABEL[l] || l)).join('');
+  }
+
   function speakNext() {
     if (speakIdx >= speakQueue.length) { hideTtsBar(); return; }
     const seg = speakQueue[speakIdx];
@@ -6303,6 +6325,7 @@ document.addEventListener('keydown', function(ev) {
   function doSpeak(text) {
     stopKeepAlive();
     speakQueue = segmentByScript(text);
+    if (langFilter !== 'all') speakQueue = speakQueue.filter(s => s.lang.slice(0, 2) === langFilter);
     speakIdx = 0;
     warnMissingVoices(speakQueue);
     try { synth.cancel(); } catch(e) {}
@@ -6344,6 +6367,7 @@ document.addEventListener('keydown', function(ev) {
     ttsPaused = false;
     setTtsPauseIcon(false);
     showTtsControls(currentText);
+    buildLangChips(segmentByScript(currentText)); // show 全部/中文/ไทย filter if mixed
     // Android Chrome: voices load async — wait if not ready yet
     const voices = synth.getVoices();
     if (voices.length > 0) {
@@ -6403,6 +6427,7 @@ document.addEventListener('keydown', function(ev) {
     ttsSpeedBtn = document.getElementById('tts-speed');
     ttsPreview  = document.getElementById('tts-preview');
     ttsLabel    = document.getElementById('tts-label');
+    ttsLangs    = document.getElementById('tts-langs');
     selSpeakBtn = document.getElementById('sel-speak-btn');
     ttsHeaderBar = document.getElementById('tts-header-bar');
     ttsHPauseBtn = document.getElementById('tts-h-pause');
@@ -6419,6 +6444,14 @@ document.addEventListener('keydown', function(ev) {
           (vs.length ? vs.map(v => v.lang + ' — ' + v.name).join('\n') : '（无 / 尚未加载，请稍后再点）'));
       });
     }
+
+    if (ttsLangs) ttsLangs.addEventListener('click', e => {
+      const b = e.target.closest('[data-lang]');
+      if (!b) return;
+      langFilter = b.dataset.lang;
+      ttsLangs.querySelectorAll('.tts-lang').forEach(x => x.classList.toggle('active', x.dataset.lang === langFilter));
+      if (currentText) window.ttsSpeak(currentText); // restart with the chosen language
+    });
 
     if (ttsPauseBtn) ttsPauseBtn.addEventListener('click', togglePause);
     if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
@@ -6459,6 +6492,7 @@ if (isDesktopMode()) renderDesktopPane();
 <div id="tts-bar">
   <span class="tts-label" id="tts-label">🔊 朗读中</span>
   <span class="tts-text-preview" id="tts-preview"></span>
+  <div class="tts-langs" id="tts-langs"></div>
   <div class="tts-controls">
     <button class="tts-btn" id="tts-stop" title="停止">⏹</button>
     <button class="tts-btn" id="tts-pause" title="暂停/继续">⏸</button>
