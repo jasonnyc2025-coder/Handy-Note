@@ -3650,9 +3650,9 @@ document.addEventListener('click', async e => {
   } else if (act === 'subtts') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
-    if (s && window.ttsSpeak) window.ttsSpeak(window.noteToSpeakText(s));
+    if (s && window.ttsSpeak) window.ttsSpeak(plainOf(s.text || ''));
   } else if (act === 'tts') {
-    if (n && window.ttsSpeak) window.ttsSpeak(window.noteToSpeakText(n));
+    if (n && window.ttsSpeak) window.ttsSpeak(plainOf(n.text || ''));
   } else if (act === 'subsubpin') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
