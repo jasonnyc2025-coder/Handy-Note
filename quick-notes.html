@@ -2039,7 +2039,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v147</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v148</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6188,15 +6188,11 @@ document.addEventListener('keydown', function(ev) {
 // ===== TTS 朗读引擎 =====
 (function initTTS() {
   const synth = window.speechSynthesis;
-  const ttsBar      = document.getElementById('tts-bar');
-  const ttsPauseBtn = document.getElementById('tts-pause');
-  const ttsStopBtn  = document.getElementById('tts-stop');
-  const ttsSpeedBtn = document.getElementById('tts-speed');
-  const ttsPreview  = document.getElementById('tts-preview');
-  const selSpeakBtn = document.getElementById('sel-speak-btn');
-  const ttsHeaderBar  = document.getElementById('tts-header-bar');
-  const ttsHPauseBtn  = document.getElementById('tts-h-pause');
-  const ttsHStopBtn   = document.getElementById('tts-h-stop');
+  // NOTE: the #tts-bar / #sel-speak-btn elements live later in the document
+  // (after this script). getElementById at parse time would return null, so we
+  // bind lazily in bindTTS() once the DOM is ready.
+  let ttsBar, ttsPauseBtn, ttsStopBtn, ttsSpeedBtn, ttsPreview, selSpeakBtn,
+      ttsHeaderBar, ttsHPauseBtn, ttsHStopBtn;
 
   const SPEEDS = [1, 1.25, 1.5, 0.75];
   let speedIdx = 0, ttsPaused = false, currentText = '';
@@ -6216,16 +6212,16 @@ document.addEventListener('keydown', function(ev) {
 
   function setTtsPauseIcon(paused) {
     const icon = paused ? '▶' : '⏸';
-    ttsPauseBtn.textContent = icon;
+    if (ttsPauseBtn) ttsPauseBtn.textContent = icon;
     if (ttsHPauseBtn) ttsHPauseBtn.textContent = icon;
   }
   function showTtsControls(text) {
     if (ttsPreview) ttsPreview.textContent = text ? text.slice(0, 40) + (text.length > 40 ? '…' : '') : '';
-    ttsBar.classList.add('show');
+    if (ttsBar) ttsBar.classList.add('show');
     if (ttsHeaderBar) ttsHeaderBar.style.display = 'flex';
   }
   function hideTtsBar() {
-    ttsBar.classList.remove('show');
+    if (ttsBar) ttsBar.classList.remove('show');
     if (ttsHeaderBar) ttsHeaderBar.style.display = 'none';
     ttsPaused = false;
     stopKeepAlive();
@@ -6282,7 +6278,7 @@ document.addEventListener('keydown', function(ev) {
       };
       // Fallback: try anyway after 800ms even if voiceschanged never fires
       setTimeout(() => {
-        if (currentUtterance === null && ttsBar.classList.contains('show')) {
+        if (currentUtterance === null && ttsBar && ttsBar.classList.contains('show')) {
           doSpeak(currentText);
         }
       }, 800);
@@ -6294,23 +6290,13 @@ document.addEventListener('keydown', function(ev) {
     if (ttsPaused) { try { synth.resume(); } catch(e){} ttsPaused = false; setTtsPauseIcon(false); startKeepAlive(); }
     else           { try { synth.pause();  } catch(e){} ttsPaused = true;  setTtsPauseIcon(true);  stopKeepAlive(); }
   }
-  ttsPauseBtn.addEventListener('click', togglePause);
-  if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
-
   function doStop() { if (synth) { try { synth.cancel(); } catch(e){} } hideTtsBar(); }
-  ttsStopBtn.addEventListener('click', doStop);
-  if (ttsHStopBtn) ttsHStopBtn.addEventListener('click', doStop);
-
-  ttsSpeedBtn.addEventListener('click', () => {
-    speedIdx = (speedIdx + 1) % SPEEDS.length;
-    ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
-    if (synth && synth.speaking && currentText) window.ttsSpeak(currentText);
-  });
 
   // ── 划选朗读气泡 ──
   let selTimer = null, selText = '';
 
   function checkSelection() {
+    if (!selSpeakBtn) return;
     clearTimeout(selTimer);
     selTimer = setTimeout(() => {
       const sel = window.getSelection();
@@ -6330,17 +6316,49 @@ document.addEventListener('keydown', function(ev) {
     }, 300);
   }
 
+  // Bind DOM elements + listeners once the document is fully parsed.
+  // Critical: #tts-bar and #sel-speak-btn appear AFTER this script in the HTML,
+  // so at parse time they don't exist yet — we must wait for DOMContentLoaded.
+  function bindTTS() {
+    ttsBar      = document.getElementById('tts-bar');
+    ttsPauseBtn = document.getElementById('tts-pause');
+    ttsStopBtn  = document.getElementById('tts-stop');
+    ttsSpeedBtn = document.getElementById('tts-speed');
+    ttsPreview  = document.getElementById('tts-preview');
+    selSpeakBtn = document.getElementById('sel-speak-btn');
+    ttsHeaderBar = document.getElementById('tts-header-bar');
+    ttsHPauseBtn = document.getElementById('tts-h-pause');
+    ttsHStopBtn  = document.getElementById('tts-h-stop');
+
+    if (ttsPauseBtn) ttsPauseBtn.addEventListener('click', togglePause);
+    if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
+    if (ttsStopBtn) ttsStopBtn.addEventListener('click', doStop);
+    if (ttsHStopBtn) ttsHStopBtn.addEventListener('click', doStop);
+    if (ttsSpeedBtn) ttsSpeedBtn.addEventListener('click', () => {
+      speedIdx = (speedIdx + 1) % SPEEDS.length;
+      ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
+      if (synth && synth.speaking && currentText) window.ttsSpeak(currentText);
+    });
+    if (selSpeakBtn) {
+      selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
+      selSpeakBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+      selSpeakBtn.addEventListener('click', () => {
+        if (selText) window.ttsSpeak(selText);
+        selSpeakBtn.style.display = 'none';
+      });
+    }
+  }
+
   // selectionchange fires on Android/desktop; touchend catches iOS after long-press select
   document.addEventListener('selectionchange', checkSelection);
   document.addEventListener('touchend', () => setTimeout(checkSelection, 100));
   document.addEventListener('mouseup', checkSelection);
 
-  selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
-  selSpeakBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-  selSpeakBtn.addEventListener('click', () => {
-    if (selText) window.ttsSpeak(selText);
-    selSpeakBtn.style.display = 'none';
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindTTS);
+  } else {
+    bindTTS();
+  }
 })();
 
 // Initial render of desktop pane on load
