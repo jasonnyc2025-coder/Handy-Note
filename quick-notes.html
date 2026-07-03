@@ -1945,45 +1945,44 @@
     }
   }
 
-  /* ===== TTS 朗读控制条 ===== */
+  /* ===== TTS 朗读控制面板 ===== */
   #tts-bar {
     position: fixed;
-    top: calc(env(safe-area-inset-top, 0px) + 58px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(28,26,24,0.94);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    left: 50%; transform: translateX(-50%);
+    background: #1c1a18;
     color: #fff;
-    border-radius: 28px;
-    padding: 8px 8px 8px 16px;
+    border-radius: 20px;
+    padding: 16px 20px;
     display: none;
+    flex-direction: column;
     align-items: center;
-    gap: 6px;
-    z-index: 90;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
-    font-size: 0.88rem;
-    white-space: nowrap;
-    backdrop-filter: blur(8px);
+    gap: 14px;
+    z-index: 9999;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.55);
+    min-width: 260px;
+    max-width: 90vw;
   }
   #tts-bar.show { display: flex; }
-  #tts-bar .tts-label { opacity: 0.85; margin-right: 4px; }
+  #tts-bar .tts-label { font-size: 0.9rem; opacity: 0.75; letter-spacing: 0.03em; }
+  #tts-bar .tts-text-preview {
+    font-size: 0.88rem; opacity: 0.9; text-align: center;
+    max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #tts-bar .tts-controls { display: flex; align-items: center; gap: 12px; }
   #tts-bar .tts-btn {
-    background: rgba(255,255,255,0.12);
-    border: none; color: #fff;
-    font-size: 1rem; cursor: pointer;
-    width: 32px; height: 32px;
-    border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    font-size: 1.5rem; cursor: pointer;
+    width: 52px; height: 52px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s;
+    transition: background 0.15s; flex-shrink: 0;
   }
-  #tts-bar .tts-btn:hover { background: rgba(255,255,255,0.22); }
+  #tts-bar .tts-btn:active { background: rgba(255,255,255,0.3); }
+  #tts-bar #tts-pause { font-size: 1.8rem; width: 62px; height: 62px; background: rgba(255,255,255,0.2); }
   #tts-bar .tts-speed {
-    background: rgba(255,255,255,0.12);
-    border: none; color: #fff;
-    font-size: 0.8rem; cursor: pointer;
-    padding: 4px 10px; border-radius: 12px;
-    transition: background 0.15s;
+    background: rgba(255,255,255,0.12); border: none; color: #fff;
+    font-size: 0.85rem; cursor: pointer; padding: 6px 14px; border-radius: 14px;
   }
-  #tts-bar .tts-speed:hover { background: rgba(255,255,255,0.22); }
 
   /* 划选朗读气泡 */
   #sel-speak-btn {
@@ -6179,16 +6178,15 @@ document.addEventListener('keydown', function(ev) {
 // ===== TTS 朗读引擎 =====
 (function initTTS() {
   const synth = window.speechSynthesis;
-  if (!synth) return;
-
   const ttsBar      = document.getElementById('tts-bar');
   const ttsPauseBtn = document.getElementById('tts-pause');
   const ttsStopBtn  = document.getElementById('tts-stop');
   const ttsSpeedBtn = document.getElementById('tts-speed');
+  const ttsPreview  = document.getElementById('tts-preview');
   const selSpeakBtn = document.getElementById('sel-speak-btn');
-  const ttsHeaderBar   = document.getElementById('tts-header-bar');
-  const ttsHPauseBtn   = document.getElementById('tts-h-pause');
-  const ttsHStopBtn    = document.getElementById('tts-h-stop');
+  const ttsHeaderBar  = document.getElementById('tts-header-bar');
+  const ttsHPauseBtn  = document.getElementById('tts-h-pause');
+  const ttsHStopBtn   = document.getElementById('tts-h-stop');
 
   const SPEEDS = [1, 1.25, 1.5, 0.75];
   let speedIdx = 0, ttsPaused = false, currentText = '';
@@ -6199,9 +6197,8 @@ document.addEventListener('keydown', function(ev) {
   }
   function startKeepAlive() {
     stopKeepAlive();
-    // Android Chrome bug: speech silently stops after ~15s; pause+resume keeps it alive
     keepAliveTimer = setInterval(() => {
-      if (synth.speaking && !synth.paused && !ttsPaused) {
+      if (synth && synth.speaking && !synth.paused && !ttsPaused) {
         synth.pause(); synth.resume();
       }
     }, 10000);
@@ -6210,15 +6207,16 @@ document.addEventListener('keydown', function(ev) {
   function setTtsPauseIcon(paused) {
     const icon = paused ? '▶' : '⏸';
     ttsPauseBtn.textContent = icon;
-    ttsHPauseBtn.textContent = icon;
+    if (ttsHPauseBtn) ttsHPauseBtn.textContent = icon;
   }
-  function showTtsControls() {
+  function showTtsControls(text) {
+    if (ttsPreview) ttsPreview.textContent = text ? text.slice(0, 40) + (text.length > 40 ? '…' : '') : '';
     ttsBar.classList.add('show');
-    ttsHeaderBar.style.display = 'flex';
+    if (ttsHeaderBar) ttsHeaderBar.style.display = 'flex';
   }
   function hideTtsBar() {
     ttsBar.classList.remove('show');
-    ttsHeaderBar.style.display = 'none';
+    if (ttsHeaderBar) ttsHeaderBar.style.display = 'none';
     ttsPaused = false;
     stopKeepAlive();
     currentUtterance = null;
@@ -6232,7 +6230,6 @@ document.addEventListener('keydown', function(ev) {
     return navigator.language || 'zh-CN';
   }
 
-  // 把 note 对象的所有文字拼成可朗读的字符串
   window.noteToSpeakText = function(n) {
     const parts = [];
     if (n.text) parts.push(plainOf(n.text));
@@ -6245,37 +6242,46 @@ document.addEventListener('keydown', function(ev) {
   };
 
   window.ttsSpeak = function(text) {
-    if (!text || !text.trim()) return;
+    if (!text || !text.trim()) { alert('没有可朗读的文字'); return; }
+    if (!synth) { alert('您的浏览器不支持朗读功能，请使用 Chrome'); return; }
     currentText = text.trim();
-    synth.cancel();
+    try { synth.cancel(); } catch(e) {}
     stopKeepAlive();
-    const u = new SpeechSynthesisUtterance(currentText);
-    currentUtterance = u;
-    u.lang = detectLang(currentText);
-    u.rate = SPEEDS[speedIdx];
-    u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
-    synth.speak(u);
+    // Show panel FIRST so user sees controls immediately
     ttsPaused = false;
     setTtsPauseIcon(false);
-    showTtsControls();
-    startKeepAlive();
+    showTtsControls(currentText);
+    // Then start speech
+    try {
+      const u = new SpeechSynthesisUtterance(currentText);
+      currentUtterance = u;
+      u.lang = detectLang(currentText);
+      u.rate = SPEEDS[speedIdx];
+      u.onend = u.onerror = () => { if (currentUtterance === u) hideTtsBar(); };
+      synth.speak(u);
+      startKeepAlive();
+    } catch(e) {
+      hideTtsBar();
+      alert('朗读启动失败：' + e.message);
+    }
   };
 
   function togglePause() {
-    if (ttsPaused) { synth.resume(); ttsPaused = false; setTtsPauseIcon(false); startKeepAlive(); }
-    else           { synth.pause();  ttsPaused = true;  setTtsPauseIcon(true);  stopKeepAlive(); }
+    if (!synth) return;
+    if (ttsPaused) { try { synth.resume(); } catch(e){} ttsPaused = false; setTtsPauseIcon(false); startKeepAlive(); }
+    else           { try { synth.pause();  } catch(e){} ttsPaused = true;  setTtsPauseIcon(true);  stopKeepAlive(); }
   }
   ttsPauseBtn.addEventListener('click', togglePause);
-  ttsHPauseBtn.addEventListener('click', togglePause);
+  if (ttsHPauseBtn) ttsHPauseBtn.addEventListener('click', togglePause);
 
-  function doStop() { synth.cancel(); hideTtsBar(); }
+  function doStop() { if (synth) { try { synth.cancel(); } catch(e){} } hideTtsBar(); }
   ttsStopBtn.addEventListener('click', doStop);
-  ttsHStopBtn.addEventListener('click', doStop);
+  if (ttsHStopBtn) ttsHStopBtn.addEventListener('click', doStop);
 
   ttsSpeedBtn.addEventListener('click', () => {
     speedIdx = (speedIdx + 1) % SPEEDS.length;
     ttsSpeedBtn.textContent = SPEEDS[speedIdx] + '×';
-    if (synth.speaking && currentText) window.ttsSpeak(currentText);
+    if (synth && synth.speaking && currentText) window.ttsSpeak(currentText);
   });
 
   // ── 划选朗读气泡 ──
@@ -6318,12 +6324,15 @@ document.addEventListener('keydown', function(ev) {
 if (isDesktopMode()) renderDesktopPane();
 </script>
 
-<!-- TTS 朗读控制条 -->
+<!-- TTS 朗读控制面板 -->
 <div id="tts-bar">
-  <span class="tts-label">🔊 朗读中…</span>
-  <button class="tts-btn" id="tts-pause" title="暂停/继续">⏸</button>
-  <button class="tts-btn" id="tts-stop" title="停止">⏹</button>
-  <button class="tts-speed" id="tts-speed">1×</button>
+  <span class="tts-label">🔊 朗读中</span>
+  <span class="tts-text-preview" id="tts-preview"></span>
+  <div class="tts-controls">
+    <button class="tts-btn" id="tts-stop" title="停止">⏹</button>
+    <button class="tts-btn" id="tts-pause" title="暂停/继续">⏸</button>
+    <button class="tts-speed" id="tts-speed">1×</button>
+  </div>
 </div>
 <!-- 划选朗读气泡 -->
 <button id="sel-speak-btn">🔊 朗读</button>
