@@ -1991,28 +1991,23 @@
   }
   #tts-bar .tts-lang.active { background: rgba(255,255,255,0.92); color: #1c1a18; font-weight: 600; }
 
-  /* 划选朗读气泡 */
+  /* 划选朗读按钮 —— 固定在屏幕底部，绝不被系统选择菜单遮挡 */
   #sel-speak-btn {
     position: fixed;
-    background: rgba(28,26,24,0.92);
+    bottom: calc(var(--composer-h, 96px) + env(safe-area-inset-bottom, 0px) + 16px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1c1a18;
     color: #fff; border: none;
-    border-radius: 18px;
-    padding: 7px 15px;
-    font-size: 0.85rem; cursor: pointer;
-    z-index: 300; display: none;
+    border-radius: 28px;
+    padding: 15px 34px;
+    font-size: 1.05rem; font-weight: 600; letter-spacing: 0.02em;
+    cursor: pointer;
+    z-index: 9998; display: none;
     white-space: nowrap;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-    transform: translateX(-50%);
-    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 34px rgba(0,0,0,0.5);
   }
-  #sel-speak-btn::after {
-    content: '';
-    position: absolute;
-    top: 100%; left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: rgba(28,26,24,0.92);
-  }
+  #sel-speak-btn:active { background: #000; }
 </style>
 </head>
 <body>
@@ -2046,7 +2041,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v157</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v158</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6426,26 +6421,17 @@ document.addEventListener('keydown', function(ev) {
     if (!selSpeakBtn) return;
     clearTimeout(selTimer);
     selTimer = setTimeout(() => {
-      // While a finger is down (dragging the selection handles) keep the bubble
-      // hidden — otherwise it sits on top of the handle and blocks resizing.
+      // Keep hidden while a finger is down (adjusting the selection handles).
       if (isTouching) { selSpeakBtn.style.display = 'none'; return; }
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) { selSpeakBtn.style.display = 'none'; return; }
       const txt = sel.toString().trim();
-      if (txt.length < 2) { selSpeakBtn.style.display = 'none'; return; }
-      try {
-        const rect = sel.getRangeAt(0).getBoundingClientRect();
-        if (!rect.width && !rect.height) { selSpeakBtn.style.display = 'none'; return; }
-        selText = txt;
-        // Offset the bubble to the RIGHT of the selection's centre and well
-        // above it, so it clears the iOS start/end drag handles.
-        const midX = Math.max(70, Math.min(window.innerWidth - 70, (rect.left + rect.right) / 2 + 40));
-        const topY = rect.top - 60;
-        selSpeakBtn.style.left = midX + 'px';
-        selSpeakBtn.style.top  = (topY < 80 ? rect.bottom + 26 : topY) + 'px';
-        selSpeakBtn.style.display = 'block';
-      } catch { selSpeakBtn.style.display = 'none'; }
-    }, 350);
+      if (!txt) { selSpeakBtn.style.display = 'none'; return; }
+      selText = txt;
+      // Fixed bottom button — no positioning needed, so it can never be
+      // covered by the OS text-selection menu that appears near the selection.
+      selSpeakBtn.style.display = 'block';
+    }, 300);
   }
 
   // Bind DOM elements + listeners once the document is fully parsed.
@@ -6548,8 +6534,8 @@ if (isDesktopMode()) renderDesktopPane();
     <button class="tts-speed" id="tts-speed">0.8×</button>
   </div>
 </div>
-<!-- 划选朗读气泡 -->
-<button id="sel-speak-btn">🔊 朗读</button>
+<!-- 划选朗读按钮（固定底部） -->
+<button id="sel-speak-btn">🔊 朗读选中</button>
 
 </body>
 </html>
