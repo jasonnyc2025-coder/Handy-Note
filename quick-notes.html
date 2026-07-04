@@ -2046,7 +2046,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v156</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v157</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6420,12 +6420,15 @@ document.addEventListener('keydown', function(ev) {
   function doStop() { if (synth) { try { synth.cancel(); } catch(e){} } hideTtsBar(); }
 
   // ── 划选朗读气泡 ──
-  let selTimer = null, selText = '';
+  let selTimer = null, selText = '', isTouching = false;
 
   function checkSelection() {
     if (!selSpeakBtn) return;
     clearTimeout(selTimer);
     selTimer = setTimeout(() => {
+      // While a finger is down (dragging the selection handles) keep the bubble
+      // hidden — otherwise it sits on top of the handle and blocks resizing.
+      if (isTouching) { selSpeakBtn.style.display = 'none'; return; }
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) { selSpeakBtn.style.display = 'none'; return; }
       const txt = sel.toString().trim();
@@ -6434,13 +6437,15 @@ document.addEventListener('keydown', function(ev) {
         const rect = sel.getRangeAt(0).getBoundingClientRect();
         if (!rect.width && !rect.height) { selSpeakBtn.style.display = 'none'; return; }
         selText = txt;
-        const midX = Math.max(60, Math.min(window.innerWidth - 60, (rect.left + rect.right) / 2));
-        const topY = rect.top - 50;
+        // Offset the bubble to the RIGHT of the selection's centre and well
+        // above it, so it clears the iOS start/end drag handles.
+        const midX = Math.max(70, Math.min(window.innerWidth - 70, (rect.left + rect.right) / 2 + 40));
+        const topY = rect.top - 60;
         selSpeakBtn.style.left = midX + 'px';
-        selSpeakBtn.style.top  = (topY < 80 ? rect.bottom + 12 : topY) + 'px';
+        selSpeakBtn.style.top  = (topY < 80 ? rect.bottom + 26 : topY) + 'px';
         selSpeakBtn.style.display = 'block';
       } catch { selSpeakBtn.style.display = 'none'; }
-    }, 300);
+    }, 350);
   }
 
   // Bind DOM elements + listeners once the document is fully parsed.
@@ -6510,7 +6515,15 @@ document.addEventListener('keydown', function(ev) {
 
   // selectionchange fires on Android/desktop; touchend catches iOS after long-press select
   document.addEventListener('selectionchange', checkSelection);
-  document.addEventListener('touchend', () => setTimeout(checkSelection, 100));
+  // Hide the bubble the instant a new touch starts (unless the touch is on the
+  // bubble itself) so it never blocks dragging the iOS selection handles.
+  document.addEventListener('touchstart', e => {
+    if (selSpeakBtn && !selSpeakBtn.contains(e.target)) {
+      isTouching = true;
+      selSpeakBtn.style.display = 'none';
+    }
+  }, { passive: true });
+  document.addEventListener('touchend', () => { isTouching = false; setTimeout(checkSelection, 200); });
   document.addEventListener('mouseup', checkSelection);
 
   if (document.readyState === 'loading') {
