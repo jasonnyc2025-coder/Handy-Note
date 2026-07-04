@@ -2046,7 +2046,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v155</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v156</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -6493,12 +6493,18 @@ document.addEventListener('keydown', function(ev) {
       });
     }
     if (selSpeakBtn) {
-      selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
-      selSpeakBtn.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
-      selSpeakBtn.addEventListener('click', () => {
-        if (selText) window.ttsSpeak(selText);
+      const doSelSpeak = (e) => {
+        if (e) e.preventDefault();      // on touchend: also suppresses the ghost click (no double-fire)
+        const txt = selText;
         selSpeakBtn.style.display = 'none';
-      });
+        if (txt) window.ttsSpeak(txt);
+      };
+      // Keep desktop selection from collapsing on press (does NOT block click on desktop)
+      selSpeakBtn.addEventListener('mousedown', e => e.preventDefault());
+      // iOS: preventDefault on touchSTART kills the follow-up click, so the tap
+      // was doing nothing. Fire on touchEND instead (selText was already captured).
+      selSpeakBtn.addEventListener('touchend', doSelSpeak, { passive: false });
+      selSpeakBtn.addEventListener('click', doSelSpeak);
     }
   }
 
