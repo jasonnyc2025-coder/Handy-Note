@@ -2743,14 +2743,14 @@ function isOverdue(n) {
 
 function renderTabs() {
   const tabs = document.getElementById('tabs');
-  const allCount = notes.length;
-  const overdueCount = notes.filter(isOverdue).length;
+  const allCount = notes.filter(n => !n._deleted).length;
+  const overdueCount = notes.filter(n => !n._deleted && isOverdue(n)).length;
   let html = `<button class="tab ${filter==='all'?'active':''}" data-filter="all">${t('allCount')} <span class="count">${allCount||''}</span></button>`;
   if (overdueCount > 0) {
     html += `<button class="tab tab-overdue ${filter==='__overdue'?'active':''}" data-filter="__overdue">${t('overdue')} <span class="count">${overdueCount}</span></button>`;
   }
   cats.forEach(c => {
-    const cnt = notes.filter(n => n.cat === c.id).length;
+    const cnt = notes.filter(n => n.cat === c.id && !n._deleted).length;
     html += `<button class="tab ${filter===c.id?'active':''}" data-filter="${c.id}">${esc(c.name)} <span class="count">${cnt||''}</span></button>`;
   });
   html += `<button class="tab tab-add" data-filter="__add">＋</button>`;
@@ -5297,6 +5297,7 @@ function checkReminders() {
     }
   };
   notes.forEach(n => {
+    if (n._deleted) return;               // 已删除的记录不再触发提醒
     handle(n, n.text || '提醒');
     (n.subs || []).forEach(s => handle(s, s.text || '子项提醒'));
   });
