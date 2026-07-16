@@ -1847,7 +1847,17 @@
   /* ===== Desktop layout (≥ 900 px) ===== */
   #desktop-pane { display: none; }
   .desktop-new-btn { display: none; }
-  .header-add-btn { display: inline-flex; align-items: center; justify-content: center; font-size: 1.4rem; font-weight: 300; }
+  .header-add-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.7rem; font-weight: 300;
+    width: 46px; height: 46px;
+    background: var(--accent); color: #fff; border-color: transparent;
+    border-radius: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  }
+  .header-add-btn:hover, .header-add-btn:active {
+    background: var(--accent); color: #fff; border-color: transparent; opacity: 0.88;
+  }
 
   @media (min-width: 900px) {
     body { overflow: hidden; height: 100vh; }
@@ -2041,7 +2051,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v162</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v163</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
