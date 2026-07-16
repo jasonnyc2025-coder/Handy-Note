@@ -4857,7 +4857,7 @@ async function addCategory() {
   const nm = name.trim();
   if (!nm) return;
   const id = 'c' + Date.now() + Math.random().toString(36).slice(2,5);
-  cats.push({ id, name: nm });
+  cats.push({ id, name: nm, nmAt: Date.now() });
   filter = id;
   saveFilter();
   save(); render();
@@ -4872,7 +4872,7 @@ async function manageCategory(id) {
     const name = await promptDialog('重命名类别', c.name);
     if (name == null) return;
     const v = name.trim();
-    if (v) { c.name = v; save(); render(); }
+    if (v) { c.name = v; c.nmAt = Date.now(); save(); render(); }
   } else if (choice === 'delete') {
     if (await confirmDialog(`确定删除类别「${c.name}」吗？\n该类别下的记录不会被删除，会回到“全部”。`)) {
       notes.forEach(n => { if (n.cat === id) delete n.cat; });
@@ -5505,10 +5505,7 @@ document.getElementById('import-file').addEventListener('change', e => {
       await extractInlineAtts(incoming);   // 把内联附件存入 IndexedDB
       mergeNotes(incoming);
       // 合并类别
-      if (data.cats && Array.isArray(data.cats)) {
-        const have = new Set(cats.map(c => c.id));
-        data.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
-      }
+      mergeCats(data.cats);
       save(); render();
       alert(`导入成功！合并后共 ${notes.length} 条（原有 ${before} 条）。`);
     } catch (err) {
@@ -5611,10 +5608,7 @@ async function _handleGoogleSignIn(response, serverUrl) {
     if (remote && Array.isArray(remote.notes)) {
       await extractInlineAtts(remote.notes);
       mergeNotes(remote.notes);
-      if (Array.isArray(remote.cats)) {
-        const have = new Set(cats.map(c => c.id));
-        remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
-      }
+      mergeCats(remote.cats);
     }
     save(); render(); updateCloudStatus();
     closeCloudModal();
@@ -5654,6 +5648,24 @@ function openCloudModal() {
   cloudModal.classList.add('show');
 }
 
+// 合并类别：ID 不存在则新增；ID 已存在则用"改名时间(nmAt)较新"的一方更新名字。
+// 恢复出的占位分类 nmAt=0，永远输给真正改过名的分类，避免占位名覆盖真名。
+function mergeCats(remoteCats) {
+  if (!Array.isArray(remoteCats)) return;
+  const byId = new Map(cats.map(c => [c.id, c]));
+  remoteCats.forEach(rc => {
+    if (!rc || !rc.id) return;
+    const local = byId.get(rc.id);
+    if (!local) {
+      cats.push(rc);
+      byId.set(rc.id, rc);
+    } else if ((rc.nmAt || 0) > (local.nmAt || 0)) {
+      local.name = rc.name;
+      local.nmAt = rc.nmAt;
+    }
+  });
+}
+
 // ── Sync API (JWT Bearer) ──────────────────────────────────────────────────
 
 async function cloudFetch() {
@@ -5689,13 +5701,14 @@ async function cloudPull() {
   const before = JSON.stringify(notes);
   await extractInlineAtts(remote.notes);
   mergeNotes(remote.notes);
-  if (Array.isArray(remote.cats)) {
-    const have = new Set(cats.map(c => c.id));
-    remote.cats.forEach(c => { if (c && c.id && !have.has(c.id)) cats.push(c); });
-  }
-  const after = JSON.stringify(notes);
-  if (before !== after) {
+  const catsBefore = JSON.stringify(cats);
+  mergeCats(remote.cats);
+  const notesChanged = before !== JSON.stringify(notes);
+  const catsChanged = catsBefore !== JSON.stringify(cats);
+  if (notesChanged || catsChanged) {
     try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
+    try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
+    if (catsChanged) saveToIDB();   // 把更新后的类别名也写回 IDB，重启后不丢
     render();
   }
 }
@@ -5752,8 +5765,10 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
       (function collectIds(arr) { arr.forEach(n => { if (n.cat) catIds.add(n.cat); if (n.subs) collectIds(n.subs); }); })(notes);
       if (catIds.size > 0) {
         let i = 1;
-        catIds.forEach(id => cats.push({ id, name: '类别 ' + (i++) }));
-        saveToIDB(); save();
+        // nmAt=0：占位名永远输给任何真正改过名的分类；且只存本地、不推云端，
+        // 以免把占位名同步上去覆盖其它设备上的真名。
+        catIds.forEach(id => cats.push({ id, name: '类别 ' + (i++), nmAt: 0 }));
+        _origSave();   // 本地保存（localStorage + IDB），不触发 cloudPush
       }
     }
     if (filter !== 'all' && filter !== '__overdue' && !cats.find(c => c.id === filter)) {
