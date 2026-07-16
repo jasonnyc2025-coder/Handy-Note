@@ -2051,7 +2051,7 @@
   <header>
     <div class="titlebar">
       <div class="title">随手<em>记</em></div>
-      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v163</span></div>
+      <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v164</span></div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
@@ -5317,7 +5317,7 @@ function checkReminders() {
     handle(n, n.text || '提醒');
     (n.subs || []).forEach(s => handle(s, s.text || '子项提醒'));
   });
-  if (changed) { save(); render(); }
+  if (changed) { save(); if (!isUserEditing()) render(); }
 }
 setInterval(checkReminders, 15000);
 
@@ -5740,10 +5740,22 @@ async function cloudPush() {
   cloudSyncing = false;
 }
 
+// 用户是否正在输入/编辑：新建输入框展开，或焦点在某个可编辑区域里。
+// 此时后台同步跳过重渲染，避免把正在打字的内容冲掉、光标跳走。
+function isUserEditing() {
+  const composer = document.getElementById('composer');
+  if (composer && !composer.classList.contains('collapsed')) return true;
+  const el = document.activeElement;
+  if (el && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return true;
+  return false;
+}
+
 async function cloudPull() {
   if (!cloud || !cloud.token) return;
+  if (isUserEditing()) return;   // 正在输入/编辑时不打断，等这一轮结束后下次再同步
   const remote = await cloudFetch();
   if (!remote || !Array.isArray(remote.notes)) return;
+  if (isUserEditing()) return;   // 拉取期间用户可能开始输入，再确认一次
   // 对比完整内容（不只是 ID），确保子项/编辑内容变化也能触发更新
   const before = JSON.stringify(notes);
   await extractInlineAtts(remote.notes);
