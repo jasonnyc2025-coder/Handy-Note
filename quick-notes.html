@@ -1896,6 +1896,10 @@
     #desktop-pane #composer {
       display: block !important;
       position: static !important;
+      /* 清掉手机版用来水平居中的 transform / left，否则面板会被推到左边、
+         想法/待办按钮跑到屏幕外看不见 */
+      transform: none !important;
+      left: auto !important;
       width: 100%;
       max-width: 100%;
       border-radius: 0;
@@ -2062,7 +2066,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v166</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v167</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
