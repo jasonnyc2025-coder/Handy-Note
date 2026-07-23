@@ -2066,7 +2066,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v167</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v168</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -3456,6 +3456,22 @@ function readFile(file) {
     r.readAsDataURL(file);
   });
 }
+
+// 收起所有展开的 ⋯ 操作行（各层级）
+function closeAllMorePanels() {
+  document.querySelectorAll('.meta-actions.show').forEach(el => el.classList.remove('show'));
+  document.querySelectorAll('.more-btn.on').forEach(el => el.classList.remove('on'));
+  document.querySelectorAll('.sub-more-panel.open, .ss-more-panel.open, .sss-more-panel.open, .l5-more-panel.open')
+    .forEach(el => el.classList.remove('open'));
+  document.querySelectorAll('.sub-more-btn.open, .ss-more-btn.open, .sss-more-btn.open, .l5-more-btn.open')
+    .forEach(el => el.classList.remove('open'));
+}
+// 点击 ⋯ 按钮和面板本身以外的任何地方，自动收起操作行
+document.addEventListener('click', e => {
+  if (e.target.closest('.more-btn, .sub-more-btn, .ss-more-btn, .sss-more-btn, .l5-more-btn')) return;
+  if (e.target.closest('.meta-actions, .sub-more-panel, .ss-more-panel, .sss-more-panel, .l5-more-panel')) return;
+  closeAllMorePanels();
+});
 
 // events
 document.addEventListener('click', async e => {
