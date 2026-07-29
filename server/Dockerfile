@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY server.js ./
+COPY server.js migrate.js ./
+COPY migrations ./migrations
 
 EXPOSE 3000
 

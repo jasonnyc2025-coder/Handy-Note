@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const { runMigrations } = require('./migrate');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,4 +165,12 @@ app.delete('/api/sync', requireAuth, async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Handy-Note server running on port ${PORT}`));
+// Apply any pending DB migrations before accepting traffic, then start.
+runMigrations(pool)
+  .then(() => {
+    app.listen(PORT, () => console.log(`Handy-Note server running on port ${PORT}`));
+  })
+  .catch(err => {
+    console.error('Startup aborted — migrations failed:', err.message);
+    process.exit(1);
+  });
