@@ -194,15 +194,18 @@
   .dot.again{background:var(--again)} .dot.hard{background:var(--hard)}
   .dot.good{background:var(--good)} .dot.easy{background:var(--easy)}
 
-  .rv-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 2px 0}
+  /* prev/next arrows flanking the card, vertically centered */
   .rv-arrow{
-    display:flex;align-items:center;gap:5px;
-    background:var(--surface);border:1px solid var(--line);border-radius:20px;
-    color:var(--muted);font-size:15px;font-weight:600;padding:7px 15px;cursor:pointer;
+    position:absolute;top:50%;transform:translateY(-50%);z-index:5;
+    width:46px;height:46px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface);border:1px solid var(--line);
+    color:var(--ink);font-size:26px;font-weight:600;line-height:1;
   }
-  .rv-arrow span{font-size:13px;font-weight:500}
-  .rv-arrow:active{filter:brightness(.95);transform:translateY(1px)}
-  .rv-arrow:disabled{opacity:.35;pointer-events:none}
+  .rv-arrow-prev{left:0}
+  .rv-arrow-next{right:0}
+  .rv-arrow:active{filter:brightness(.85)}
+  .rv-arrow:disabled{opacity:.3;pointer-events:none}
   .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 0;min-height:0}
   .card{
     width:100%;max-width:460px;background:var(--surface);
@@ -365,7 +368,7 @@
 <!-- ===== REVIEW (fullscreen) ===== -->
 <div class="review-screen" id="reviewScreen">
   <!-- active review -->
-  <div id="rvActive" style="display:flex;flex-direction:column;flex:1;min-height:0">
+  <div id="rvActive" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative">
     <div class="rv-top">
       <button class="rv-close" id="rvClose" aria-label="退出">✕</button>
       <div class="rv-progress">
@@ -380,10 +383,8 @@
       <div class="tally"><span class="dot easy"></span>Easy <b id="tEasy">0</b></div>
     </div>
 
-    <div class="rv-nav">
-      <button class="rv-arrow" id="prevBtn" aria-label="上一张">‹<span>上一张</span></button>
-      <button class="rv-arrow" id="nextBtn" aria-label="下一张"><span>下一张</span>›</button>
-    </div>
+    <button class="rv-arrow rv-arrow-prev" id="prevBtn" aria-label="上一张" title="上一张">‹</button>
+    <button class="rv-arrow rv-arrow-next" id="nextBtn" aria-label="下一张" title="下一张">›</button>
     <div class="rv-mid">
       <div class="card" id="reviewCard">
         <div class="card-thai thai" id="cardThai">—</div>
