@@ -90,32 +90,63 @@ function requireAuth(req, res, next) {
 
 // ── Sync endpoints (protected) ──────────────────────────────────────────────
 
-// GET /api/sync  — fetch this user's notes + cats
+// GET /api/sync  — fetch this user's notes + cats + Thai flashcards
 app.get('/api/sync', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT notes, cats FROM user_data WHERE user_id = $1',
+      'SELECT notes, cats, thai, thai_rev FROM user_data WHERE user_id = $1',
       [req.user.userId]
     );
-    if (!result.rows.length) return res.json({ notes: [], cats: [] });
-    res.json(result.rows[0]);
+    if (!result.rows.length) return res.json({ notes: [], cats: [], thai: [], thaiRev: 0 });
+    const r = result.rows[0];
+    res.json({
+      notes: r.notes,
+      cats: r.cats,
+      thai: r.thai || [],
+      thaiRev: Number(r.thai_rev) || 0
+    });
   } catch (err) {
     console.error('GET sync error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// PUT /api/sync  — save (upsert) this user's notes + cats
+// PUT /api/sync  — partial upsert of notes / cats / Thai flashcards.
+// Only the fields present in the body are written, so the Thai page can push
+// just `thai` without touching notes/cats. The Thai section is guarded by a
+// monotonic `thaiRev`: it is only overwritten when the incoming rev is >= the
+// stored one, so a stale push can never clobber newer Thai data.
 app.put('/api/sync', requireAuth, async (req, res) => {
   try {
-    const { notes = [], cats = [] } = req.body;
+    const userId = req.user.userId;
+    const { notes, cats, thai, thaiRev } = req.body;
+
+    // Ensure a row exists (defaults fill the columns we don't touch)
     await pool.query(
-      `INSERT INTO user_data (user_id, notes, cats, updated_at)
-       VALUES ($1, $2::jsonb, $3::jsonb, NOW())
-       ON CONFLICT (user_id) DO UPDATE
-         SET notes = $2::jsonb, cats = $3::jsonb, updated_at = NOW()`,
-      [req.user.userId, JSON.stringify(notes), JSON.stringify(cats)]
+      `INSERT INTO user_data (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      [userId]
     );
+
+    if (notes !== undefined) {
+      await pool.query(
+        `UPDATE user_data SET notes = $2::jsonb, updated_at = NOW() WHERE user_id = $1`,
+        [userId, JSON.stringify(notes)]
+      );
+    }
+    if (cats !== undefined) {
+      await pool.query(
+        `UPDATE user_data SET cats = $2::jsonb, updated_at = NOW() WHERE user_id = $1`,
+        [userId, JSON.stringify(cats)]
+      );
+    }
+    if (thai !== undefined) {
+      await pool.query(
+        `UPDATE user_data
+           SET thai = $2::jsonb, thai_rev = $3, updated_at = NOW()
+         WHERE user_id = $1 AND $3 >= COALESCE(thai_rev, 0)`,
+        [userId, JSON.stringify(thai), Number(thaiRev) || 0]
+      );
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('PUT sync error:', err.message);

@@ -426,7 +426,7 @@ function load(){
   });
   if(migrated) save();
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); }
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); bumpThaiRev(); scheduleThaiPush(); }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
 
@@ -803,9 +803,62 @@ $("#importFile").onchange = e=>{
 /* ---------------- util ---------------- */
 function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
 
+/* ---------------- cloud sync (shares 随手记's login + /api/sync) ---------------- */
+// Thai cards ride in the same {notes,cats,thai} blob as the notes app, using a
+// monotonic rev (last-write-wins). The server only overwrites `thai` when the
+// incoming rev is >= the stored one, and the notes/cats fields are left untouched
+// because we PUT only { thai, thaiRev } — so pushing here never clobbers notes.
+const REV_KEY = "thaicards.rev";
+const CLOUD_KEY = "quicknotes.cloud";
+function getCloud(){
+  try{ const c = JSON.parse(localStorage.getItem(CLOUD_KEY)); return (c && c.token && c.url) ? c : null; }
+  catch(e){ return null; }
+}
+function getThaiRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
+function bumpThaiRev(){ const r = Date.now(); localStorage.setItem(REV_KEY, String(r)); return r; }
+
+let _pushTimer = null;
+function scheduleThaiPush(){
+  if(!getCloud()) return;
+  clearTimeout(_pushTimer);
+  _pushTimer = setTimeout(thaiPush, 800);   // debounce rapid edits
+}
+async function thaiPush(){
+  const cloud = getCloud(); if(!cloud) return;
+  try{
+    await fetch(`${cloud.url}/api/sync`, {
+      method:"PUT",
+      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
+      body: JSON.stringify({ thai: cards, thaiRev: getThaiRev() })
+    });
+  }catch(e){}
+}
+async function thaiPull(){
+  const cloud = getCloud(); if(!cloud) return;
+  try{
+    const res = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } });
+    if(!res.ok) return;
+    const data = await res.json();
+    if(Array.isArray(data.thai) && (data.thaiRev||0) > getThaiRev()){
+      cards = data.thai;
+      localStorage.setItem(STORE_KEY, JSON.stringify(cards));
+      localStorage.setItem(REV_KEY, String(data.thaiRev||0));
+      renderHome();
+      if(document.querySelector("#view-list.active")) renderList();
+    }
+  }catch(e){}
+}
+async function thaiSync(){
+  if(!getCloud()) return;
+  await thaiPull();   // adopt server if it's newer
+  thaiPush();         // converge (server rev-gates, so a stale push is a no-op)
+}
+
 /* ---------------- boot ---------------- */
 load();
 renderHome();
+thaiSync();
+setInterval(thaiPull, 20000);   // keep in step with the notes app's 20s cadence
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
 }
