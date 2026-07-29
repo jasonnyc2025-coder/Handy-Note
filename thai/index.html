@@ -172,6 +172,15 @@
   .dot.again{background:var(--again)} .dot.hard{background:var(--hard)}
   .dot.good{background:var(--good)} .dot.easy{background:var(--easy)}
 
+  .rv-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:2px 2px 0}
+  .rv-arrow{
+    display:flex;align-items:center;gap:5px;
+    background:var(--surface);border:1px solid var(--line);border-radius:20px;
+    color:var(--muted);font-size:15px;font-weight:600;padding:7px 15px;cursor:pointer;
+  }
+  .rv-arrow span{font-size:13px;font-weight:500}
+  .rv-arrow:active{filter:brightness(.95);transform:translateY(1px)}
+  .rv-arrow:disabled{opacity:.35;pointer-events:none}
   .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 0;min-height:0}
   .card{
     width:100%;max-width:460px;min-height:min(58vh,440px);background:var(--surface);
@@ -339,6 +348,10 @@
       <div class="tally"><span class="dot easy"></span>Easy <b id="tEasy">0</b></div>
     </div>
 
+    <div class="rv-nav">
+      <button class="rv-arrow" id="prevBtn" aria-label="上一张">‹<span>上一张</span></button>
+      <button class="rv-arrow" id="nextBtn" aria-label="下一张"><span>下一张</span>›</button>
+    </div>
     <div class="rv-mid">
       <div class="card" id="reviewCard">
         <div class="card-thai thai" id="cardThai">—</div>
@@ -669,6 +682,7 @@ function renderReviewCard(){
   $("#revealBtn").classList.remove("hide");
   $("#rvActions").classList.remove("show");
   updateProgress();
+  updateNavButtons();
 }
 function revealCard(){
   if(revealed) return;
@@ -722,6 +736,14 @@ function rate(kind){
   if(queue.length===0){ endSession(); return; }
   renderReviewCard();
 }
+// 浏览：轮转当前复习队列，不评分、不改剩余数
+function nextCard(){ if(queue.length>1){ queue.push(queue.shift()); renderReviewCard(); } }
+function prevCard(){ if(queue.length>1){ queue.unshift(queue.pop()); renderReviewCard(); } }
+function updateNavButtons(){
+  const dis = queue.length<=1;
+  const pb=$("#prevBtn"), nb=$("#nextBtn");
+  if(pb) pb.disabled=dis; if(nb) nb.disabled=dis;
+}
 function endSession(){
   $("#rvActive").style.display="none";
   $("#rvDone").style.display="block";
@@ -744,6 +766,8 @@ $("#reviewCard").onclick = e=>{ if(e.target.closest("button")) return; if(!revea
 $("#revealBtn").onclick = revealCard;
 $("#cardSpk").onclick = e=>{ e.stopPropagation(); speak(queue[0]?.thai); };
 $("#rvActions").querySelectorAll(".rate").forEach(b=> b.onclick=()=>rate(b.dataset.k));
+$("#prevBtn").onclick = prevCard;
+$("#nextBtn").onclick = nextCard;
 // keyboard shortcuts (desktop)
 document.addEventListener("keydown", e=>{
   if(!$("#reviewScreen").classList.contains("active")) return;
