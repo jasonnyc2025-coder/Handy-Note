@@ -826,10 +826,19 @@ function scheduleThaiPush(){
 async function thaiPush(){
   const cloud = getCloud(); if(!cloud) return;
   try{
+    // Echo the server's current notes/cats back untouched. On the updated
+    // server this is redundant (it does partial upserts), but it keeps us safe
+    // against an older server that overwrites every field — so pushing only the
+    // Thai section can never wipe the user's notes.
+    let cur = {};
+    try{ const g = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
+    const body = { thai: cards, thaiRev: getThaiRev() };
+    if(Array.isArray(cur.notes)) body.notes = cur.notes;
+    if(Array.isArray(cur.cats))  body.cats  = cur.cats;
     await fetch(`${cloud.url}/api/sync`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
-      body: JSON.stringify({ thai: cards, thaiRev: getThaiRev() })
+      body: JSON.stringify(body)
     });
   }catch(e){}
 }
