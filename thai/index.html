@@ -31,17 +31,16 @@
   html,body{background:var(--bg);color:var(--ink)}
   body{
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
-    min-height:100dvh;-webkit-font-smoothing:antialiased;
-    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+    height:100dvh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
   }
   .thai{font-family:"Noto Sans Thai","Leelawadee UI","Thonburi",system-ui,sans-serif}
-  .wrap{max-width:600px;margin:0 auto;padding:0 16px}
+  .wrap{max-width:600px;width:100%;margin:0 auto;padding:0 16px;flex:1;min-height:0;display:flex;flex-direction:column}
   button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
   input,textarea{font-family:inherit}
 
   /* ---------- top bar ---------- */
   .topbar{
-    position:sticky;top:0;z-index:20;background:var(--bg);
+    flex:0 0 auto;z-index:20;background:var(--bg);
     padding:calc(env(safe-area-inset-top) + 14px) 16px 12px;
   }
   .topbar .inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:12px}
@@ -61,7 +60,7 @@
 
   /* ---------- views ---------- */
   .view{display:none;animation:fade .2s ease}
-  .view.active{display:block}
+  .view.active{display:flex;flex-direction:column;flex:1;min-height:0}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
   /* ---------- home ---------- */
@@ -90,6 +89,29 @@
   .stat span{font-size:12px;color:var(--muted)}
 
   .section-h{font-size:13px;font-weight:700;color:var(--muted);margin:22px 4px 10px;letter-spacing:.02em;text-transform:uppercase}
+
+  /* home: fixed card area on top + scrollable word list below */
+  .home-due-row{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+  .home-due-text{font-size:15px;font-weight:600}
+  .home-due-text b{font-size:22px;color:var(--teal-ink);font-weight:800;margin-right:3px}
+  .home-review-btn{flex:0 0 auto;background:var(--teal);color:#04201c;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:700}
+  .home-review-btn:active{transform:translateY(1px)}
+  .home-review-btn:disabled{opacity:.5}
+  .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:40vh;margin-top:12px;padding:18px}
+  .home-card .card-thai{font-size:38px}
+  .home-card .card-spk{margin-top:10px;width:46px;height:46px;font-size:20px}
+  .home-card .card-back{margin-top:14px;padding-top:14px}
+  .home-card .tap-hint{font-size:11px}
+  .home-list-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
+  .home-list-wrap .section-h{flex:0 0 auto;margin:16px 4px 8px}
+  #homeRecent{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px;display:flex;flex-direction:column;gap:10px}
+  .witem{cursor:pointer}
+  .witem.sel{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
+  /* list tab: search fixed, list scrolls */
+  #view-list .search{flex:0 0 auto}
+  #wordList{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+  /* add tab: whole form scrolls */
+  #view-add{overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
 
   /* ---------- word list ---------- */
   .search{
@@ -200,7 +222,7 @@
   .card-back{width:100%;border-top:1px solid var(--line);margin-top:22px;padding-top:20px;display:none}
   /* when revealed, fill the remaining card height so only the examples scroll */
   .card-back.show{display:flex;flex-direction:column;flex:1;min-height:0;animation:fade .18s ease}
-  #cbExList{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
+  .cb-exlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
   .cb-mean{font-size:24px;font-weight:700;line-height:1.4}
   .cb-read{font-size:15px;color:var(--muted);margin-top:6px}
   .cb-ex{margin-top:18px;background:var(--surface-2);border-radius:14px;padding:14px 14px;text-align:left}
@@ -233,7 +255,7 @@
 
   /* ---------- bottom nav ---------- */
   .nav{
-    position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);
+    flex:0 0 auto;z-index:30;background:var(--surface);
     border-top:1px solid var(--line);display:flex;
     padding:8px 0 calc(8px + env(safe-area-inset-bottom));
   }
@@ -284,18 +306,24 @@
 
   <!-- ===== HOME ===== -->
   <section class="view active" id="view-home">
-    <div class="hero">
-      <h2>今日复习</h2>
-      <div class="big"><span id="homeDue">0</span> <span>张待复习</span></div>
-      <p id="homeSub">添加生词，点击卡片翻面看释义，练到熟为止。</p>
-      <button class="cta" id="startReview">▶ 开始复习</button>
+    <div class="home-due-row">
+      <div class="home-due-text"><b id="homeDue">0</b>张待复习</div>
+      <button class="home-review-btn" id="startReview">▶ 开始复习</button>
     </div>
-    <div class="stats">
-      <div class="stat"><b id="statTotal">0</b><span>总生词</span></div>
-      <div class="stat"><b id="statToday">0</b><span>今日新增</span></div>
+    <div class="card home-card" id="homeCard">
+      <div class="card-thai thai" id="homeCardThai">—</div>
+      <button class="card-spk" id="homeCardSpk" aria-label="发音">🔊</button>
+      <div class="card-back" id="homeCardBack">
+        <div class="cb-mean" id="homeCbMean"></div>
+        <div class="cb-read" id="homeCbRead"></div>
+        <div class="cb-exlist" id="homeCbExList"></div>
+      </div>
+      <div class="tap-hint" id="homeTapHint">点击卡片翻面看释义</div>
     </div>
-    <div class="section-h">最近添加</div>
-    <div id="homeRecent"></div>
+    <div class="home-list-wrap">
+      <div class="section-h">生词 · 点一下看卡片</div>
+      <div id="homeRecent"></div>
+    </div>
   </section>
 
   <!-- ===== LIST ===== -->
@@ -363,7 +391,7 @@
         <div class="card-back" id="cardBack">
           <div class="cb-mean" id="cbMean"></div>
           <div class="cb-read" id="cbRead"></div>
-          <div id="cbExList"></div>
+          <div class="cb-exlist" id="cbExList"></div>
         </div>
         <div class="tap-hint" id="tapHint">点击卡片显示答案</div>
       </div>
@@ -493,26 +521,50 @@ function showTab(tab){
 $$(".nav button").forEach(b=> b.onclick=()=>showTab(b.dataset.tab));
 
 /* ---------------- home ---------------- */
+let homeCardId = null, homeRevealed = false;
 function renderHome(){
-  $("#statTotal").textContent = cards.length;
   $("#homeDue").textContent = cards.length;
-  const t = todayStr();
-  const todayCount = cards.filter(c=>c.day===t).length;
-  $("#statToday").textContent = todayCount;
   $("#startReview").disabled = cards.length===0;
-  $("#homeSub").textContent = cards.length===0
-    ? "还没有生词，去「添加」录入第一个吧。"
-    : "点击卡片翻面看释义，练到熟为止。";
-  // recent
-  const recent = [...cards].slice(-5).reverse();
+  const list = [...cards].reverse();          // newest first, all words (scrollable)
   const box = $("#homeRecent");
-  if(recent.length===0){
-    box.innerHTML = `<div class="empty"><div class="em-ic">📝</div><p>暂无生词</p></div>`;
+  if(list.length===0){
+    box.innerHTML = `<div class="empty"><div class="em-ic">📝</div><p>还没有生词<br>去「添加」录入第一个吧</p></div>`;
+    homeCardId = null;
+    $("#homeCardThai").textContent = "—";
+    $("#homeCardBack").classList.remove("show");
+    $("#homeTapHint").style.display = "none";
     return;
   }
-  box.innerHTML = recent.map(c=>wordItemHTML(c)).join("");
+  box.innerHTML = list.map(wordItemHTML).join("");
   bindWordItems(box);
+  // tap a word (not its action buttons) -> preview its card up top
+  box.querySelectorAll(".witem").forEach(el=>{
+    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; selectHomeCard(el.dataset.id); });
+  });
+  // keep the current selection if it still exists, else show the newest
+  const keep = homeCardId && list.some(c=>c.id===homeCardId);
+  selectHomeCard(keep ? homeCardId : list[0].id);
 }
+function selectHomeCard(id){
+  const c = cards.find(x=>x.id===id);
+  if(!c) return;
+  homeCardId = id; homeRevealed = false;
+  $("#homeCardThai").textContent = c.thai;
+  $("#homeCbMean").textContent = c.meaning || "";
+  $("#homeCbRead").textContent = c.reading || "";
+  renderCardExamples($("#homeCbExList"), c.examples || []);
+  $("#homeCardBack").classList.remove("show");
+  $("#homeTapHint").style.display = "block";
+  document.querySelectorAll("#homeRecent .witem").forEach(el=> el.classList.toggle("sel", el.dataset.id===id));
+}
+function homeFlip(){
+  if(!homeCardId) return;
+  homeRevealed = !homeRevealed;
+  $("#homeCardBack").classList.toggle("show", homeRevealed);
+  $("#homeTapHint").style.display = homeRevealed ? "none" : "block";
+}
+$("#homeCard").onclick = e=>{ if(e.target.closest("button")) return; homeFlip(); };
+$("#homeCardSpk").onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===homeCardId); if(c) speak(c.thai); };
 
 /* ---------------- word list ---------------- */
 function wordItemHTML(c){
@@ -678,7 +730,7 @@ function renderReviewCard(){
   $("#cardThai").textContent = c.thai;
   $("#cbMean").textContent = c.meaning || "";
   $("#cbRead").textContent = c.reading || "";
-  renderCardExamples(c.examples || []);
+  renderCardExamples($("#cbExList"), c.examples || []);
   // reset to front
   revealed=false;
   $("#cardBack").classList.remove("show");
@@ -696,8 +748,7 @@ function revealCard(){
   $("#revealBtn").classList.add("hide");
   $("#rvActions").classList.add("show");
 }
-function renderCardExamples(list){
-  const box = $("#cbExList");
+function renderCardExamples(box, list){
   box.innerHTML = "";
   (list||[]).forEach(e=>{
     if(!e || !e.thai) return;
