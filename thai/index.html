@@ -14,6 +14,8 @@
   :root{
     --bg:#f4f6f5; --surface:#ffffff; --surface-2:#eef1f0;
     --card-bg:#ffffff; --card-ex-bg:#eef4f2;   /* white flashcard, soft grey example chips (light) */
+    --home-card-bg:#e6f4f0; --home-card-line:#bfe3da;   /* teal-tinted preview card, set apart from the white list */
+    --teal-soft:rgba(13,148,136,.12);                   /* active-tab pill */
     --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5;
     --teal:#0d9488; --teal-ink:#0a6f66; --amber:#f59e0b;
@@ -25,6 +27,8 @@
     :root{
       --bg:#0c1413; --surface:#141d1b; --surface-2:#1c2725;
       --card-bg:#141d1b; --card-ex-bg:#1c2725;   /* dark unchanged */
+      --home-card-bg:#123a34; --home-card-line:#1f5148;
+      --teal-soft:rgba(45,212,191,.16);
       --ink:#eef2f1; --muted:#8a9a97; --line:#26332f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
       --shadow:0 6px 24px rgba(0,0,0,.4);
@@ -100,19 +104,23 @@
   .home-review-btn{flex:0 0 auto;background:var(--teal);color:#04201c;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:700}
   .home-review-btn:active{transform:translateY(1px)}
   .home-review-btn:disabled{opacity:.5}
-  .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:min(38vh,320px);margin-top:12px;padding:18px}
+  /* home preview card is teal-tinted so it clearly reads as "the card",
+     distinct from the plain white word rows scrolling beneath it */
+  .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:min(38vh,320px);margin-top:12px;padding:18px;
+    background:var(--home-card-bg);border-color:var(--home-card-line)}
   .home-card .card-thai{font-size:38px}
-  .home-card .card-spk{margin-top:10px;width:46px;height:46px;font-size:20px}
-  .home-card .card-back{margin-top:14px;padding-top:14px}
+  .home-card .card-spk{margin-top:10px;width:46px;height:46px;font-size:20px;background:var(--surface);border-color:var(--home-card-line)}
+  .home-card .card-back{margin-top:14px;padding-top:14px;border-top-color:var(--home-card-line)}
+  .home-card .cb-ex{background:var(--surface)}   /* white chips pop on the tinted card */
   .home-card .tap-hint{font-size:11px}
   .home-list-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
   .home-list-wrap .section-h{flex:0 0 auto;margin:16px 4px 8px}
-  #homeRecent{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px;display:flex;flex-direction:column;gap:10px}
+  #homeRecent{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:14px;display:flex;flex-direction:column;gap:10px}
   .witem{cursor:pointer}
   .witem.sel{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
   /* list tab: search fixed, list scrolls */
   #view-list .search{flex:0 0 auto}
-  #wordList{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+  #wordList{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:14px}
   /* add tab: whole form scrolls */
   #view-add{overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
 
@@ -125,9 +133,9 @@
   .wlist{margin-top:12px;display:flex;flex-direction:column;gap:10px}
   .witem{
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px;
-    display:flex;align-items:center;gap:12px;
+    display:flex;align-items:center;gap:12px;min-width:0;
   }
-  .witem .w-thai{font-size:22px;font-weight:600;flex:0 0 auto}
+  .witem .w-thai{font-size:22px;font-weight:600;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
   .witem .w-body{flex:1;min-width:0}
   .witem .w-mean{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .witem .w-read{font-size:12px;color:var(--muted)}
@@ -290,14 +298,20 @@
     flex:0 0 auto;z-index:30;background:var(--surface);
     border-top:1px solid var(--line);display:flex;
     padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -6px 20px rgba(18,32,30,.05);
   }
   .nav button{
-    flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
     font-size:11px;color:var(--muted);padding:2px 0;
   }
-  .nav button .ic{font-size:21px;line-height:1}
-  .nav button.on{color:var(--teal-ink)}
-  .nav button.on .ic{transform:translateY(-1px)}
+  .nav button .ic{
+    font-size:20px;line-height:1;display:grid;place-items:center;
+    width:54px;height:30px;border-radius:99px;
+    transition:background .16s ease,transform .16s ease;
+  }
+  .nav button.on{color:var(--teal-ink);font-weight:700}
+  .nav button.on .ic{background:var(--teal-soft);transform:translateY(-1px)}
+  .nav button:active .ic{transform:scale(.92)}
 
   /* ---------- sheet (settings) ---------- */
   .sheet-bg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.4);display:none}
@@ -511,7 +525,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v19";   // shown in the top bar; bump with each release
+const APP_VER = "v20";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
