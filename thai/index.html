@@ -13,6 +13,7 @@
 <style>
   :root{
     --bg:#f4f6f5; --surface:#ffffff; --surface-2:#eef1f0;
+    --card-bg:#eef1f0; --card-ex-bg:#ffffff;   /* softer flashcard (light): grey card, white example boxes */
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5;
     --teal:#0d9488; --teal-ink:#0a6f66; --amber:#f59e0b;
     --again:#e5484d; --hard:#f5a623; --good:#0d9488; --easy:#3b82f6;
@@ -22,6 +23,7 @@
   @media (prefers-color-scheme:dark){
     :root{
       --bg:#0c1413; --surface:#141d1b; --surface-2:#1c2725;
+      --card-bg:#141d1b; --card-ex-bg:#1c2725;   /* dark unchanged */
       --ink:#eef2f1; --muted:#8a9a97; --line:#26332f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
       --shadow:0 6px 24px rgba(0,0,0,.4);
@@ -206,9 +208,9 @@
   .rv-arrow-next{right:0}
   .rv-arrow:active{filter:brightness(.85)}
   .rv-arrow:disabled{opacity:.3;pointer-events:none}
-  .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 0;min-height:0}
+  .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 52px;min-height:0}
   .card{
-    width:100%;max-width:460px;background:var(--surface);
+    width:100%;max-width:460px;background:var(--card-bg);
     align-self:stretch;min-height:0;max-height:100%;          /* fill the space, never push past the buttons */
     overflow:hidden;                                          /* card itself stays put; only the examples scroll */
     border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);
@@ -228,7 +230,7 @@
   .cb-exlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
   .cb-mean{font-size:24px;font-weight:700;line-height:1.4}
   .cb-read{font-size:15px;color:var(--muted);margin-top:6px}
-  .cb-ex{margin-top:18px;background:var(--surface-2);border-radius:14px;padding:14px 14px;text-align:left}
+  .cb-ex{margin-top:18px;background:var(--card-ex-bg);border:1px solid var(--line);border-radius:14px;padding:14px 14px;text-align:left}
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
