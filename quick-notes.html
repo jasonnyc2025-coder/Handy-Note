@@ -203,6 +203,30 @@
     transition: background 0.15s;
   }
   .gear-menu button:hover { background: var(--accent-soft); }
+  /* 泰语卡片 — the entry into the sub-app, given prominence and a chevron */
+  .gear-menu button.menu-feature {
+    font-size: 1.02rem;
+    font-weight: 700;
+    padding: 14px 15px;
+    margin-bottom: 3px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    position: relative;
+    letter-spacing: .01em;
+  }
+  .gear-menu button.menu-feature::after {
+    content: "›";
+    position: absolute;
+    right: 14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent);
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .gear-menu button.menu-feature:hover { background: var(--accent); color: #fff; }
+  .gear-menu button.menu-feature:hover::after { color: #fff; }
   .gear-sep { height: 1px; background: var(--line); margin: 4px 8px; }
   .cloud-status {
     font-size: 0.68rem;
@@ -2066,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v171</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v172</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -2085,7 +2109,7 @@
     </div>
     <div class="tabs" id="tabs"></div>
     <div class="gear-menu" id="gear-menu">
-      <button data-menu="thai" data-i18n="menuThai">🇹🇭 泰语卡片</button>
+      <button class="menu-feature" data-menu="thai" data-i18n="menuThai">🇹🇭 泰语卡片</button>
       <div class="gear-sep"></div>
       <button data-menu="bg" data-i18n="menuBg">🎨 背景主题</button>
       <button data-menu="fontsize" data-i18n="menuFont">🔤 字体大小</button>
