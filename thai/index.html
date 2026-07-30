@@ -234,6 +234,13 @@
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
+  mark.hl{background:#ffe08a;color:#5a4200;border-radius:5px;padding:0 3px}
+  @media(prefers-color-scheme:dark){ mark.hl{background:#8a6a1f;color:#ffe9b0} }
+  /* floating popup shown when text is selected inside an example */
+  #selPop{position:fixed;z-index:80;display:none;gap:6px;background:var(--ink);border-radius:13px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
+  #selPop.show{display:flex}
+  #selPop button{background:rgba(255,255,255,.14);color:var(--bg);border-radius:9px;padding:9px 13px;font-size:14px;font-weight:600;white-space:nowrap}
+  #selPop button:active{background:rgba(255,255,255,.28)}
 
   .rv-actions{display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
   .rv-actions.show{display:grid}
@@ -452,6 +459,27 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- popup when selecting text inside an example -->
+<div id="selPop">
+  <button id="selAdd">➕ 加入生词</button>
+  <button id="selHl">🖍 高亮</button>
+  <button id="selSpeak" aria-label="朗读">🔊</button>
+</div>
+
+<!-- quick "add selected word to vocab" sheet -->
+<div class="sheet-bg" id="addWordBg"></div>
+<div class="sheet" id="addWordSheet">
+  <h3>加入生词</h3>
+  <p class="sub">把例句里选中的词加到你的生词本，之后一起复习。</p>
+  <div class="field"><label>泰文</label><input class="thai" id="awThai" readonly></div>
+  <div class="field"><label>中文释义</label><input id="awMean" placeholder="这个词的意思…" autocomplete="off"></div>
+  <div class="field"><label>读音 / 罗马音 <span class="opt">（选填）</span></label><input id="awRead" autocomplete="off"></div>
+  <div class="opt-row" style="margin-top:16px">
+    <button class="ghost" id="awCancel">取消</button>
+    <button class="primary" id="awSave" style="margin-top:0">保存到生词</button>
+  </div>
+</div>
+
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
@@ -555,7 +583,7 @@ function selectHomeCard(id){
   $("#homeCardThai").textContent = c.thai;
   $("#homeCbMean").textContent = c.meaning || "";
   $("#homeCbRead").textContent = c.reading || "";
-  renderCardExamples($("#homeCbExList"), c.examples || []);
+  renderCardExamples($("#homeCbExList"), c.examples || [], c.id);
   $("#homeCardBack").classList.remove("show");
   $("#homeTapHint").style.display = "block";
   document.querySelectorAll("#homeRecent .witem").forEach(el=> el.classList.toggle("sel", el.dataset.id===id));
@@ -566,7 +594,7 @@ function homeFlip(){
   $("#homeCardBack").classList.toggle("show", homeRevealed);
   $("#homeTapHint").style.display = homeRevealed ? "none" : "block";
 }
-$("#homeCard").onclick = e=>{ if(e.target.closest("button")) return; homeFlip(); };
+$("#homeCard").onclick = e=>{ if(e.target.closest("button")) return; if(window.getSelection && String(window.getSelection()).trim()) return; homeFlip(); };
 $("#homeCardSpk").onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===homeCardId); if(c) speak(c.thai); };
 
 /* ---------------- word list ---------------- */
@@ -733,7 +761,7 @@ function renderReviewCard(){
   $("#cardThai").textContent = c.thai;
   $("#cbMean").textContent = c.meaning || "";
   $("#cbRead").textContent = c.reading || "";
-  renderCardExamples($("#cbExList"), c.examples || []);
+  renderCardExamples($("#cbExList"), c.examples || [], c.id);
   // reset to front
   revealed=false;
   $("#cardBack").classList.remove("show");
@@ -751,13 +779,24 @@ function revealCard(){
   $("#revealBtn").classList.add("hide");
   $("#rvActions").classList.add("show");
 }
-function renderCardExamples(box, list){
+// wrap any highlighted sub-strings of an example in <mark>
+function hlThai(thai, hlList){
+  let html = esc(thai);
+  (hlList||[]).forEach(w=>{
+    if(!w) return;
+    const e = esc(w);
+    html = html.split(e).join('<mark class="hl">'+e+'</mark>');
+  });
+  return html;
+}
+function renderCardExamples(box, list, cardId){
   box.innerHTML = "";
-  (list||[]).forEach(e=>{
+  (list||[]).forEach((e,idx)=>{
     if(!e || !e.thai) return;
     const el = document.createElement("div");
     el.className = "cb-ex";
-    el.innerHTML = `<div class="ex-thai thai"><span>${esc(e.thai)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
+    if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
+    el.innerHTML = `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
       (e.meaning ? `<div class="ex-mean">${esc(e.meaning)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
@@ -944,6 +983,69 @@ async function thaiSync(){
   await thaiPull();   // adopt server if it's newer
   thaiPush();         // converge (server rev-gates, so a stale push is a no-op)
 }
+
+/* ---------- select a word in an example -> highlight / add to vocab ---------- */
+let selCtx = null;   // { text, cbEx }
+function hideSelPop(){ $("#selPop").classList.remove("show"); selCtx=null; }
+function onSelChange(){
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
+  const text = sel.toString().trim();
+  if(!text){ hideSelPop(); return; }
+  const range = sel.getRangeAt(0);
+  let node = range.commonAncestorContainer;
+  if(node.nodeType===3) node = node.parentElement;
+  const exThai = node && node.closest ? node.closest(".ex-thai") : null;
+  if(!exThai){ hideSelPop(); return; }
+  selCtx = { text, cbEx: exThai.closest(".cb-ex") };
+  const r = range.getBoundingClientRect();
+  const pop = $("#selPop");
+  pop.classList.add("show");
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.left + r.width/2 - pw/2, window.innerWidth - pw - 8));
+  let top = r.top - ph - 10;
+  if(top < 8) top = r.bottom + 10;
+  pop.style.left = left+"px";
+  pop.style.top = top+"px";
+}
+document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
+document.addEventListener("scroll", hideSelPop, true);
+function toggleHighlight(cbEx, text){
+  if(!cbEx) return;
+  const card = cards.find(c=>c.id===cbEx.dataset.card);
+  const idx = parseInt(cbEx.dataset.ex, 10);
+  if(!card || !card.examples || !card.examples[idx]) return;
+  const ex = card.examples[idx];
+  ex.hl = ex.hl || [];
+  const i = ex.hl.indexOf(text);
+  if(i>=0) ex.hl.splice(i,1); else ex.hl.push(text);
+  if(!ex.hl.length) delete ex.hl;
+  save();
+  renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
+}
+$("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
+$("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
+$("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); };
+
+/* ---------- add selected word as a new vocab card ---------- */
+function openAddWord(thai){
+  $("#awThai").value = thai;
+  $("#awMean").value = ""; $("#awRead").value = "";
+  $("#addWordBg").classList.add("show");
+  $("#addWordSheet").classList.add("show");
+  setTimeout(()=>$("#awMean").focus(), 120);
+}
+function closeAddWord(){ $("#addWordBg").classList.remove("show"); $("#addWordSheet").classList.remove("show"); }
+$("#awCancel").onclick = closeAddWord;
+$("#addWordBg").onclick = closeAddWord;
+$("#awSave").onclick = ()=>{
+  const thai = $("#awThai").value.trim(); if(!thai){ closeAddWord(); return; }
+  cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:[] });
+  save();
+  closeAddWord();
+  toast("已加入生词：" + thai);
+  if(document.querySelector("#view-home.active")) renderHome();
+};
 
 /* ---------------- boot ---------------- */
 load();
