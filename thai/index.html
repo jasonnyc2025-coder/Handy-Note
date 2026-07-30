@@ -198,17 +198,17 @@
 
   /* prev/next arrows flanking the card, vertically centered */
   .rv-arrow{
-    position:absolute;top:50%;transform:translateY(-50%);z-index:5;
-    width:46px;height:46px;border-radius:50%;
+    position:absolute;top:37%;transform:translateY(-50%);z-index:5;
+    width:44px;height:44px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    background:var(--surface);border:1px solid var(--line);
-    color:var(--ink);font-size:26px;font-weight:600;line-height:1;
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);
+    color:var(--ink);font-size:24px;font-weight:600;line-height:1;
   }
-  .rv-arrow-prev{left:0}
-  .rv-arrow-next{right:0}
+  .rv-arrow-prev{left:2px}
+  .rv-arrow-next{right:2px}
   .rv-arrow:active{filter:brightness(.85)}
   .rv-arrow:disabled{opacity:.3;pointer-events:none}
-  .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 52px;min-height:0}
+  .rv-mid{flex:1;display:flex;align-items:center;justify-content:center;padding:14px 0;min-height:0}
   .card{
     width:100%;max-width:460px;background:var(--card-bg);
     align-self:stretch;min-height:0;max-height:100%;          /* fill the space, never push past the buttons */
