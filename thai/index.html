@@ -13,7 +13,8 @@
 <style>
   :root{
     --bg:#f4f6f5; --surface:#ffffff; --surface-2:#eef1f0;
-    --card-bg:#eef1f0; --card-ex-bg:#ffffff;   /* softer flashcard (light): grey card, white example boxes */
+    --card-bg:#ffffff; --card-ex-bg:#eef4f2;   /* white flashcard, soft grey example chips (light) */
+    --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5;
     --teal:#0d9488; --teal-ink:#0a6f66; --amber:#f59e0b;
     --again:#e5484d; --hard:#f5a623; --good:#0d9488; --easy:#3b82f6;
@@ -213,8 +214,8 @@
     width:100%;max-width:460px;background:var(--card-bg);
     align-self:stretch;min-height:0;max-height:100%;          /* fill the space, never push past the buttons */
     overflow:hidden;                                          /* card itself stays put; only the examples scroll */
-    border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);
-    padding:26px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:1px solid var(--line);border-radius:24px;box-shadow:var(--card-shadow);
+    padding:28px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;
     text-align:center;position:relative;cursor:pointer;
   }
   .card .tap-hint{position:absolute;bottom:16px;left:0;right:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
@@ -228,9 +229,13 @@
   /* when revealed, fill the remaining card height so only the examples scroll */
   .card-back.show{display:flex;flex-direction:column;flex:1;min-height:0;animation:fade .18s ease}
   .cb-exlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
-  .cb-mean{font-size:24px;font-weight:700;line-height:1.4}
+  .cb-mean{font-size:24px;font-weight:700;line-height:1.4;color:var(--teal-ink)}
   .cb-read{font-size:15px;color:var(--muted);margin-top:6px}
-  .cb-ex{margin-top:18px;background:var(--card-ex-bg);border:1px solid var(--line);border-radius:14px;padding:14px 14px;text-align:left}
+  .cb-exlist::before{content:"例句";display:block;font-size:11px;font-weight:700;letter-spacing:.14em;
+    color:var(--muted);text-align:left;margin:20px 2px 2px;text-transform:uppercase}
+  .cb-exlist:empty::before{display:none}
+  .cb-ex{margin-top:12px;background:var(--card-ex-bg);border:1px solid var(--line);border-left:3px solid var(--teal);
+    border-radius:14px;padding:14px 14px;text-align:left}
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
@@ -494,7 +499,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v17";   // shown in the top bar; bump with each release
+const APP_VER = "v18";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
