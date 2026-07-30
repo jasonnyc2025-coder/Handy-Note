@@ -494,7 +494,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v16";   // shown in the top bar; bump with each release
+const APP_VER = "v17";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -562,7 +562,7 @@ function showTab(tab){
 $$(".nav button").forEach(b=> b.onclick=()=>showTab(b.dataset.tab));
 
 /* ---------------- home ---------------- */
-let homeCardId = null, homeRevealed = false;
+let homeCardId = null, homeRevealed = false, homeUserPicked = false;
 function renderHome(){
   $("#homeDue").textContent = cards.length;
   $("#startReview").disabled = cards.length===0;
@@ -570,7 +570,7 @@ function renderHome(){
   const box = $("#homeRecent");
   if(list.length===0){
     box.innerHTML = `<div class="empty"><div class="em-ic">📝</div><p>还没有生词<br>去「添加」录入第一个吧</p></div>`;
-    homeCardId = null;
+    homeCardId = null; homeUserPicked = false;
     $("#homeCardThai").textContent = "—";
     $("#homeCardBack").classList.remove("show");
     $("#homeTapHint").style.display = "none";
@@ -578,25 +578,27 @@ function renderHome(){
   }
   box.innerHTML = list.map(wordItemHTML).join("");
   bindWordItems(box);
-  // tap a word (not its action buttons) -> preview its card up top
+  // tap a word (not its action buttons) -> pick it: preview on top + review starts here
   box.querySelectorAll(".witem").forEach(el=>{
-    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; selectHomeCard(el.dataset.id); });
+    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; selectHomeCard(el.dataset.id, true); });
   });
-  // keep the current selection if it still exists, else show the newest
+  // keep the current selection if it still exists, else just preview the newest (not a user pick)
   const keep = homeCardId && list.some(c=>c.id===homeCardId);
-  selectHomeCard(keep ? homeCardId : list[0].id);
+  selectHomeCard(keep ? homeCardId : list[0].id, keep ? homeUserPicked : false);
 }
-function selectHomeCard(id){
+// userPicked=true when the user tapped the word (review will start from it & the row is highlighted);
+// false = just a preview of the newest card on load.
+function selectHomeCard(id, userPicked){
   const c = cards.find(x=>x.id===id);
   if(!c) return;
-  homeCardId = id; homeRevealed = false;
+  homeCardId = id; homeRevealed = false; homeUserPicked = !!userPicked;
   $("#homeCardThai").textContent = c.thai;
   $("#homeCbMean").textContent = c.meaning || "";
   $("#homeCbRead").textContent = c.reading || "";
   renderCardExamples($("#homeCbExList"), c.examples || [], c.id);
   $("#homeCardBack").classList.remove("show");
   $("#homeTapHint").style.display = "block";
-  document.querySelectorAll("#homeRecent .witem").forEach(el=> el.classList.toggle("sel", el.dataset.id===id));
+  document.querySelectorAll("#homeRecent .witem").forEach(el=> el.classList.toggle("sel", homeUserPicked && el.dataset.id===id));
 }
 function homeFlip(){
   if(!homeCardId) return;
@@ -759,6 +761,11 @@ function shuffle(a){
 function startReview(){
   if(cards.length===0) return;
   queue = shuffle(cards);
+  // if the user picked a word on the home list, start the session from it
+  if(homeUserPicked && homeCardId){
+    const i = queue.findIndex(c=>c.id===homeCardId);
+    if(i>=0) queue.unshift(queue.splice(i,1)[0]);
+  }
   sessionTotal = queue.length;
   tally.again=tally.hard=tally.good=tally.easy=0;
   revealed=false;
