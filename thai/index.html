@@ -98,12 +98,19 @@
   .section-h{font-size:13px;font-weight:700;color:var(--muted);margin:22px 4px 10px;letter-spacing:.02em;text-transform:uppercase}
 
   /* home: fixed card area on top + scrollable word list below */
-  .home-due-row{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
-  .home-due-text{font-size:15px;font-weight:600}
-  .home-due-text b{font-size:22px;color:var(--teal-ink);font-weight:800;margin-right:3px}
-  .home-review-btn{flex:0 0 auto;background:var(--teal);color:#04201c;border-radius:12px;padding:10px 18px;font-size:14px;font-weight:700}
-  .home-review-btn:active{transform:translateY(1px)}
-  .home-review-btn:disabled{opacity:.5}
+  .home-due-row{flex:0 0 auto;display:flex;align-items:center;gap:10px;margin-top:8px}
+  .home-due-text{font-size:16px;font-weight:600}
+  .home-due-text b{font-size:24px;color:var(--teal-ink);font-weight:800;margin-right:3px}
+  /* big primary "start review" button pinned to the bottom of the home view */
+  .home-start-cta{
+    flex:0 0 auto;width:100%;margin:12px 0 4px;
+    background:var(--teal);color:#04201c;border-radius:16px;
+    padding:18px;font-size:19px;font-weight:800;letter-spacing:.02em;
+    display:flex;align-items:center;justify-content:center;gap:9px;
+    box-shadow:0 8px 20px rgba(13,148,136,.28);
+  }
+  .home-start-cta:active{transform:translateY(1px)}
+  .home-start-cta:disabled{opacity:.5;box-shadow:none}
   /* home preview card is teal-tinted so it clearly reads as "the card",
      distinct from the plain white word rows scrolling beneath it */
   .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:min(38vh,320px);margin-top:12px;padding:18px;
@@ -360,7 +367,6 @@
   <section class="view active" id="view-home">
     <div class="home-due-row">
       <div class="home-due-text"><b id="homeDue">0</b>张待复习</div>
-      <button class="home-review-btn" id="startReview">▶ 开始复习</button>
     </div>
     <div class="card home-card" id="homeCard">
       <div class="card-thai thai" id="homeCardThai">—</div>
@@ -376,6 +382,7 @@
       <div class="section-h">生词 · 点一下看卡片</div>
       <div id="homeRecent"></div>
     </div>
+    <button class="home-start-cta" id="startReview">▶ 开始复习</button>
   </section>
 
   <!-- ===== LIST ===== -->
@@ -530,7 +537,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v23";   // shown in the top bar; bump with each release
+const APP_VER = "v24";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
