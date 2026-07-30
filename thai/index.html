@@ -289,6 +289,7 @@
     position:fixed;left:0;right:0;bottom:0;z-index:51;background:var(--surface);
     border-radius:22px 22px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom));
     transform:translateY(100%);transition:transform .25s ease;max-width:600px;margin:0 auto;
+    max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   }
   .sheet.show{transform:none}
   .sheet h3{font-size:17px;font-weight:700;margin-bottom:4px}
@@ -477,6 +478,11 @@
   <div class="field"><label>泰文</label><input class="thai" id="awThai" readonly></div>
   <div class="field"><label>中文释义</label><input id="awMean" placeholder="这个词的意思…" autocomplete="off"></div>
   <div class="field"><label>读音 / 罗马音 <span class="opt">（选填）</span></label><input id="awRead" autocomplete="off"></div>
+  <div class="field">
+    <label>例句 <span class="opt">（选填，可多条）</span></label>
+    <div id="awExList"></div>
+    <button class="ghost" id="awAddEx" style="margin-top:10px">＋ 添加例句</button>
+  </div>
   <div class="opt-row" style="margin-top:16px">
     <button class="ghost" id="awCancel">取消</button>
     <button class="primary" id="awSave" style="margin-top:0">保存到生词</button>
@@ -488,7 +494,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v15";   // shown in the top bar; bump with each release
+const APP_VER = "v16";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -653,7 +659,8 @@ function delCard(id){
 let editingId = null;
 
 // dynamic example rows
-function addExRow(thai="", meaning=""){
+function addExRow(thai="", meaning="", listEl){
+  listEl = listEl || $("#exList");
   const row = document.createElement("div");
   row.className = "ex-row";
   row.innerHTML = `
@@ -665,29 +672,30 @@ function addExRow(thai="", meaning=""){
     <input class="ex-mean-in" placeholder="翻译（选填）" autocomplete="off">`;
   row.querySelector(".ex-thai-in").value = thai;
   row.querySelector(".ex-mean-in").value = meaning;
-  row.querySelector('[data-act="rmEx"]').onclick = ()=>{ row.remove(); renumberEx(); };
+  row.querySelector('[data-act="rmEx"]').onclick = ()=>{ row.remove(); renumberEx(listEl); };
   row.querySelector('[data-act="exSpk"]').onclick = ()=> speak(row.querySelector(".ex-thai-in").value.trim());
-  $("#exList").appendChild(row);
-  renumberEx();
+  listEl.appendChild(row);
+  renumberEx(listEl);
 }
-function renumberEx(){
-  $("#exList").querySelectorAll(".ex-row").forEach((r,i)=>{
+function renumberEx(listEl){
+  (listEl||$("#exList")).querySelectorAll(".ex-row").forEach((r,i)=>{
     r.querySelector(".ex-row-head span").textContent = "例句 "+(i+1);
   });
 }
-function collectExamples(){
+function collectExamples(listEl){
   const out = [];
-  $("#exList").querySelectorAll(".ex-row").forEach(r=>{
+  (listEl||$("#exList")).querySelectorAll(".ex-row").forEach(r=>{
     const t = r.querySelector(".ex-thai-in").value.trim();
     const m = r.querySelector(".ex-mean-in").value.trim();
     if(t) out.push({ thai:t, meaning:m });
   });
   return out;
 }
-function setExamples(list){
-  $("#exList").innerHTML = "";
-  if(list && list.length){ list.forEach(e=>addExRow(e.thai||"", e.meaning||"")); }
-  else { addExRow(); }   // start with one empty row
+function setExamples(list, listEl){
+  listEl = listEl || $("#exList");
+  listEl.innerHTML = "";
+  if(list && list.length){ list.forEach(e=>addExRow(e.thai||"", e.meaning||"", listEl)); }
+  else { addExRow("", "", listEl); }   // start with one empty row
 }
 $("#addExBtn").onclick = ()=> addExRow();
 
@@ -1027,16 +1035,19 @@ $("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); 
 function openAddWord(thai){
   $("#awThai").value = thai;
   $("#awMean").value = ""; $("#awRead").value = "";
+  $("#awExList").innerHTML = "";   // examples optional; start empty
   $("#addWordBg").classList.add("show");
   $("#addWordSheet").classList.add("show");
+  $("#addWordSheet").scrollTop = 0;
   setTimeout(()=>$("#awMean").focus(), 120);
 }
 function closeAddWord(){ $("#addWordBg").classList.remove("show"); $("#addWordSheet").classList.remove("show"); }
 $("#awCancel").onclick = closeAddWord;
 $("#addWordBg").onclick = closeAddWord;
+$("#awAddEx").onclick = ()=> addExRow("", "", $("#awExList"));
 $("#awSave").onclick = ()=>{
   const thai = $("#awThai").value.trim(); if(!thai){ closeAddWord(); return; }
-  cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:[] });
+  cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:collectExamples($("#awExList")) });
   save();
   closeAddWord();
   toast("已加入生词：" + thai);
