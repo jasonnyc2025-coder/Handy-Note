@@ -213,6 +213,16 @@
     background:var(--surface-2);color:var(--teal-ink);font-size:13px;font-weight:800;line-height:1;
   }
   .rv-exit:active{transform:translateY(1px);filter:brightness(.97)}
+  /* footer row: exit stays centered, edit sits in the bottom-right corner */
+  .rv-footer{flex:0 0 auto;position:relative;display:flex;align-items:center;justify-content:center;margin-top:14px}
+  .rv-footer .rv-exit{margin-top:0}
+  .rv-edit{
+    position:absolute;right:0;top:50%;transform:translateY(-50%);
+    width:48px;height:48px;border-radius:50%;
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--teal-ink);
+  }
+  .rv-edit:active{transform:translateY(-50%) scale(.92)}
   .rv-progress{flex:1}
   .rv-count{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
   .rv-count b{color:var(--ink);font-weight:700}
@@ -464,7 +474,10 @@
       <button class="rate good" data-k="good">Good<small>移到末尾</small></button>
       <button class="rate easy" data-k="easy">Easy<small>本次移除</small></button>
     </div>
-    <button class="rv-exit" id="rvClose" aria-label="退出复习"><span class="ic">✕</span>退出复习</button>
+    <div class="rv-footer">
+      <button class="rv-exit" id="rvClose" aria-label="退出复习"><span class="ic">✕</span>退出复习</button>
+      <button class="rv-edit" id="rvEdit" aria-label="编辑当前卡片" title="编辑（例如加例句）">✎</button>
+    </div>
   </div>
 
   <!-- done -->
@@ -541,7 +554,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v26";   // shown in the top bar; bump with each release
+const APP_VER = "v27";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -606,7 +619,7 @@ function showTab(tab){
   if(tab==="add" && !editingId) resetForm();
   window.scrollTo(0,0);
 }
-$$(".nav button").forEach(b=> b.onclick=()=>showTab(b.dataset.tab));
+$$(".nav button").forEach(b=> b.onclick=()=>{ editReturnToReview=false; showTab(b.dataset.tab); });
 
 /* ---------------- home ---------------- */
 let homeCardId = null, homeRevealed = false, homeUserPicked = false;
@@ -769,7 +782,20 @@ function startEdit(id){
   $("#addMsg").textContent="";
   showTab("add");
 }
-$("#cancelEdit").onclick = ()=>{ resetForm(); showTab("list"); };
+// When editing was launched from the review screen (the ✎ corner button),
+// saving/cancelling should drop the user back into the review, not the list.
+let editReturnToReview = false;
+let _reviewWasRevealed = false;
+function returnToReviewIfNeeded(){
+  if(!editReturnToReview) return false;
+  editReturnToReview = false;
+  resetForm();
+  $("#reviewScreen").classList.add("active");
+  renderReviewCard();
+  if(_reviewWasRevealed) revealCard();   // restore the answer view they were on
+  return true;
+}
+$("#cancelEdit").onclick = ()=>{ if(returnToReviewIfNeeded()) return; resetForm(); showTab("list"); };
 $("#saveCard").onclick = ()=>{
   const thai=$("#fThai").value.trim();
   const meaning=$("#fMean").value.trim();
@@ -783,7 +809,9 @@ $("#saveCard").onclick = ()=>{
   if(editingId){
     const c=cards.find(x=>x.id===editingId);
     Object.assign(c,data); save();
-    toast("已更新"); resetForm(); showTab("list");
+    toast("已更新");
+    if(returnToReviewIfNeeded()) return;
+    resetForm(); showTab("list");
   }else{
     cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), ...data });
     save();
@@ -918,12 +946,21 @@ function endSession(){
   $("#doneSub").textContent = `共 ${total} 次评分 · ${sessionTotal} 张卡片`;
 }
 function closeReview(){
+  editReturnToReview = false;
   $("#reviewScreen").classList.remove("active");
   speechSynthesis.cancel();
   showTab("home");
 }
 $("#startReview").onclick = startReview;
 $("#rvClose").onclick = closeReview;
+// edit the card currently under review (e.g. to add an example), then come back
+$("#rvEdit").onclick = ()=>{
+  const c = queue[0]; if(!c) return;
+  editReturnToReview = true;
+  _reviewWasRevealed = revealed;
+  $("#reviewScreen").classList.remove("active");
+  startEdit(c.id);
+};
 $("#doneClose").onclick = closeReview;
 $("#reviewCard").onclick = e=>{ if(e.target.closest("button")) return; if(!revealed) revealCard(); };
 $("#revealBtn").onclick = revealCard;
