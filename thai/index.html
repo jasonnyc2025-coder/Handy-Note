@@ -142,10 +142,10 @@
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px;
     display:flex;align-items:center;gap:12px;min-width:0;
   }
-  .witem .w-thai{font-size:22px;font-weight:600;line-height:1.35;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
-  /* reserve room for the meaning/reading so a long Thai word can't squeeze
-     the body to nothing — the word wraps to fit instead */
-  .witem .w-body{flex:1 1 auto;min-width:96px}
+  .witem .w-thai{font-size:22px;font-weight:600;line-height:1.35;flex:0 1 auto;min-width:0;overflow-wrap:break-word}
+  /* basis 0 so the (ellipsized) meaning/reading can't inflate the body and
+     squeeze the Thai column; min-width keeps the meaning readable */
+  .witem .w-body{flex:1 1 0;min-width:96px}
   .witem .w-mean{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* reading may hold a long note; keep it to one ellipsized line so it can't
      collapse into a one-character column and shove the row buttons around */
@@ -541,7 +541,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v25";   // shown in the top bar; bump with each release
+const APP_VER = "v26";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
