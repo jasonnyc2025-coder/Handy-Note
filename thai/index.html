@@ -143,9 +143,13 @@
     display:flex;align-items:center;gap:12px;min-width:0;
   }
   .witem .w-thai{font-size:22px;font-weight:600;line-height:1.35;flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
-  .witem .w-body{flex:1;min-width:0}
+  /* reserve room for the meaning/reading so a long Thai word can't squeeze
+     the body to nothing — the word wraps to fit instead */
+  .witem .w-body{flex:1 1 auto;min-width:96px}
   .witem .w-mean{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .witem .w-read{font-size:12px;color:var(--muted)}
+  /* reading may hold a long note; keep it to one ellipsized line so it can't
+     collapse into a one-character column and shove the row buttons around */
+  .witem .w-read{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .witem .w-actions{display:flex;gap:6px;flex:0 0 auto}
   .mini{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-size:15px;color:var(--muted)}
   .mini:active{background:var(--line)}
@@ -537,7 +541,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v24";   // shown in the top bar; bump with each release
+const APP_VER = "v25";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
