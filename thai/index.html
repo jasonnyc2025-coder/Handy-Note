@@ -16,6 +16,7 @@
     --card-bg:#ffffff; --card-ex-bg:#eef4f2;   /* white flashcard, soft grey example chips (light) */
     --home-card-bg:#e6f4f0; --home-card-line:#bfe3da;   /* teal-tinted preview card, set apart from the white list */
     --teal-soft:rgba(13,148,136,.12);                   /* active-tab pill */
+    --note-bg:#fdf6e9; --note-line:#f0e2c4; --amber-ink:#a15c0a;   /* 备注 card (light) */
     --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5;
     --teal:#0d9488; --teal-ink:#0a6f66; --amber:#f59e0b;
@@ -29,6 +30,7 @@
       --card-bg:#141d1b; --card-ex-bg:#1c2725;   /* dark unchanged */
       --home-card-bg:#123a34; --home-card-line:#1f5148;
       --teal-soft:rgba(45,212,191,.16);
+      --note-bg:#2a2416; --note-line:#3d3420; --amber-ink:#fbbf24;
       --ink:#eef2f1; --muted:#8a9a97; --line:#26332f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
       --shadow:0 6px 24px rgba(0,0,0,.4);
@@ -271,9 +273,16 @@
   .card-back{width:100%;border-top:1px solid var(--line);margin-top:22px;padding-top:20px;display:none}
   /* when revealed, fill the remaining card height so only the examples scroll */
   .card-back.show{display:flex;flex-direction:column;flex:1;min-height:0;animation:fade .18s ease}
-  .cb-exlist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
+  .cb-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
+  .cb-exlist{width:100%}
   .cb-mean{font-size:24px;font-weight:700;line-height:1.4;color:var(--teal-ink)}
   .cb-read{font-size:15px;color:var(--muted);margin-top:6px}
+  /* 备注 block: a soft amber note card, shown only when there's a note */
+  .cb-note{display:none;margin-top:18px;background:var(--note-bg);border:1px solid var(--note-line);
+    border-left:3px solid var(--amber);border-radius:14px;padding:12px 14px;text-align:left;
+    font-size:15px;line-height:1.6;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .cb-note::before{content:"备注";display:block;font-size:11px;font-weight:700;letter-spacing:.14em;
+    color:var(--amber-ink);margin-bottom:6px;text-transform:uppercase}
   .cb-exlist::before{content:"例句";display:block;font-size:11px;font-weight:700;letter-spacing:.14em;
     color:var(--muted);text-align:left;margin:20px 2px 2px;text-transform:uppercase}
   .cb-exlist:empty::before{display:none}
@@ -388,7 +397,10 @@
       <div class="card-back" id="homeCardBack">
         <div class="cb-mean" id="homeCbMean"></div>
         <div class="cb-read" id="homeCbRead"></div>
-        <div class="cb-exlist" id="homeCbExList"></div>
+        <div class="cb-scroll">
+          <div class="cb-note" id="homeCbNote"></div>
+          <div class="cb-exlist" id="homeCbExList"></div>
+        </div>
       </div>
       <div class="tap-hint" id="homeTapHint">点击卡片翻面看释义</div>
     </div>
@@ -428,6 +440,10 @@
       <div id="exList"></div>
       <button class="ghost" id="addExBtn" style="margin-top:10px">＋ 添加例句</button>
     </div>
+    <div class="field">
+      <label>备注 <span class="opt">（选填，用法/辨析等）</span></label>
+      <textarea id="fNote" rows="3" placeholder="" autocomplete="off"></textarea>
+    </div>
     <button class="primary" id="saveCard">保存生词</button>
     <button class="ghost" id="cancelEdit" style="display:none">取消编辑</button>
     <div class="form-msg" id="addMsg"></div>
@@ -461,7 +477,10 @@
         <div class="card-back" id="cardBack">
           <div class="cb-mean" id="cbMean"></div>
           <div class="cb-read" id="cbRead"></div>
-          <div class="cb-exlist" id="cbExList"></div>
+          <div class="cb-scroll">
+            <div class="cb-note" id="cbNote"></div>
+            <div class="cb-exlist" id="cbExList"></div>
+          </div>
         </div>
         <div class="tap-hint" id="tapHint">点击卡片显示答案</div>
       </div>
@@ -554,7 +573,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v27";   // shown in the top bar; bump with each release
+const APP_VER = "v28";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -655,6 +674,7 @@ function selectHomeCard(id, userPicked){
   $("#homeCardThai").textContent = c.thai;
   $("#homeCbMean").textContent = c.meaning || "";
   $("#homeCbRead").textContent = c.reading || "";
+  renderNote($("#homeCbNote"), c.note);
   renderCardExamples($("#homeCbExList"), c.examples || [], c.id);
   $("#homeCardBack").classList.remove("show");
   $("#homeTapHint").style.display = "block";
@@ -763,7 +783,7 @@ $("#addExBtn").onclick = ()=> addExRow();
 
 function resetForm(){
   editingId=null;
-  ["#fThai","#fMean","#fRead"].forEach(s=>$(s).value="");
+  ["#fThai","#fMean","#fRead","#fNote"].forEach(s=>$(s).value="");
   setExamples([]);
   $("#addTitle").textContent="添加生词";
   $("#saveCard").textContent="保存生词";
@@ -775,6 +795,7 @@ function startEdit(id){
   editingId=id;
   $("#fThai").value=c.thai||""; $("#fMean").value=c.meaning||"";
   $("#fRead").value=c.reading||"";
+  $("#fNote").value=c.note||"";
   setExamples(c.examples||[]);
   $("#addTitle").textContent="编辑生词";
   $("#saveCard").textContent="保存修改";
@@ -804,6 +825,7 @@ $("#saveCard").onclick = ()=>{
   const data={
     thai, meaning,
     reading:$("#fRead").value.trim(),
+    note:$("#fNote").value.trim(),
     examples: collectExamples(),
   };
   if(editingId){
@@ -855,6 +877,7 @@ function renderReviewCard(){
   $("#cardThai").textContent = c.thai;
   $("#cbMean").textContent = c.meaning || "";
   $("#cbRead").textContent = c.reading || "";
+  renderNote($("#cbNote"), c.note);
   renderCardExamples($("#cbExList"), c.examples || [], c.id);
   // reset to front
   revealed=false;
@@ -882,6 +905,13 @@ function hlThai(thai, hlList){
     html = html.split(e).join('<mark class="hl">'+e+'</mark>');
   });
   return html;
+}
+// show the 备注 block only when the card has a note
+function renderNote(box, note){
+  if(!box) return;
+  const s = (note || "").trim();
+  box.textContent = s;
+  box.style.display = s ? "block" : "none";
 }
 function renderCardExamples(box, list, cardId){
   box.innerHTML = "";
