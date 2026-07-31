@@ -2090,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v173</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v174</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -5741,8 +5741,10 @@ function openCloudModal() {
 
 // 合并类别：ID 不存在则新增；ID 已存在则用"改名时间(nmAt)较新"的一方更新名字。
 // 恢复出的占位分类 nmAt=0，永远输给真正改过名的分类，避免占位名覆盖真名。
+let _catsNeedReassert = false;   // set when the cloud is missing a deletion we hold
 function mergeCats(remoteCats) {
   if (!Array.isArray(remoteCats)) return;
+  _catsNeedReassert = false;
   const byId = new Map(cats.map(c => [c.id, c]));
   const remoteIds = [];
   remoteCats.forEach(rc => {
@@ -5760,15 +5762,16 @@ function mergeCats(remoteCats) {
       local.name = rc.name;
       local.nmAt = rc.nmAt;
     }
-    // reconcile deletion: the latest delete wins, unless a rename happened
-    // after it (nmAt newer than delAt), which revives the category.
+    // deletion is STICKY: once a category is deleted on any device it stays
+    // deleted everywhere, no matter what names/renames arrive afterwards. This
+    // is what stops it from coming back. (To bring a category "back", make a
+    // new one — it gets a fresh id and is unaffected by the old tombstone.)
     const rDel = rc._deleted ? (rc.delAt || 1) : 0;
     const lDel = local._deleted ? (local.delAt || 1) : 0;
     if (rDel || lDel) {
-      const delAt = Math.max(rDel, lDel);
-      const nmAt = Math.max(rc.nmAt || 0, local.nmAt || 0);
-      if (delAt >= nmAt) { local._deleted = true; local.delAt = delAt; }
-      else { delete local._deleted; delete local.delAt; }
+      local._deleted = true;
+      local.delAt = Math.max(rDel, lDel);
+      if (!rDel) _catsNeedReassert = true;   // cloud still thinks it's alive → push our tombstone back
     }
   });
   // 顺序也跟随云端：云端列出的分类按云端顺序排前面，本机独有的排在后面。
@@ -5879,6 +5882,9 @@ async function cloudPull() {
     if (catsChanged) saveToIDB();   // 把更新后的类别名也写回 IDB，重启后不丢
     render();
   }
+  // the cloud was still showing a category we've deleted — push our tombstone
+  // back so the deletion propagates instead of being resurrected next round.
+  if (_catsNeedReassert) { _catsNeedReassert = false; cloudPush(); }
 }
 
 function updateCloudStatus() {
