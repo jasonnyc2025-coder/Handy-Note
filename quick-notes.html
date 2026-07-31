@@ -2090,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v172</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v173</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -2801,13 +2801,15 @@ function isOverdue(n) {
 
 function renderTabs() {
   const tabs = document.getElementById('tabs');
+  // a category that was deleted (here or on another device) must not stay selected
+  if (filter !== 'all' && filter !== '__overdue' && !catById(filter)) { filter = 'all'; saveFilter(); }
   const allCount = notes.filter(n => !n._deleted).length;
   const overdueCount = notes.filter(n => !n._deleted && isOverdue(n)).length;
   let html = `<button class="tab ${filter==='all'?'active':''}" data-filter="all">${t('allCount')} <span class="count">${allCount||''}</span></button>`;
   if (overdueCount > 0) {
     html += `<button class="tab tab-overdue ${filter==='__overdue'?'active':''}" data-filter="__overdue">${t('overdue')} <span class="count">${overdueCount}</span></button>`;
   }
-  cats.forEach(c => {
+  activeCats().forEach(c => {
     const cnt = notes.filter(n => n.cat === c.id && !n._deleted).length;
     html += `<button class="tab ${filter===c.id?'active':''}" data-filter="${c.id}">${esc(c.name)} <span class="count">${cnt||''}</span></button>`;
   });
@@ -2834,6 +2836,12 @@ function catColor(id) {
   return CAT_COLORS[h % CAT_COLORS.length];
 }
 
+// Categories carry a soft-delete tombstone (_deleted + delAt) so a deletion
+// syncs to other devices instead of being resurrected by the next pull.
+// Everything user-facing works off the live (non-deleted) view.
+function activeCats() { return cats.filter(c => !c._deleted); }
+function catById(id) { const c = cats.find(x => x.id === id); return (c && !c._deleted) ? c : null; }
+
 function renderItem(n) {
   return `
     <div class="item ${n.type} ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
@@ -2847,7 +2855,7 @@ function renderItem(n) {
         <div class="meta">
           ${n.pinned ? '<span class="pin-badge">📌</span>' : ''}<span>${fullDate(n.ts)}</span>
           ${n.subs && n.subs.length ? `<span class="sub-count">${n.type==='todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : n.subs.length}</span>` : ''}
-          ${n.cat && cats.find(c=>c.id===n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(cats.find(c=>c.id===n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
+          ${n.cat && catById(n.cat) ? (()=>{const cc=catColor(n.cat);return `<span class="cat-tag cat-tag-color" data-act="setcat" style="background:${cc[0]};color:${cc[1]};border-color:${cc[1]}33">📁 ${esc(catById(n.cat).name)}</span>`;})() : `<span class="cat-tag cat-tag-empty" data-act="setcat">${t('categorize')}</span>`}
           <span class="badge ${n.type}">${n.type==='todo'?t('todo'):t('idea')}</span>
           ${n.remindAt ? `<span class="remind-tag ${(n.remindAt < Date.now() && (!n.repeat || n.repeat==='none')) ? 'past' : ''}" data-act="setremind">⏰ ${fullDate(n.remindAt)}${n.repeat && n.repeat!=='none' ? ' · '+REPEAT_LABEL[n.repeat] : ''}</span>` : ''}
         </div>
@@ -2888,7 +2896,7 @@ function render() {
       list.innerHTML = `<div class="empty"><div class="big">没有找到「${esc(searchQuery)}」</div><div class="small">换个关键词试试</div></div>`;
       return;
     }
-    const catName = filter === 'all' ? '' : (cats.find(c=>c.id===filter)?.name || '');
+    const catName = filter === 'all' ? '' : (catById(filter)?.name || '');
     list.innerHTML = `<div class="empty"><div class="big">${filter==='all'?'空空如也':'「'+catName+'」还没有内容'}</div><div class="small">在下面输入框记录第一条吧</div></div>`;
     return;
   }
@@ -2897,11 +2905,11 @@ function render() {
   if (filter === 'all' || filter === '__overdue') {
     // 分组：每个类别一组，外加"未分类"
     const groups = [];
-    cats.forEach(c => {
+    activeCats().forEach(c => {
       const arr = items.filter(n => n.cat === c.id);
       if (arr.length) groups.push({ id: c.id, name: c.name, arr });
     });
-    const uncat = items.filter(n => !n.cat || !cats.find(c => c.id === n.cat));
+    const uncat = items.filter(n => !n.cat || !catById(n.cat));
     if (uncat.length) groups.push({ id: '__uncat', name: t('uncat'), arr: uncat });
 
     list.innerHTML = groups.map(g => {
@@ -3189,7 +3197,7 @@ function matchSearch(n) {
     plainOf(s.text).toLowerCase().includes(q) ||
     (s.subs && s.subs.some(ss => plainOf(ss.text).toLowerCase().includes(q)))
   )) return true;
-  const cat = cats.find(c => c.id === n.cat);
+  const cat = catById(n.cat);
   if (cat && cat.name.toLowerCase().includes(q)) return true;
   return false;
 }
@@ -4950,14 +4958,19 @@ async function manageCategory(id) {
   } else if (choice === 'delete') {
     if (await confirmDialog(`确定删除类别「${c.name}」吗？\n该类别下的记录不会被删除，会回到“全部”。`)) {
       notes.forEach(n => { if (n.cat === id) delete n.cat; });
-      cats = cats.filter(x => x.id !== id);
+      // tombstone instead of removing, so the deletion syncs and doesn't come back
+      c._deleted = true; c.delAt = Date.now();
       if (filter === id) { filter = 'all'; saveFilter(); }
       save(); render();
     }
   } else if (choice === 'left' || choice === 'right') {
-    const i = cats.findIndex(x => x.id === id);
-    const j = choice === 'left' ? i - 1 : i + 1;
-    if (i >= 0 && j >= 0 && j < cats.length) {
+    // move relative to the neighbouring *visible* category, ignoring tombstones
+    const act = activeCats();
+    const ai = act.findIndex(x => x.id === id);
+    const aj = choice === 'left' ? ai - 1 : ai + 1;
+    if (ai >= 0 && aj >= 0 && aj < act.length) {
+      const i = cats.findIndex(x => x.id === id);
+      const j = cats.findIndex(x => x.id === act[aj].id);
       [cats[i], cats[j]] = [cats[j], cats[i]];   // 交换位置
       save(); render();
     }
@@ -4971,9 +4984,10 @@ function catManageDialog(c) {
     _catManageResolve = resolve;
     document.getElementById('catpick-sub').textContent = `管理类别「${c.name}」`;
     const list = document.getElementById('catpick-list');
-    const idx = cats.findIndex(x => x.id === c.id);
+    const act = activeCats();
+    const idx = act.findIndex(x => x.id === c.id);
     const canLeft = idx > 0;
-    const canRight = idx < cats.length - 1;
+    const canRight = idx < act.length - 1;
     list.innerHTML = `
       <button class="catpick-item" data-mc="rename">✏️ 重命名</button>
       ${canLeft ? `<button class="catpick-item" data-mc="left">⬅️ 前移（往左）</button>` : ''}
@@ -5009,7 +5023,7 @@ function chooseCat(n) {
   document.getElementById('catpick-sub').textContent = '把这条记录归到：';
   const list = document.getElementById('catpick-list');
   let html = `<button class="catpick-item ${!n.cat?'sel':''}" data-cat="">📋 全部（不分类）</button>`;
-  cats.forEach(c => {
+  activeCats().forEach(c => {
     html += `<button class="catpick-item ${n.cat===c.id?'sel':''}" data-cat="${c.id}">📁 ${esc(c.name)}</button>`;
   });
   list.innerHTML = html;
@@ -5273,7 +5287,7 @@ function updateCCatBtn() {
   if (filter !== 'all') { btn.style.display = 'none'; return; }
   btn.style.display = '';
   if (curCat) {
-    const c = cats.find(x => x.id === curCat);
+    const c = catById(curCat);
     btn.textContent = '📁 ' + (c ? c.name : '类别');
     btn.classList.add('set');
   } else {
@@ -5288,7 +5302,7 @@ document.getElementById('ccat').addEventListener('click', () => {
   document.getElementById('catpick-sub').textContent = '新记录归到：';
   const list = document.getElementById('catpick-list');
   let html = `<button class="catpick-item ${!curCat?'sel':''}" data-cat="">📋 不分类</button>`;
-  cats.forEach(c => {
+  activeCats().forEach(c => {
     html += `<button class="catpick-item ${curCat===c.id?'sel':''}" data-cat="${c.id}">📁 ${esc(c.name)}</button>`;
   });
   list.innerHTML = html;
@@ -5736,12 +5750,25 @@ function mergeCats(remoteCats) {
     remoteIds.push(rc.id);
     const local = byId.get(rc.id);
     if (!local) {
-      const nc = Object.assign({}, rc);
+      const nc = Object.assign({}, rc);   // copies _deleted/delAt too, so a remote deletion stays deleted
       cats.push(nc);
       byId.set(rc.id, nc);
-    } else if ((rc.nmAt || 0) > (local.nmAt || 0)) {
+      return;
+    }
+    // newer name wins
+    if ((rc.nmAt || 0) > (local.nmAt || 0)) {
       local.name = rc.name;
       local.nmAt = rc.nmAt;
+    }
+    // reconcile deletion: the latest delete wins, unless a rename happened
+    // after it (nmAt newer than delAt), which revives the category.
+    const rDel = rc._deleted ? (rc.delAt || 1) : 0;
+    const lDel = local._deleted ? (local.delAt || 1) : 0;
+    if (rDel || lDel) {
+      const delAt = Math.max(rDel, lDel);
+      const nmAt = Math.max(rc.nmAt || 0, local.nmAt || 0);
+      if (delAt >= nmAt) { local._deleted = true; local.delAt = delAt; }
+      else { delete local._deleted; delete local.delAt; }
     }
   });
   // 顺序也跟随云端：云端列出的分类按云端顺序排前面，本机独有的排在后面。
@@ -5759,15 +5786,16 @@ function mergeCats(remoteCats) {
 // 就能把正确的名字盖章、推回服务器，其它设备下次同步时自动更正。
 async function republishCats() {
   if (!cloud || !cloud.token) { alert('请先在「☁️ 云同步设置」里登录服务器。'); return; }
-  if (!cats.length) { alert('本机还没有任何分类。'); return; }
-  const names = cats.map(c => c.name).join('、');
+  const live = activeCats();
+  if (!live.length) { alert('本机还没有任何分类。'); return; }
+  const names = live.map(c => c.name).join('、');
   const ok = await confirmDialog(
     `把本机这些分类名作为"准确版本"推送到云端？\n\n${names}\n\n其它设备上不一样的名字会被这些覆盖。\n（只改分类名字，不会删除任何记录）\n请先确认这台设备显示的名字是对的。`,
     { title: '推送分类名', okText: '推送', danger: false }
   );
   if (!ok) return;
   const now = Date.now();
-  cats.forEach(c => { c.nmAt = now; });
+  live.forEach(c => { c.nmAt = now; });   // only stamp live cats; tombstones stay deleted
   _origSave();          // 本地保存（localStorage + IDB），不重复触发推送
   await cloudPush();     // 整包推送 cats 到服务器
   showToast('✅ 已推送为准确版本，其它设备约 20 秒后自动更正');
@@ -5915,7 +5943,7 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
         _origSave();   // 本地保存（localStorage + IDB），不触发 cloudPush
       }
     }
-    if (filter !== 'all' && filter !== '__overdue' && !cats.find(c => c.id === filter)) {
+    if (filter !== 'all' && filter !== '__overdue' && !catById(filter)) {
       filter = 'all';
     }
     render();
