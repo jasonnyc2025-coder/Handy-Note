@@ -198,7 +198,10 @@ async function initPush() {
     await setSetting('vapid_private', priv);
     console.log('[push] generated a new VAPID keypair');
   }
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@handy-note.local', pub, priv);
+  // Apple's push service rejects an invalid VAPID subject (e.g. the reserved
+  // .local TLD) with 403, so default to a real https URL. Override with the
+  // VAPID_SUBJECT env var (a mailto: or https: contact URL) if you prefer.
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'https://handy-note.mynexussolution.com', pub, priv);
   VAPID_PUBLIC = pub;
   pushReady = true;
   setInterval(() => { sendDuePushes().catch(e => console.error('[push] scheduler:', e.message)); }, 30000);

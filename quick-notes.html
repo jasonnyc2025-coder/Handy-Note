@@ -2090,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v176</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v177</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -5411,6 +5411,24 @@ function _urlB64ToUint8(base64) {
   for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
   return arr;
 }
+function _abToB64url(buf) {
+  let s = ''; const bytes = new Uint8Array(buf);
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+// Return a subscription that matches the server's current VAPID key; if an old
+// subscription was made with a different key, drop it and subscribe fresh
+// (a mismatched key makes the push service reject sends with 403).
+async function ensureSubscription(reg, vapidKey) {
+  const want = vapidKey.replace(/=+$/, '');
+  let sub = await reg.pushManager.getSubscription();
+  if (sub) {
+    const cur = (sub.options && sub.options.applicationServerKey) ? _abToB64url(sub.options.applicationServerKey) : '';
+    if (cur !== want) { try { await sub.unsubscribe(); } catch (e) {} sub = null; }
+  }
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8(vapidKey) });
+  return sub;
+}
 // collect every pending reminder (top-level + sub-items); repeats stay even if
 // fired because they re-arm, one-shots drop once fired
 function gatherPushReminders() {
@@ -5430,14 +5448,10 @@ async function enablePush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     const url = pushServerUrl(); if (!url) return;
+    const j = await (await fetch(url + '/api/push/vapid')).json();
+    if (!j || !j.publicKey) return;
     const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const j = await (await fetch(url + '/api/push/vapid')).json();
-      if (!j || !j.publicKey) return;
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8(j.publicKey) });
-    }
-    _pushSub = sub;
+    _pushSub = await ensureSubscription(reg, j.publicKey);
     await uploadPush();
   } catch (e) { /* push unsupported or blocked — silently fall back to in-app only */ }
 }
@@ -5497,10 +5511,9 @@ async function pushDiagnostic() {
     if (!vapid || !vapid.publicKey) { bad('服务器还没生成推送密钥（部署可能失败）'); return showDialog(lines); }
     ok('服务器推送接口正常');
 
-    // 5. subscribe
+    // 5. subscribe (re-subscribing if the device's key no longer matches server)
     const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8(vapid.publicKey) });
+    const sub = await ensureSubscription(reg, vapid.publicKey);
     _pushSub = sub;
     ok('已订阅推送');
 
