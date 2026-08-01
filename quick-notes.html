@@ -267,6 +267,28 @@
   }
   #cloud-url:focus, #cloud-key:focus, #cloud-room:focus { border-color: var(--accent); }
 
+  /* Siri quick-add modal */
+  .siri-field { display: flex; gap: 8px; }
+  .siri-field input {
+    flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg);
+    border-radius: 10px; padding: 10px 12px; font-family: inherit; font-size: 0.8rem;
+    color: var(--ink); outline: none;
+  }
+  .siri-copy {
+    flex-shrink: 0; border: 1px solid var(--accent); background: #fff; color: var(--accent);
+    border-radius: 10px; padding: 0 14px; font-family: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
+  .siri-copy:active { background: var(--accent-soft); }
+  .siri-reset {
+    margin-top: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink-soft);
+    border-radius: 10px; padding: 8px 12px; font-family: inherit; font-size: 0.78rem; cursor: pointer;
+  }
+  .siri-steps {
+    margin-top: 16px; font-size: 0.8rem; line-height: 1.7; color: var(--ink-soft);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  }
+  .siri-steps code { background: var(--accent-soft); color: var(--accent); padding: 1px 5px; border-radius: 5px; font-size: 0.92em; }
+
   .title {
     font-family: 'Fraunces', serif;
     font-size: 2.1rem;
@@ -2112,7 +2134,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v186</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v187</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2141,6 +2163,7 @@
       <button data-menu="export" data-i18n="menuExport">⬇️ 导出数据（备份）</button>
       <button data-menu="import" data-i18n="menuImport">⬆️ 导入数据（恢复/合并）</button>
       <div class="gear-sep"></div>
+      <button data-menu="siri">🎙️ Siri / 语音加笔记</button>
       <button data-menu="pushtest">🔔 后台提醒诊断 / 测试</button>
       <div class="gear-sep"></div>
       <button data-menu="lock" data-i18n="menuLock">🔒 密码锁</button>
@@ -2251,6 +2274,40 @@
       <button class="m-cancel" id="cloud-cancel">取消</button>
     </div>
     <div class="modal-note" id="cloud-modal-note"></div>
+  </div>
+</div>
+
+<div class="modal" id="siri-modal">
+  <div class="modal-card">
+    <div class="modal-title">🎙️ Siri / 语音加笔记</div>
+    <div class="modal-sub">用 iPhone「快捷指令」对 Siri 说话就能记一笔，自动同步到所有设备。下面两项复制到快捷指令里。</div>
+
+    <div id="siri-need-login" style="display:none;color:var(--accent);font-size:0.9rem;padding:10px 0;">请先在「☁️ 云同步设置」里登录，再来这里获取。</div>
+
+    <div id="siri-info" style="display:none">
+      <label class="cloud-label">① 接口地址（URL）</label>
+      <div class="siri-field"><input type="text" id="siri-url" readonly><button class="siri-copy" data-copy="siri-url">复制</button></div>
+
+      <label class="cloud-label" style="margin-top:12px">② 令牌（只写、可重置）</label>
+      <div class="siri-field"><input type="text" id="siri-token" readonly><button class="siri-copy" data-copy="siri-token">复制</button></div>
+      <button class="siri-reset" id="siri-reset">重置令牌（旧的立即失效）</button>
+
+      <div class="siri-steps">
+        <b>iPhone 设置一次（快捷指令 App）：</b>
+        1. 新建快捷指令 → 加动作「听写文本」<br>
+        2. 加动作「获取 URL 内容」：<br>
+        &nbsp;&nbsp;• URL 填上面 ①<br>
+        &nbsp;&nbsp;• 方法改为 <b>POST</b><br>
+        &nbsp;&nbsp;• 请求体选 <b>JSON</b>，加一个字段 <code>text</code>，值选「听写文本」<br>
+        &nbsp;&nbsp;• 标头加一项 <code>Authorization</code> = <code>Bearer 上面②的令牌</code><br>
+        3. 给指令起名，如「记一笔」→ 之后说「嘿 Siri，记一笔」即可。
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <span style="flex:1"></span>
+      <button class="m-cancel" id="siri-cancel">关闭</button>
+    </div>
   </div>
 </div>
 
@@ -5617,6 +5674,47 @@ async function pushDiagnostic() {
   }
 }
 
+// ===== Siri / 语音加笔记 =====
+async function openSiriModal() {
+  const modal = document.getElementById('siri-modal');
+  const need = document.getElementById('siri-need-login');
+  const info = document.getElementById('siri-info');
+  modal.classList.add('show');
+  if (!cloud || !cloud.token || !cloud.url) { need.style.display = 'block'; info.style.display = 'none'; return; }
+  need.style.display = 'none'; info.style.display = 'block';
+  const base = cloud.url.replace(/\/$/, '');
+  document.getElementById('siri-url').value = base + '/api/quick-add';
+  const tokEl = document.getElementById('siri-token');
+  tokEl.value = '获取中…';
+  try {
+    const r = await fetch(base + '/api/quickadd/token', { headers: { 'Authorization': 'Bearer ' + cloud.token } });
+    const j = await r.json();
+    tokEl.value = j.token || '(获取失败)';
+  } catch (e) { tokEl.value = '(获取失败，检查网络后重开此窗口)'; }
+}
+document.getElementById('siri-cancel').onclick = () => document.getElementById('siri-modal').classList.remove('show');
+document.getElementById('siri-modal').addEventListener('click', e => { if (e.target.id === 'siri-modal') e.currentTarget.classList.remove('show'); });
+document.querySelectorAll('.siri-copy').forEach(btn => {
+  btn.onclick = async () => {
+    const el = document.getElementById(btn.dataset.copy);
+    const done = () => { const t = btn.textContent; btn.textContent = '已复制'; setTimeout(() => btn.textContent = t, 1200); };
+    try { await navigator.clipboard.writeText(el.value); done(); }
+    catch (e) { el.removeAttribute('readonly'); el.select(); try { document.execCommand('copy'); done(); } catch (_) {} el.setAttribute('readonly', ''); }
+  };
+});
+document.getElementById('siri-reset').onclick = async () => {
+  if (!cloud || !cloud.token || !cloud.url) return;
+  const ok = await confirmDialog('重置后，旧令牌立即失效，需要在快捷指令里换成新令牌。继续？', { title: '重置令牌', okText: '重置', danger: true });
+  if (!ok) return;
+  const base = cloud.url.replace(/\/$/, '');
+  try {
+    const r = await fetch(base + '/api/quickadd/token/reset', { method: 'POST', headers: { 'Authorization': 'Bearer ' + cloud.token } });
+    const j = await r.json();
+    document.getElementById('siri-token').value = j.token || '(失败)';
+    try { showToast('已重置，请更新快捷指令里的令牌'); } catch (e) {}
+  } catch (e) {}
+};
+
 // ===== 设置菜单：导出 / 导入 =====
 const gearMenu = document.getElementById('gear-menu');
 document.getElementById('gear').addEventListener('click', e => {
@@ -5647,6 +5745,7 @@ gearMenu.addEventListener('click', e => {
   const m = e.target.dataset.menu;
   if (!m) return;
   if (m === 'thai') { window.location.href = 'thai/'; return; }
+  if (m === 'siri') { gearMenu.classList.remove('show'); openSiriModal(); return; }
   if (m === 'pushtest') { gearMenu.classList.remove('show'); pushDiagnostic(); return; }
   if (m === 'export') exportData();
   else if (m === 'import') document.getElementById('import-file').click();

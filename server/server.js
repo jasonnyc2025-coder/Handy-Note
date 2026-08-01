@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
@@ -335,6 +336,72 @@ app.delete('/api/push/register', async (req, res) => {
     if (endpoint) await pool.query('DELETE FROM push_devices WHERE endpoint = $1', [endpoint]);
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── Voice / Siri quick-add ──────────────────────────────────────────────────
+//
+// An iOS Shortcut posts dictated text to /api/quick-add authenticated by a
+// per-user WRITE-ONLY token (not the login JWT). The token can only append one
+// note — it cannot read or delete anything — and can be reset from the app,
+// which limits the blast radius if it ever leaks.
+
+// Fetch (creating on first use) the caller's quick-add token — login required.
+app.get('/api/quickadd/token', requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT quick_add_token FROM users WHERE id = $1', [req.user.userId]);
+    let tok = r.rows[0] && r.rows[0].quick_add_token;
+    if (!tok) {
+      tok = 'qa_' + crypto.randomBytes(24).toString('hex');
+      await pool.query('UPDATE users SET quick_add_token = $2 WHERE id = $1', [req.user.userId, tok]);
+    }
+    res.json({ token: tok });
+  } catch (err) {
+    console.error('quickadd token error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Reset the quick-add token (invalidates the old one) — login required.
+app.post('/api/quickadd/token/reset', requireAuth, async (req, res) => {
+  try {
+    const tok = 'qa_' + crypto.randomBytes(24).toString('hex');
+    await pool.query('UPDATE users SET quick_add_token = $2 WHERE id = $1', [req.user.userId, tok]);
+    res.json({ token: tok });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Append a note — authenticated ONLY by the quick-add token (write-only).
+app.post('/api/quick-add', async (req, res) => {
+  try {
+    const auth = req.headers.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.body && req.body.token);
+    let text = req.body && req.body.text;
+    if (!token) return res.status(401).json({ error: 'Missing token' });
+    if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'Missing text' });
+    text = text.trim().slice(0, 2000);
+
+    const u = await pool.query('SELECT id FROM users WHERE quick_add_token = $1', [token]);
+    if (!u.rows.length) return res.status(403).json({ error: 'Invalid token' });
+    const userId = u.rows[0].id;
+
+    await pool.query('INSERT INTO user_data (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING', [userId]);
+    const d = await pool.query('SELECT notes FROM user_data WHERE user_id = $1', [userId]);
+    const notes = (d.rows[0] && Array.isArray(d.rows[0].notes)) ? d.rows[0].notes : [];
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const now = Date.now();
+    notes.unshift({
+      id: now + 'qa' + Math.random().toString(36).slice(2, 7),
+      text: esc(text), rich: true, type: 'idea', done: false, ts: now, atts: [], viaSiri: true
+    });
+    await pool.query('UPDATE user_data SET notes = $2::jsonb, updated_at = NOW() WHERE user_id = $1',
+      [userId, JSON.stringify(notes)]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('quick-add error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
