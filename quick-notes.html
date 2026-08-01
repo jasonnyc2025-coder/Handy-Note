@@ -2134,7 +2134,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v187</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v188</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2296,11 +2296,15 @@
         <b>iPhone 设置一次（快捷指令 App）：</b>
         1. 新建快捷指令 → 加动作「听写文本」<br>
         2. 加动作「获取 URL 内容」：<br>
-        &nbsp;&nbsp;• URL 填上面 ①<br>
+        &nbsp;&nbsp;• URL 填上面 ①（<b>不要</b>填听写文本）<br>
         &nbsp;&nbsp;• 方法改为 <b>POST</b><br>
-        &nbsp;&nbsp;• 请求体选 <b>JSON</b>，加一个字段 <code>text</code>，值选「听写文本」<br>
-        &nbsp;&nbsp;• 标头加一项 <code>Authorization</code> = <code>Bearer 上面②的令牌</code><br>
-        3. 给指令起名，如「记一笔」→ 之后说「嘿 Siri，记一笔」即可。
+        &nbsp;&nbsp;• 请求体选 <b>JSON</b>，加字段 <code>text</code>，值选「听写文本」<br>
+        &nbsp;&nbsp;• 标头加 <code>Authorization</code> = <code>Bearer</code> 空格 + 上面②的令牌<br>
+        3. 起名如「记一笔」→ 说「嘿 Siri，记一笔」。<br>
+        <br>
+        <b>想同时设提醒（可选）：</b><br>
+        在「获取 URL 内容」<b>之前</b>加动作「日期」（或「要求输入 → 日期和时间」），
+        然后在请求体里再加一个字段 <code>remindAt</code>，值选那个日期。到点即使 App 没开也会推送提醒。
       </div>
     </div>
 
@@ -5593,8 +5597,12 @@ async function uploadPush() {
       _pushSub = await reg.pushManager.getSubscription();
     }
     if (!_pushSub) return;
+    const headers = { 'Content-Type': 'application/json' };
+    // include the login token so the server links this device to the account
+    // (lets a voice/Siri reminder push to it even while the app stays closed)
+    if (cloud && cloud.token) headers['Authorization'] = 'Bearer ' + cloud.token;
     await fetch(url + '/api/push/register', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers,
       body: JSON.stringify({ subscription: _pushSub, reminders: gatherPushReminders() })
     });
   } catch (e) {}
@@ -6205,6 +6213,9 @@ async function cloudPull() {
     try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
     if (catsChanged) saveToIDB();   // 把更新后的类别名也写回 IDB，重启后不丢
     render();
+    // a pull may have brought in new reminders (from Siri or another device) —
+    // re-upload this device's reminder list so the push queue stays complete
+    if (notesChanged) schedulePushSync();
   }
   // the cloud was still showing a category we've deleted — push our tombstone
   // back so the deletion propagates instead of being resurrected next round.

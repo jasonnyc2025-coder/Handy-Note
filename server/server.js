@@ -270,18 +270,26 @@ async function sendDuePushes() {
 // Public key so the client can subscribe.
 app.get('/api/push/vapid', (req, res) => res.json({ publicKey: VAPID_PUBLIC }));
 
-// Register/refresh a device's subscription and reminder list (anonymous).
+// Register/refresh a device's subscription and reminder list. If the app sends
+// its login JWT we also record which user this device belongs to, so a
+// voice/Siri note can inject its reminder into this device's push queue.
 app.post('/api/push/register', async (req, res) => {
   try {
     const { subscription, reminders } = req.body || {};
     if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
     const rems = Array.isArray(reminders) ? reminders : [];
+    let userId = null;
+    const auth = req.headers.authorization;
+    if (auth && auth.startsWith('Bearer ')) {
+      try { userId = jwt.verify(auth.slice(7), JWT_SECRET).userId; } catch {}
+    }
     await pool.query(
-      `INSERT INTO push_devices (endpoint, subscription, reminders, updated_at)
-       VALUES ($1, $2::jsonb, $3::jsonb, NOW())
+      `INSERT INTO push_devices (endpoint, subscription, reminders, user_id, updated_at)
+       VALUES ($1, $2::jsonb, $3::jsonb, $4, NOW())
        ON CONFLICT (endpoint) DO UPDATE
-         SET subscription = $2::jsonb, reminders = $3::jsonb, updated_at = NOW()`,
-      [subscription.endpoint, JSON.stringify(subscription), JSON.stringify(rems)]
+         SET subscription = $2::jsonb, reminders = $3::jsonb,
+             user_id = COALESCE($4, push_devices.user_id), updated_at = NOW()`,
+      [subscription.endpoint, JSON.stringify(subscription), JSON.stringify(rems), userId]
     );
     res.json({ ok: true });
   } catch (err) {
@@ -378,11 +386,22 @@ app.post('/api/quickadd/token/reset', requireAuth, async (req, res) => {
 app.post('/api/quick-add', async (req, res) => {
   try {
     const auth = req.headers.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.body && req.body.token);
+    // tolerant: accept "Bearer <tok>", a mistyped prefix, or the raw token
+    let token = req.body && req.body.token;
+    if (!token && auth) token = auth.includes(' ') ? auth.slice(auth.indexOf(' ') + 1).trim() : auth.trim();
     let text = req.body && req.body.text;
     if (!token) return res.status(401).json({ error: 'Missing token' });
     if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'Missing text' });
     text = text.trim().slice(0, 2000);
+
+    // optional reminder from the Shortcut
+    let remindAt = 0;
+    const raw = req.body && req.body.remindAt;
+    if (raw !== undefined && raw !== null && raw !== '') {
+      const ms = typeof raw === 'number' ? raw : Date.parse(raw);
+      if (!isNaN(ms) && ms > 0) remindAt = ms < 1e12 ? ms * 1000 : ms;   // seconds → ms if needed
+    }
+    const repeat = ['daily', 'weekly', 'monthly', 'yearly'].includes(req.body && req.body.repeat) ? req.body.repeat : 'none';
 
     const u = await pool.query('SELECT id FROM users WHERE quick_add_token = $1', [token]);
     if (!u.rows.length) return res.status(403).json({ error: 'Invalid token' });
@@ -393,13 +412,27 @@ app.post('/api/quick-add', async (req, res) => {
     const notes = (d.rows[0] && Array.isArray(d.rows[0].notes)) ? d.rows[0].notes : [];
     const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const now = Date.now();
-    notes.unshift({
-      id: now + 'qa' + Math.random().toString(36).slice(2, 7),
-      text: esc(text), rich: true, type: 'idea', done: false, ts: now, atts: [], viaSiri: true
-    });
+    const noteId = now + 'qa' + Math.random().toString(36).slice(2, 7);
+    const note = { id: noteId, text: esc(text), rich: true, type: 'idea', done: false, ts: now, atts: [], viaSiri: true };
+    if (remindAt) { note.remindAt = remindAt; note.repeat = repeat; note.remindFired = false; }
+    notes.unshift(note);
     await pool.query('UPDATE user_data SET notes = $2::jsonb, updated_at = NOW() WHERE user_id = $1',
       [userId, JSON.stringify(notes)]);
-    res.json({ ok: true });
+
+    // Inject the reminder into this user's push queue so it fires in the
+    // background even if the app is never opened.
+    if (remindAt) {
+      const dev = await pool.query('SELECT endpoint, reminders FROM push_devices WHERE user_id = $1', [userId]);
+      for (const row of dev.rows) {
+        const rems = Array.isArray(row.reminders) ? row.reminders : [];
+        if (!rems.some(r => r && String(r.id) === noteId)) {
+          rems.push({ id: noteId, text: text.slice(0, 120), at: remindAt, repeat, fired: false });
+          await pool.query('UPDATE push_devices SET reminders = $2::jsonb WHERE endpoint = $1',
+            [row.endpoint, JSON.stringify(rems)]);
+        }
+      }
+    }
+    res.json({ ok: true, reminded: !!remindAt });
   } catch (err) {
     console.error('quick-add error:', err.message);
     res.status(500).json({ error: 'Server error' });
