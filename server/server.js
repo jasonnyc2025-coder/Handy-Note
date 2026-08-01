@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const cors = require('cors');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const webpush = require('web-push');
 const { runMigrations } = require('./migrate');
 
 const app = express();
@@ -165,8 +166,140 @@ app.delete('/api/sync', requireAuth, async (req, res) => {
   }
 });
 
+// ── Background push reminders (anonymous — no login required) ────────────────
+//
+// Devices register their Web Push subscription plus the reminders they want
+// delivered. A scheduler sends a push when a reminder is due, so it fires even
+// when the app is fully closed. No auth: the push subscription itself is the
+// identity, which lets reminders work without signing in.
+
+let VAPID_PUBLIC = null;
+let pushReady = false;
+
+async function getSetting(k) {
+  const r = await pool.query('SELECT value FROM app_settings WHERE key = $1', [k]);
+  return r.rows[0] && r.rows[0].value;
+}
+async function setSetting(k, v) {
+  await pool.query(
+    `INSERT INTO app_settings (key, value) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value = $2`, [k, v]);
+}
+
+async function initPush() {
+  // Load a stable VAPID keypair (generate + persist on first run so existing
+  // subscriptions keep working across restarts).
+  let pub = await getSetting('vapid_public');
+  let priv = await getSetting('vapid_private');
+  if (!pub || !priv) {
+    const keys = webpush.generateVAPIDKeys();
+    pub = keys.publicKey; priv = keys.privateKey;
+    await setSetting('vapid_public', pub);
+    await setSetting('vapid_private', priv);
+    console.log('[push] generated a new VAPID keypair');
+  }
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:admin@handy-note.local', pub, priv);
+  VAPID_PUBLIC = pub;
+  pushReady = true;
+  setInterval(() => { sendDuePushes().catch(e => console.error('[push] scheduler:', e.message)); }, 30000);
+  console.log('[push] ready');
+}
+
+// Mirror of the client's nextOccurrence() so repeating reminders keep firing
+// even while the app stays closed.
+function nextOccurrence(ts, repeat) {
+  if (!repeat || repeat === 'none') return null;
+  const now = Date.now();
+  const d = new Date(ts);
+  let guard = 0;
+  do {
+    if (repeat === 'daily') d.setDate(d.getDate() + 1);
+    else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
+    else if (repeat === 'monthly') d.setMonth(d.getMonth() + 1);
+    else if (repeat === 'yearly') d.setFullYear(d.getFullYear() + 1);
+    else return null;
+    guard++;
+  } while (d.getTime() <= now && guard < 3000);
+  return d.getTime();
+}
+
+let pushBusy = false;
+async function sendDuePushes() {
+  if (!pushReady || pushBusy) return;
+  pushBusy = true;
+  try {
+    const now = Date.now();
+    const { rows } = await pool.query('SELECT endpoint, subscription, reminders FROM push_devices');
+    for (const row of rows) {
+      const rems = Array.isArray(row.reminders) ? row.reminders : [];
+      let changed = false, gone = false;
+      for (const r of rems) {
+        if (!r || !r.at || r.fired || r.at > now) continue;
+        try {
+          await webpush.sendNotification(
+            row.subscription,
+            JSON.stringify({ title: '⏰ 提醒', body: r.text || '你有一条提醒', tag: r.id || undefined })
+          );
+        } catch (err) {
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await pool.query('DELETE FROM push_devices WHERE endpoint = $1', [row.endpoint]);
+            gone = true;
+            break;
+          }
+          // transient error — leave it unfired to retry next tick
+          continue;
+        }
+        const next = nextOccurrence(r.at, r.repeat);
+        if (next) { r.at = next; r.fired = false; } else { r.fired = true; }
+        changed = true;
+      }
+      if (changed && !gone) {
+        await pool.query('UPDATE push_devices SET reminders = $2::jsonb WHERE endpoint = $1',
+          [row.endpoint, JSON.stringify(rems)]);
+      }
+    }
+  } finally {
+    pushBusy = false;
+  }
+}
+
+// Public key so the client can subscribe.
+app.get('/api/push/vapid', (req, res) => res.json({ publicKey: VAPID_PUBLIC }));
+
+// Register/refresh a device's subscription and reminder list (anonymous).
+app.post('/api/push/register', async (req, res) => {
+  try {
+    const { subscription, reminders } = req.body || {};
+    if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
+    const rems = Array.isArray(reminders) ? reminders : [];
+    await pool.query(
+      `INSERT INTO push_devices (endpoint, subscription, reminders, updated_at)
+       VALUES ($1, $2::jsonb, $3::jsonb, NOW())
+       ON CONFLICT (endpoint) DO UPDATE
+         SET subscription = $2::jsonb, reminders = $3::jsonb, updated_at = NOW()`,
+      [subscription.endpoint, JSON.stringify(subscription), JSON.stringify(rems)]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('push register error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Unregister a device (e.g. reminders turned off).
+app.delete('/api/push/register', async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+    if (endpoint) await pool.query('DELETE FROM push_devices WHERE endpoint = $1', [endpoint]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Apply any pending DB migrations before accepting traffic, then start.
 runMigrations(pool)
+  .then(() => initPush().catch(err => console.error('[push] init failed:', err.message)))
   .then(() => {
     app.listen(PORT, () => console.log(`Handy-Note server running on port ${PORT}`));
   })

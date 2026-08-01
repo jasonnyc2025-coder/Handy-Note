@@ -2090,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v174</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v175</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -2570,7 +2570,7 @@ const I18N = {
     inputPlaceholder: '写点什么…', inputTodo: '要做什么…', inputIdea: '记录一个想法…',
     camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
     setReminder: '设置提醒', delReminder: '删除提醒', cancel: '取消', save: '保存', del: '删除', done: '完成',
-    reminderNote: '提醒在此页面开着时会响铃并通知；完全关闭浏览器则不会响。',
+    reminderNote: '开着时会响铃提醒；开启通知权限后，App 关掉也能收到推送（iPhone 需先「添加到主屏幕」并从主屏图标打开）。',
     pin: '📌 置顶', unpin: '📌 取消置顶',
     repeat: '重复', repNone: '不重复', repDaily: '每天', repWeekly: '每周', repMonthly: '每月', repYearly: '每年',
     quick5: '5 分钟后', quick30: '30 分钟后', quick60: '1 小时后', quickTmr: '明天此时',
@@ -2589,7 +2589,7 @@ const I18N = {
     inputPlaceholder: 'Write something…', inputTodo: 'What to do…', inputIdea: 'Jot an idea…',
     camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
     setReminder: 'Set reminder', delReminder: 'Remove reminder', cancel: 'Cancel', save: 'Save', del: 'Delete', done: 'Done',
-    reminderNote: 'Rings and notifies while this page is open; won\'t ring if the browser is fully closed.',
+    reminderNote: 'Rings while open; with notifications allowed it can also push when the app is closed (on iPhone, add it to the Home Screen and open from there first).',
     pin: '📌 Pin', unpin: '📌 Unpin',
     repeat: 'Repeat', repNone: 'None', repDaily: 'Daily', repWeekly: 'Weekly', repMonthly: 'Monthly', repYearly: 'Yearly',
     quick5: 'in 5 min', quick30: 'in 30 min', quick60: 'in 1 hour', quickTmr: 'tomorrow',
@@ -5208,8 +5208,8 @@ function openRemindModal(id, subId) {
   }
   input.min = toLocalInputValue(Date.now());
   remindModal.classList.add('show');
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+  if ('Notification' in window && Notification.permission !== 'denied') {
+    Notification.requestPermission().then(p => { if (p === 'granted') enablePush(); });
   }
 }
 // 找到提醒目标：顶层 note 或其子项
@@ -5378,7 +5378,7 @@ function checkReminders() {
   const handle = (obj, label) => {
     if (obj.remindAt && !obj.remindFired && obj.remindAt <= now) {
       changed = true;
-      fireReminder({ text: label });
+      fireReminder({ text: label, id: obj.id });
       const next = nextOccurrence(obj.remindAt, obj.repeat);
       if (next) { obj.remindAt = next; obj.remindFired = false; }
       else { obj.remindFired = true; }
@@ -5392,6 +5392,71 @@ function checkReminders() {
   if (changed) { save(); if (!isUserEditing()) render(); }
 }
 setInterval(checkReminders, 15000);
+
+/* ===== 后台推送提醒：App 关着时也能提醒（匿名，无需登入） =====
+   设备把自己的推送订阅 + 提醒清单上传到服务器，服务器到点了发推送，
+   即使 App 完全关闭也能弹通知。用的是同步服务器的地址，但不带登录令牌。 */
+const PUSH_URL_KEY = 'quicknotes.pushurl';
+function pushServerUrl() {
+  if (cloud && cloud.url) { try { localStorage.setItem(PUSH_URL_KEY, cloud.url); } catch (e) {} }
+  const u = (cloud && cloud.url) || localStorage.getItem(PUSH_URL_KEY) || '';
+  return u.replace(/\/$/, '');
+}
+function _urlB64ToUint8(base64) {
+  const pad = '='.repeat((4 - base64.length % 4) % 4);
+  const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(b64), arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+// collect every pending reminder (top-level + sub-items); repeats stay even if
+// fired because they re-arm, one-shots drop once fired
+function gatherPushReminders() {
+  const out = [];
+  const add = o => {
+    if (!o || !o.remindAt) return;
+    const repeating = o.repeat && o.repeat !== 'none';
+    if (o.remindFired && !repeating) return;
+    out.push({ id: String(o.id), text: (plainOf(o.text) || '提醒').slice(0, 120), at: o.remindAt, repeat: o.repeat || 'none' });
+  };
+  notes.forEach(n => { if (n._deleted) return; add(n); (n.subs || []).forEach(add); });
+  return out;
+}
+let _pushSub = null;
+async function enablePush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const url = pushServerUrl(); if (!url) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const j = await (await fetch(url + '/api/push/vapid')).json();
+      if (!j || !j.publicKey) return;
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8(j.publicKey) });
+    }
+    _pushSub = sub;
+    await uploadPush();
+  } catch (e) { /* push unsupported or blocked — silently fall back to in-app only */ }
+}
+let _pushTimer = null;
+function schedulePushSync() { clearTimeout(_pushTimer); _pushTimer = setTimeout(uploadPush, 1500); }
+async function uploadPush() {
+  try {
+    const url = pushServerUrl(); if (!url) return;
+    if (!_pushSub && 'serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      _pushSub = await reg.pushManager.getSubscription();
+    }
+    if (!_pushSub) return;
+    await fetch(url + '/api/push/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: _pushSub, reminders: gatherPushReminders() })
+    });
+  } catch (e) {}
+}
+// once notifications are allowed and the server URL is known, wire up push
+window.addEventListener('load', () => { setTimeout(enablePush, 1200); });
 
 // ===== 设置菜单：导出 / 导入 =====
 const gearMenu = document.getElementById('gear-menu');
@@ -5905,7 +5970,7 @@ function updateCloudStatus() {
 
 // 包装 save：本地存完顺便推云端
 const _origSave = save;
-save = function() { _origSave(); if (cloud && cloud.token) cloudPush(); };
+save = function() { _origSave(); if (cloud && cloud.token) cloudPush(); schedulePushSync(); };
 
 loadCloudCfg();
 updateCloudStatus();
