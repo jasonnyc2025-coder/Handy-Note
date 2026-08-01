@@ -541,23 +541,24 @@
     border-top: 1px dashed var(--line);
   }
   .meta-actions.show { display: flex; }
-  .meta-actions.show .del-btn { background: rgba(200,85,61,0.09); border-color: var(--danger,#c8553d); color: var(--danger,#c8553d); }
-  /* 所有展开的 ⋯ 面板中，按钮统一使用强调色背景，删除按钮保持红色 */
+  /* 展开的 ⋯ 面板按钮：白底 + 强调色描边和文字，对比清晰、像可点的胶囊；删除保持红色 */
   .meta-actions.show button,
   .sub-more-panel.open button,
   .ss-more-panel.open button,
   .sss-more-panel.open button,
   .l5-more-panel.open button {
-    background: var(--accent-soft);
+    background: #fff;
     border-color: var(--accent);
     color: var(--accent);
     opacity: 1;
+    box-shadow: 0 1px 3px var(--shadow);
   }
+  .meta-actions.show .del-btn,
   .sub-more-panel.open [data-act*="del"],
   .ss-more-panel.open [data-act*="del"],
   .sss-more-panel.open [data-act*="del"],
   .l5-more-panel.open [data-act*="del"] {
-    background: rgba(200,85,61,0.12);
+    background: #fff;
     border-color: var(--danger, #c8553d);
     color: var(--danger, #c8553d);
   }
@@ -2101,7 +2102,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v184</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v185</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
