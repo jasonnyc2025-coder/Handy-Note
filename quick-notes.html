@@ -1387,36 +1387,35 @@
   /* reminder banner */
   .remind-banner {
     position: fixed;
-    top: -80px;
+    top: -160px;
     left: 50%;
     transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 420px;
+    width: calc(100% - 28px);
+    max-width: 460px;
     background: var(--ink);
     color: var(--paper);
-    border-radius: 14px;
-    padding: 14px 16px;
+    border-radius: 20px;
+    padding: 20px 20px;
     display: flex;
-    align-items: center;
-    gap: 11px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
     z-index: 200;
     transition: top 0.4s cubic-bezier(0.2,0.9,0.3,1);
   }
-  .remind-banner.show { top: 16px; }
-  .remind-banner .rb-ic { font-size: 1.3rem; }
-  .remind-banner .rb-txt { flex: 1; font-size: 0.9rem; line-height: 1.4; }
-  .remind-banner .rb-x {
-    border: none;
-    background: rgba(255,255,255,0.18);
-    color: var(--paper);
-    font-family: inherit;
-    font-size: 0.78rem;
-    padding: 6px 12px;
-    border-radius: 9px;
-    cursor: pointer;
-    white-space: nowrap;
+  .remind-banner.show { top: calc(env(safe-area-inset-top) + 12px); }
+  .remind-banner .rb-top { display: flex; align-items: center; gap: 13px; }
+  .remind-banner .rb-ic { font-size: 1.9rem; flex-shrink: 0; }
+  .remind-banner .rb-txt { flex: 1; font-size: 1.1rem; line-height: 1.45; font-weight: 600; }
+  .remind-banner .rb-actions { display: flex; gap: 10px; }
+  .remind-banner .rb-btn {
+    flex: 1; border: none; font-family: inherit; font-size: 1rem; font-weight: 700;
+    padding: 14px 10px; border-radius: 13px; cursor: pointer; white-space: nowrap;
   }
+  .remind-banner .rb-snooze { background: rgba(255,255,255,0.16); color: var(--paper); }
+  .remind-banner .rb-snooze:active { background: rgba(255,255,255,0.28); }
+  .remind-banner .rb-done { background: var(--accent); color: #fff; }
+  .remind-banner .rb-done:active { filter: brightness(0.95); }
 
 
   /* attachments on cards */
@@ -2099,7 +2098,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="font-size:0.78em;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:8px;margin-left:3px;letter-spacing:.02em">v181</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="font-size:0.78em;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:8px;margin-left:3px;letter-spacing:.02em">v182</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -5388,6 +5387,21 @@ function fireReminder(n) {
   showReminderBanner(n);
 }
 
+// find a note or any (nested) sub-item by id
+function findAnyById(id) {
+  let found = null;
+  const walk = arr => { for (const o of (arr || [])) { if (found) return; if (o.id === id) { found = o; return; } walk(o.subs); } };
+  walk(notes);
+  return found;
+}
+function snoozeReminderById(id, mins) {
+  const o = id ? findAnyById(id) : null;
+  if (!o) return false;
+  o.remindAt = Date.now() + mins * 60 * 1000;
+  o.remindFired = false;
+  save(); render();
+  return true;
+}
 function showReminderBanner(n) {
   let banner = document.getElementById('remind-banner');
   if (!banner) {
@@ -5396,10 +5410,21 @@ function showReminderBanner(n) {
     banner.className = 'remind-banner';
     document.body.appendChild(banner);
   }
-  banner.innerHTML = `<span class="rb-ic">⏰</span><span class="rb-txt">${esc(n.text || '提醒时间到')}</span><button class="rb-x">知道了</button>`;
+  banner.innerHTML =
+    `<div class="rb-top"><span class="rb-ic">⏰</span><span class="rb-txt">${esc(n.text || '提醒时间到')}</span></div>` +
+    `<div class="rb-actions">` +
+      `<button class="rb-btn rb-snooze">⏰ 再过5分钟</button>` +
+      `<button class="rb-btn rb-done">✅ 完成</button>` +
+    `</div>`;
   banner.classList.add('show');
-  banner.querySelector('.rb-x').onclick = () => banner.classList.remove('show');
-  setTimeout(() => banner.classList.remove('show'), 15000);
+  const hide = () => { banner.classList.remove('show'); clearTimeout(banner._t); };
+  banner.querySelector('.rb-done').onclick = hide;
+  banner.querySelector('.rb-snooze').onclick = () => {
+    if (snoozeReminderById(n.id, 5)) { try { showToast('已推迟 5 分钟，稍后再提醒'); } catch (e) {} }
+    hide();
+  };
+  clearTimeout(banner._t);
+  banner._t = setTimeout(hide, 30000);
 }
 
 // 每 15 秒检查一次到期提醒
@@ -5481,6 +5506,8 @@ async function enablePush() {
     if (!j || !j.publicKey) return;
     const reg = await navigator.serviceWorker.ready;
     _pushSub = await ensureSubscription(reg, j.publicKey);
+    // stash the server URL so the SW can snooze from a lock-screen notification
+    try { const c = await caches.open('pushcfg'); await c.put('server-url', new Response(url)); } catch (e) {}
     await uploadPush();
   } catch (e) { /* push unsupported or blocked — silently fall back to in-app only */ }
 }

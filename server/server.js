@@ -241,7 +241,7 @@ async function sendDuePushes() {
         try {
           await webpush.sendNotification(
             row.subscription,
-            JSON.stringify({ title: '⏰ 提醒', body: r.text || '你有一条提醒', tag: r.id || undefined })
+            JSON.stringify({ title: '⏰ 提醒', body: r.text || '你有一条提醒', tag: r.id || undefined, id: r.id || undefined })
           );
         } catch (err) {
           if (err.statusCode === 404 || err.statusCode === 410) {
@@ -302,6 +302,29 @@ app.post('/api/push/test', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message, statusCode: err.statusCode });
+  }
+});
+
+// Snooze a reminder from the notification's "再过5分钟" button (works even when
+// no page is open — the service worker calls this directly).
+app.post('/api/push/snooze', async (req, res) => {
+  try {
+    const { endpoint, id, minutes } = req.body || {};
+    if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });
+    const mins = Number(minutes) > 0 ? Number(minutes) : 5;
+    const at = Date.now() + mins * 60 * 1000;
+    const { rows } = await pool.query('SELECT reminders FROM push_devices WHERE endpoint = $1', [endpoint]);
+    if (!rows.length) return res.status(404).json({ error: 'Unknown device' });
+    let rems = Array.isArray(rows[0].reminders) ? rows[0].reminders : [];
+    const existing = rems.find(r => r && String(r.id) === String(id));
+    if (existing) { existing.at = at; existing.fired = false; }
+    else rems.push({ id: String(id || 'snoozed'), text: '提醒', at, repeat: 'none', fired: false });
+    await pool.query('UPDATE push_devices SET reminders = $2::jsonb, updated_at = NOW() WHERE endpoint = $1',
+      [endpoint, JSON.stringify(rems)]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('push snooze error:', err.message);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

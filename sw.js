@@ -1,5 +1,5 @@
 // 随手记 Service Worker —— 离线缓存
-const CACHE = 'quicknotes-v181';
+const CACHE = 'quicknotes-v182';
 const ASSETS = [
   'index.html',
   'quick-notes.html',
@@ -37,16 +37,53 @@ self.addEventListener('push', e => {
       tag: data.tag || ('remind-' + Date.now()),
       icon: 'icon-192.png',
       badge: 'icon-192.png',
-      data: { url: data.url || './quick-notes.html' },
-      requireInteraction: false
+      data: { url: data.url || './quick-notes.html', id: data.id || data.tag || '' },
+      requireInteraction: false,
+      // 通知上的两个按钮：完成 / 再过5分钟（部分平台会显示）
+      actions: [
+        { action: 'snooze', title: '⏰ 再过5分钟' },
+        { action: 'done', title: '✅ 完成' }
+      ]
     })
   );
 });
 
-// 点击通知：聚焦已开的窗口，或打开 App
+// read the sync server URL that the app stashed for us (so we can snooze even
+// when no page is open)
+async function _readServerUrl() {
+  try {
+    const c = await caches.open('pushcfg');
+    const r = await c.match('server-url');
+    return r ? (await r.text()) : '';
+  } catch (_) { return ''; }
+}
+
+// ask the server to re-fire this reminder a few minutes later
+async function _snoozeOnServer(id, minutes) {
+  const url = await _readServerUrl();
+  const sub = await self.registration.pushManager.getSubscription();
+  if (!url || !sub) return;
+  try {
+    await fetch(url + '/api/push/snooze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: sub.endpoint, id: id, minutes: minutes })
+    });
+  } catch (_) {}
+}
+
+// 点击通知 / 点按钮
 self.addEventListener('notificationclick', e => {
-  e.notification.close();
+  const id = (e.notification.data && e.notification.data.id) || '';
   const url = (e.notification.data && e.notification.data.url) || './quick-notes.html';
+  e.notification.close();
+  if (e.action === 'snooze') {
+    e.waitUntil(_snoozeOnServer(id, 5).then(() =>
+      self.registration.showNotification('⏰ 已推迟', { body: '5 分钟后再提醒你', tag: 'snoozed-' + id, icon: 'icon-192.png', requireInteraction: false })
+    ));
+    return;
+  }
+  if (e.action === 'done') return;   // just dismiss
+  // 通知主体：聚焦已开的窗口，或打开 App
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cls => {
       for (const c of cls) { if ('focus' in c) return c.focus(); }
