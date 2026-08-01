@@ -2090,7 +2090,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v175</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="opacity:0.4;font-size:0.85em">v176</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -2117,6 +2117,8 @@
       <div class="gear-sep"></div>
       <button data-menu="export" data-i18n="menuExport">⬇️ 导出数据（备份）</button>
       <button data-menu="import" data-i18n="menuImport">⬆️ 导入数据（恢复/合并）</button>
+      <div class="gear-sep"></div>
+      <button data-menu="pushtest">🔔 后台提醒诊断 / 测试</button>
       <div class="gear-sep"></div>
       <button data-menu="lock" data-i18n="menuLock">🔒 密码锁</button>
       <button data-menu="lockNow" id="lock-now-btn" data-i18n="menuLockNow" style="display:none">🔐 立即锁定</button>
@@ -5458,6 +5460,71 @@ async function uploadPush() {
 // once notifications are allowed and the server URL is known, wire up push
 window.addEventListener('load', () => { setTimeout(enablePush, 1200); });
 
+// Step-by-step self test so failures are visible instead of silent.
+async function pushDiagnostic() {
+  const lines = [];
+  const ok = s => lines.push('✅ ' + s);
+  const bad = s => lines.push('❌ ' + s);
+  const info = s => lines.push('• ' + s);
+  try {
+    // 1. browser support
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    info('已安装到主屏打开：' + (standalone ? '是' : '否（iPhone 必须“是”）'));
+    if (!('serviceWorker' in navigator)) bad('浏览器不支持 Service Worker'); else ok('支持 Service Worker');
+    if (!('PushManager' in window)) bad('浏览器不支持 Push（iPhone 需先“添加到主屏幕”并从图标打开）'); else ok('支持 Push');
+    if (!('Notification' in window)) { bad('浏览器不支持通知'); return showDialog(lines); }
+
+    // 2. permission
+    if (Notification.permission === 'denied') { bad('通知权限已被拒绝 —— 请到系统设置里为本 App 打开通知'); return showDialog(lines); }
+    if (Notification.permission !== 'granted') {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') { bad('未授予通知权限（刚才的弹窗要点“允许”）'); return showDialog(lines); }
+    }
+    ok('通知权限已授予');
+
+    // 3. server url
+    const url = pushServerUrl();
+    if (!url) { bad('没有服务器地址 —— 先在“☁️ 云同步设置”里填入服务器地址'); return showDialog(lines); }
+    info('服务器：' + url);
+
+    // 4. server has the push code?
+    let vapid;
+    try {
+      const r = await fetch(url + '/api/push/vapid', { cache: 'no-store' });
+      if (!r.ok) { bad('服务器 /api/push/vapid 返回 ' + r.status + ' —— 服务器可能还没部署新版本'); return showDialog(lines); }
+      vapid = await r.json();
+    } catch (e) { bad('连不上服务器推送接口：' + e.message + '（服务器可能没重新部署）'); return showDialog(lines); }
+    if (!vapid || !vapid.publicKey) { bad('服务器还没生成推送密钥（部署可能失败）'); return showDialog(lines); }
+    ok('服务器推送接口正常');
+
+    // 5. subscribe
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _urlB64ToUint8(vapid.publicKey) });
+    _pushSub = sub;
+    ok('已订阅推送');
+
+    // 6. upload reminders
+    await uploadPush();
+    ok('已上传 ' + gatherPushReminders().length + ' 条提醒到服务器');
+
+    // 7. send a test push right now
+    const tr = await fetch(url + '/api/push/test', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subscription: sub })
+    });
+    if (tr.ok) ok('已发送测试推送 —— 现在把 App 完全关掉，几秒内应收到系统通知');
+    else { const j = await tr.json().catch(() => ({})); bad('测试推送失败：' + (j.error || tr.status) + (j.statusCode ? ' (' + j.statusCode + ')' : '')); }
+  } catch (e) {
+    bad('出错：' + (e && e.message));
+  }
+  showDialog(lines);
+
+  function showDialog(ls) {
+    alert('后台提醒诊断\n\n' + ls.join('\n'));
+  }
+}
+
 // ===== 设置菜单：导出 / 导入 =====
 const gearMenu = document.getElementById('gear-menu');
 document.getElementById('gear').addEventListener('click', e => {
@@ -5488,6 +5555,7 @@ gearMenu.addEventListener('click', e => {
   const m = e.target.dataset.menu;
   if (!m) return;
   if (m === 'thai') { window.location.href = 'thai/'; return; }
+  if (m === 'pushtest') { gearMenu.classList.remove('show'); pushDiagnostic(); return; }
   if (m === 'export') exportData();
   else if (m === 'import') document.getElementById('import-file').click();
   else if (m === 'cloud') { gearMenu.classList.remove('show'); openCloudModal(); }

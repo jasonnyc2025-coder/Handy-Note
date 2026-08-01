@@ -286,6 +286,22 @@ app.post('/api/push/register', async (req, res) => {
   }
 });
 
+// Send a push right now, to verify the whole chain end to end.
+app.post('/api/push/test', async (req, res) => {
+  try {
+    if (!pushReady) return res.status(503).json({ error: 'push not configured on server' });
+    const { subscription } = req.body || {};
+    if (!subscription || !subscription.endpoint) return res.status(400).json({ error: 'Missing subscription' });
+    await webpush.sendNotification(
+      subscription,
+      JSON.stringify({ title: '⏰ 测试推送', body: '后台推送正常工作 ✅', tag: 'push-test' })
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message, statusCode: err.statusCode });
+  }
+});
+
 // Unregister a device (e.g. reminders turned off).
 app.delete('/api/push/register', async (req, res) => {
   try {
