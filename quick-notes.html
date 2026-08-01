@@ -488,6 +488,14 @@
   .item.todo .note-head { background: var(--todo-soft); }
   .note-head .text { flex: 1; min-width: 0; }
   .note-head .more-btn { flex-shrink: 0; margin-left: 0; margin-top: 2px; }
+  /* at-a-glance flag on notes that have an alarm (on the note or any sub-item) */
+  .alarm-flag {
+    flex-shrink: 0; display: inline-grid; place-items: center;
+    width: 24px; height: 24px; border-radius: 8px; font-size: 13px; line-height: 1;
+    background: #e7ddef; box-shadow: 0 0 0 1.5px #c9b6de inset; cursor: pointer;
+  }
+  .alarm-flag.future { background: #eadff5; box-shadow: 0 0 0 1.5px #a07fc9 inset; }
+  .alarm-flag.past { background: var(--line); box-shadow: none; filter: grayscale(1); opacity: 0.5; }
   /* 类别小标签（常显，只读） */
   .cat-tag {
     font-size: 0.66rem;
@@ -2090,7 +2098,7 @@
     <div class="titlebar">
       <div class="title-col">
         <div class="title">随手<em>记</em></div>
-        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="font-size:0.78em;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:8px;margin-left:3px;letter-spacing:.02em">v179</span></div>
+        <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span> <span id="app-ver" style="font-size:0.78em;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 7px;border-radius:8px;margin-left:3px;letter-spacing:.02em">v180</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
@@ -2844,13 +2852,32 @@ function catColor(id) {
 function activeCats() { return cats.filter(c => !c._deleted); }
 function catById(id) { const c = cats.find(x => x.id === id); return (c && !c._deleted) ? c : null; }
 
+// Does this note (or any of its sub-items) have a reminder? Returns
+// 'future' if at least one is still pending/repeating, 'past' if only
+// overdue ones remain, or null if none — used for the note's alarm flag.
+function reminderState(n) {
+  let any = false, future = false;
+  const chk = o => {
+    if (o && o.remindAt) {
+      any = true;
+      if (o.remindAt >= Date.now() || (o.repeat && o.repeat !== 'none')) future = true;
+    }
+  };
+  const walk = o => { chk(o); (o.subs || []).forEach(walk); };
+  walk(n);
+  return any ? (future ? 'future' : 'past') : null;
+}
+
 function renderItem(n) {
+  const rs = reminderState(n);
+  const alarmFlag = rs ? `<span class="alarm-flag ${rs}" data-act="setremind" title="有提醒">⏰</span>` : '';
   return `
     <div class="item ${n.type} ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:3px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;opacity:0.35;"></div>`}
       <div class="body">
         <div class="note-head">
           ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
+          ${alarmFlag}
           <button class="more-btn" data-act="more">⋯</button>
         </div>
         ${renderAtts(n.atts)}
