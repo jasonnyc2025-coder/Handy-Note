@@ -594,7 +594,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v30";   // shown in the top bar; bump with each release
+const APP_VER = "v31";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1052,6 +1052,7 @@ function closeReview(){
   speechSynthesis.cancel();
   refreshContinueCta();    // exiting mid-session → offer to resume it later
   showTab("home");
+  if(window.applyPendingUpdate) window.applyPendingUpdate();   // update now if one arrived mid-review
 }
 $("#startReview").onclick = startReview;
 $("#continueReview").onclick = continueReview;
@@ -1254,8 +1255,47 @@ load();
 renderHome();
 thaiSync();
 setInterval(thaiPull, 20000);   // keep in step with the notes app's 20s cadence
+/* ---------------- auto-update ----------------
+   Each release bumps the SW cache name, so a changed sw.js is seen as a new
+   version. sw.js calls skipWaiting()+clients.claim(), so the new worker takes
+   control right away and fires 'controllerchange' — we reload then to show the
+   new version, with no manual refresh. Reloads are deferred while a review is
+   running (the session is saved regardless) so a card is never yanked away. */
 if("serviceWorker" in navigator){
-  window.addEventListener("load",()=> navigator.serviceWorker.register("sw.js").catch(()=>{}));
+  const hadController = !!navigator.serviceWorker.controller;
+  let _updatePending = false, _didReload = false;
+  function _applyUpdate(){
+    if(_didReload) return;
+    _didReload = true;
+    try{ toast("正在更新到新版…"); }catch(e){}
+    setTimeout(()=>location.reload(), 600);
+  }
+  // called from closeReview() to apply an update that arrived mid-review
+  window.applyPendingUpdate = ()=>{ if(_updatePending) _applyUpdate(); };
+  function _reloadWhenSafe(){
+    const rs = document.getElementById("reviewScreen");
+    if(rs && rs.classList.contains("active")){
+      _updatePending = true;
+      try{ toast("新版本已就绪 · 复习结束后自动更新"); }catch(e){}
+    }else{
+      _applyUpdate();
+    }
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+    if(!hadController) return;   // ignore the very first install taking control
+    _reloadWhenSafe();
+  });
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      reg.update().catch(()=>{});
+      // re-check for a new version whenever the app returns to the foreground,
+      // and hourly while it stays open
+      document.addEventListener("visibilitychange", ()=>{
+        if(document.visibilityState === "visible") reg.update().catch(()=>{});
+      });
+      setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
+    }).catch(()=>{});
+  });
 }
 </script>
 </body>
