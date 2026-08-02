@@ -291,8 +291,15 @@
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
-  mark.hl{background:#ffe08a;color:#5a4200;border-radius:5px;padding:0 3px}
-  @media(prefers-color-scheme:dark){ mark.hl{background:#8a6a1f;color:#ffe9b0} }
+  /* two alternating highlight colors so two touching highlighted words
+     (common in spaceless Thai) don't merge into one blob */
+  mark.hl{border-radius:5px;padding:0 3px}
+  mark.hl-a{background:#ffe08a;color:#5a4200}
+  mark.hl-b{background:#bfe3d0;color:#12503a}
+  @media(prefers-color-scheme:dark){
+    mark.hl-a{background:#8a6a1f;color:#ffe9b0}
+    mark.hl-b{background:#1f6a52;color:#bff0dd}
+  }
   /* floating popup shown when text is selected inside an example */
   /* fixed near the bottom (above the action buttons) so it never clashes with
      the OS text-selection menu, which appears next to the selection up top */
@@ -573,7 +580,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v28";   // shown in the top bar; bump with each release
+const APP_VER = "v29";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -896,7 +903,9 @@ function revealCard(){
   $("#revealBtn").classList.add("hide");
   $("#rvActions").classList.add("show");
 }
-// wrap any highlighted sub-strings of an example in <mark>
+// wrap any highlighted sub-strings of an example in <mark>, then alternate two
+// colors by their order in the sentence so two adjacent highlights (common in
+// spaceless Thai) don't merge into one blob
 function hlThai(thai, hlList){
   let html = esc(thai);
   (hlList||[]).forEach(w=>{
@@ -904,6 +913,8 @@ function hlThai(thai, hlList){
     const e = esc(w);
     html = html.split(e).join('<mark class="hl">'+e+'</mark>');
   });
+  let i = 0;
+  html = html.replace(/<mark class="hl">/g, () => '<mark class="hl ' + (i++ % 2 ? 'hl-b' : 'hl-a') + '">');
   return html;
 }
 // show the 备注 block only when the card has a note
