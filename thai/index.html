@@ -113,6 +113,19 @@
   }
   .home-start-cta:active{transform:translateY(1px)}
   .home-start-cta:disabled{opacity:.5;box-shadow:none}
+  /* "continue last review" — shown only when an unfinished session exists;
+     amber so it clearly reads as "resume", distinct from the teal start CTA */
+  .home-continue-cta{
+    flex:0 0 auto;width:100%;margin:12px 0 0;
+    background:var(--surface);color:var(--text);
+    border:2px solid #f0b429;border-radius:16px;
+    padding:15px;font-size:17px;font-weight:800;letter-spacing:.02em;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    box-shadow:0 6px 16px rgba(240,180,41,.20);
+  }
+  .home-continue-cta b{color:#c47a00;padding:0 2px}
+  .home-continue-cta:active{transform:translateY(1px)}
+  @media(prefers-color-scheme:dark){ .home-continue-cta b{color:#f0c14b} }
   /* home preview card is teal-tinted so it clearly reads as "the card",
      distinct from the plain white word rows scrolling beneath it */
   .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:min(38vh,320px);margin-top:12px;padding:18px;
@@ -415,6 +428,7 @@
       <div class="section-h">生词 · 点一下看卡片</div>
       <div id="homeRecent"></div>
     </div>
+    <button class="home-continue-cta" id="continueReview" style="display:none">⏯ 继续上次复习 · 剩 <b id="contRemain">0</b> 张</button>
     <button class="home-start-cta" id="startReview">▶ 开始复习</button>
   </section>
 
@@ -580,7 +594,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v29";   // shown in the top bar; bump with each release
+const APP_VER = "v30";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -652,6 +666,7 @@ let homeCardId = null, homeRevealed = false, homeUserPicked = false;
 function renderHome(){
   $("#homeDue").textContent = cards.length;
   $("#startReview").disabled = cards.length===0;
+  refreshContinueCta();
   const list = [...cards].reverse();          // newest first, all words (scrollable)
   const box = $("#homeRecent");
   if(list.length===0){
@@ -857,6 +872,48 @@ let sessionTotal = 0;  // cards at session start
 let revealed = false;
 const tally = { again:0, hard:0, good:0, easy:0 };
 
+// ---- resume an unfinished review session across app restarts ----
+const SESSION_KEY = "thaicards.session.v1";
+// snapshot the live queue (as card ids), progress total and tally so we can
+// pick the session back up exactly where it was left — even after the app
+// is fully closed
+function saveSession(){
+  try{
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      ids: queue.map(c=>c.id),
+      sessionTotal, tally, ts: Date.now()
+    }));
+  }catch(e){}
+}
+function clearSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+// return a usable saved session, or null (dropping ids of deleted cards)
+function loadSavedSession(){
+  let s; try{ s = JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ return null; }
+  if(!s || !Array.isArray(s.ids)) return null;
+  const live = s.ids.map(id=>cards.find(c=>c.id===id)).filter(Boolean);
+  if(live.length===0){ clearSession(); return null; }
+  return { list: live, sessionTotal: s.sessionTotal||live.length, tally: s.tally||{again:0,hard:0,good:0,easy:0} };
+}
+function continueReview(){
+  const s = loadSavedSession();
+  if(!s){ refreshContinueCta(); return; }
+  queue = s.list;
+  sessionTotal = s.sessionTotal;
+  tally.again=s.tally.again||0; tally.hard=s.tally.hard||0; tally.good=s.tally.good||0; tally.easy=s.tally.easy||0;
+  revealed=false;
+  $("#rvDone").style.display="none";
+  $("#rvActive").style.display="flex";
+  $("#reviewScreen").classList.add("active");
+  renderReviewCard();
+}
+// show/hide the home "继续上次复习" button based on whether a session is saved
+function refreshContinueCta(){
+  const btn = $("#continueReview"); if(!btn) return;
+  const s = loadSavedSession();
+  if(s){ $("#contRemain").textContent = s.list.length; btn.style.display="flex"; }
+  else { btn.style.display="none"; }
+}
+
 function shuffle(a){
   a=[...a];
   for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
@@ -876,11 +933,13 @@ function startReview(){
   $("#rvDone").style.display="none";
   $("#rvActive").style.display="flex";
   $("#reviewScreen").classList.add("active");
+  clearSession();          // a fresh session replaces any leftover one
   renderReviewCard();
 }
 function renderReviewCard(){
   const c = queue[0];
   if(!c){ endSession(); return; }
+  saveSession();           // persist progress so we can resume after a restart
   $("#cardThai").textContent = c.thai;
   $("#cbMean").textContent = c.meaning || "";
   $("#cbRead").textContent = c.reading || "";
@@ -977,6 +1036,7 @@ function updateNavButtons(){
   if(pb) pb.disabled=dis; if(nb) nb.disabled=dis;
 }
 function endSession(){
+  clearSession();          // finished — nothing left to resume
   $("#rvActive").style.display="none";
   $("#rvDone").style.display="block";
   $("#dAgain").textContent=tally.again;
@@ -990,9 +1050,11 @@ function closeReview(){
   editReturnToReview = false;
   $("#reviewScreen").classList.remove("active");
   speechSynthesis.cancel();
+  refreshContinueCta();    // exiting mid-session → offer to resume it later
   showTab("home");
 }
 $("#startReview").onclick = startReview;
+$("#continueReview").onclick = continueReview;
 $("#rvClose").onclick = closeReview;
 // edit the card currently under review (e.g. to add an example), then come back
 $("#rvEdit").onclick = ()=>{
