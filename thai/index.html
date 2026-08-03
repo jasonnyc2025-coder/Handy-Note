@@ -152,6 +152,14 @@
     padding:12px 14px;font-size:15px;color:var(--ink);margin-top:6px;
   }
   .search:focus{outline:none;border-color:var(--teal)}
+  /* search box with a one-tap clear (✕) at its right edge */
+  .search-wrap{position:relative;margin-top:6px}
+  #view-list .search-wrap{flex:0 0 auto}
+  .search-wrap .search{margin-top:0;padding-right:44px}
+  .search-clear{position:absolute;top:0;bottom:0;right:7px;margin:auto 0;
+    width:28px;height:28px;border-radius:50%;background:var(--surface-2);color:var(--muted);
+    display:grid;place-items:center;font-size:14px;line-height:1}
+  .search-clear:active{filter:brightness(.9)}
   .wlist{margin-top:12px;display:flex;flex-direction:column;gap:10px}
   .witem{
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px;
@@ -446,7 +454,10 @@
 
   <!-- ===== LIST ===== -->
   <section class="view" id="view-list">
-    <input class="search" id="searchBox" placeholder="🔍 搜索泰文 / 中文 / 读音">
+    <div class="search-wrap">
+      <input class="search" id="searchBox" placeholder="🔍 搜索泰文 / 中文 / 读音">
+      <button class="search-clear" id="searchClear" aria-label="清除搜索" style="display:none">✕</button>
+    </div>
     <div class="wlist" id="wordList"></div>
   </section>
 
@@ -626,7 +637,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v34";   // shown in the top bar; bump with each release
+const APP_VER = "v35";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -778,6 +789,7 @@ function cardHaystack(c){
 function renderList(){
   const q = $("#searchBox").value.trim().toLowerCase();
   const box = $("#wordList");
+  toggleSearchClear();
   let list = [...cards].reverse();
   if(q) list = list.filter(c => cardHaystack(c).includes(q));
   if(list.length===0){
@@ -787,7 +799,9 @@ function renderList(){
   box.innerHTML = list.map(wordItemHTML).join("");
   bindWordItems(box);
 }
-$("#searchBox").addEventListener("input", renderList);
+function toggleSearchClear(){ const b=$("#searchClear"); if(b) b.style.display = $("#searchBox").value ? "grid" : "none"; }
+$("#searchBox").addEventListener("input", ()=>{ toggleSearchClear(); renderList(); });
+$("#searchClear").onclick = ()=>{ const s=$("#searchBox"); s.value=""; toggleSearchClear(); renderList(); s.focus(); };
 
 function delCard(id){
   const c = cards.find(x=>x.id===id);
