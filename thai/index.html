@@ -626,7 +626,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v33";   // shown in the top bar; bump with each release
+const APP_VER = "v34";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -768,14 +768,18 @@ function bindWordItems(scope){
     el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c) openPeek(c); });
   });
 }
+// everything searchable on a card: word, meaning, reading, note, and every
+// example's Thai + Chinese — so typing a word from an example or note finds it
+function cardHaystack(c){
+  const parts = [c.thai, c.meaning, c.reading, c.note];
+  (c.examples||[]).forEach(e=>{ if(e){ parts.push(e.thai); parts.push(e.meaning); } });
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
 function renderList(){
   const q = $("#searchBox").value.trim().toLowerCase();
   const box = $("#wordList");
   let list = [...cards].reverse();
-  if(q) list = list.filter(c=>
-    (c.thai||"").toLowerCase().includes(q) ||
-    (c.meaning||"").toLowerCase().includes(q) ||
-    (c.reading||"").toLowerCase().includes(q));
+  if(q) list = list.filter(c => cardHaystack(c).includes(q));
   if(list.length===0){
     box.innerHTML = `<div class="empty"><div class="em-ic">${q?"🔍":"📚"}</div><p>${q?"没有匹配的生词":"生词本还是空的<br>去「添加」录入第一个吧"}</p></div>`;
     return;
