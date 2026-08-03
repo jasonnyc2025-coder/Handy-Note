@@ -587,7 +587,7 @@
      an overlay so the review queue/current card stay exactly as they were -->
 <div id="peekBg"></div>
 <div id="peekPanel" role="dialog" aria-modal="true" aria-label="查看生词">
-  <button id="peekClose">← 返回复习</button>
+  <button id="peekClose">← 关闭</button>
   <div class="card peek-card">
     <div class="card-thai thai" id="peekThai">—</div>
     <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
@@ -626,7 +626,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v32";   // shown in the top bar; bump with each release
+const APP_VER = "v33";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -764,6 +764,8 @@ function bindWordItems(scope){
     el.querySelector('[data-act="speak"]').onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===id); if(c) speak(c.thai); };
     el.querySelector('[data-act="edit"]').onclick = e=>{ e.stopPropagation(); startEdit(id); };
     el.querySelector('[data-act="del"]').onclick = e=>{ e.stopPropagation(); delCard(id); };
+    // tap the row (not its action buttons) -> peek at the full read-only card
+    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c) openPeek(c); });
   });
 }
 function renderList(){
