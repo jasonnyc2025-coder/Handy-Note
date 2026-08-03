@@ -163,6 +163,20 @@
     font-size:15px;font-weight:600;margin-top:9px;text-align:left;display:flex;align-items:center;gap:10px}
   .sheet .about{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7;text-align:center}
 
+  /* photo-source chooser (拍照 / 相册) */
+  .src-bg{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.4);display:none}
+  .src-bg.show{display:block}
+  .src-sheet{position:fixed;left:0;right:0;bottom:0;z-index:71;background:var(--surface);
+    border-radius:22px 22px 0 0;padding:14px 16px calc(env(safe-area-inset-bottom) + 16px);
+    transform:translateY(100%);transition:.22s;max-width:640px;margin:0 auto;
+    box-shadow:0 -8px 30px rgba(0,0,0,.2);display:flex;flex-direction:column;gap:9px}
+  .src-sheet.show{transform:translateY(0)}
+  .src-sheet button{background:var(--surface-2);color:var(--ink);border-radius:14px;padding:16px;
+    font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px}
+  .src-sheet button .ic{font-size:21px}
+  .src-sheet button:active{filter:brightness(.92)}
+  .src-sheet .src-cancel{background:transparent;color:var(--muted);font-weight:600;margin-top:2px}
+
   .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);transform:translateX(-50%);
     z-index:90;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 18px;font-size:14px;font-weight:600;
     opacity:0;transition:.25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.3);max-width:90vw}
@@ -213,7 +227,7 @@
   <div class="e-scroll">
     <div class="photo-row">
       <div class="photo-slot" id="slotFront" data-side="front">
-        <div class="ph-in"><span class="ic">📷</span>正面（点击拍照）</div>
+        <div class="ph-in"><span class="ic">📷</span>正面 · 拍照或选相册</div>
       </div>
       <div class="photo-slot" id="slotBack" data-side="back">
         <div class="ph-in"><span class="ic">🔄</span>背面（可选）</div>
@@ -251,7 +265,17 @@
   <div class="about" id="aboutBox">名片夹 · 离线优先 PWA</div>
 </div>
 
-<input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+<!-- camera goes straight to the camera; library lets you pick existing photos -->
+<input type="file" id="camInput" accept="image/*" capture="environment" style="display:none">
+<input type="file" id="libInput" accept="image/*" style="display:none">
+
+<!-- choose where the photo comes from -->
+<div class="src-bg" id="srcBg"></div>
+<div class="src-sheet" id="srcSheet">
+  <button id="srcCam"><span class="ic">📷</span> 拍照</button>
+  <button id="srcLib"><span class="ic">🖼</span> 从相册选择</button>
+  <button id="srcCancel" class="src-cancel">取消</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -260,7 +284,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v1";
+const APP_VER   = "v2";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -546,7 +570,7 @@ function openEdit(id){
 }
 async function resetSlot(side, c){
   const slot = side==="front" ? $("#slotFront") : $("#slotBack");
-  const label = side==="front" ? `<div class="ph-in"><span class="ic">📷</span>正面（点击拍照）</div>`
+  const label = side==="front" ? `<div class="ph-in"><span class="ic">📷</span>正面 · 拍照或选相册</div>`
                                : `<div class="ph-in"><span class="ic">🔄</span>背面（可选）</div>`;
   slot.innerHTML = label;
   if(c){
@@ -558,7 +582,7 @@ async function resetSlot(side, c){
 function bindSlot(slot, side){
   slot.onclick = e=>{
     if(e.target.classList.contains("clr")){ e.stopPropagation(); clearSlot(side); return; }
-    photoTargetSide = side; $("#photoInput").value=""; $("#photoInput").click();
+    photoTargetSide = side; openSrcChooser();
   };
 }
 function clearSlot(side){
@@ -567,14 +591,21 @@ function clearSlot(side){
   resetSlot(side, null);
 }
 let photoTargetSide = "front";
-$("#photoInput").onchange = async e=>{
-  const f = e.target.files[0]; if(!f) return;
-  const side = photoTargetSide;
+
+// let the user pick between the camera and existing photos in the album
+function openSrcChooser(){ $("#srcBg").classList.add("show"); $("#srcSheet").classList.add("show"); }
+function closeSrcChooser(){ $("#srcBg").classList.remove("show"); $("#srcSheet").classList.remove("show"); }
+$("#srcBg").onclick = closeSrcChooser;
+$("#srcCancel").onclick = closeSrcChooser;
+$("#srcCam").onclick = ()=>{ closeSrcChooser(); $("#camInput").value=""; $("#camInput").click(); };
+$("#srcLib").onclick = ()=>{ closeSrcChooser(); $("#libInput").value=""; $("#libInput").click(); };
+
+async function processPhoto(file, side){
   const slot = side==="front" ? $("#slotFront") : $("#slotBack");
   slot.innerHTML = `<div class="ph-in"><span class="spin"></span>处理中…</div>`;
   try{
-    const full = await downscale(f, 1600, 0.82);
-    const thumbBlob = await downscale(f, 460, 0.7);
+    const full = await downscale(file, 1600, 0.82);
+    const thumbBlob = await downscale(file, 460, 0.7);
     const thumb = await blobToDataURL(thumbBlob);
     pendingImg[side] = { blob:full, thumb };
     if(side==="front") editThumb = thumb;
@@ -586,8 +617,13 @@ $("#photoInput").onchange = async e=>{
     slot.innerHTML = `<div class="ph-in"><span class="ic">⚠️</span>图片读取失败</div>`;
     bindSlot(slot, side);
   }
+}
+async function onPhotoPicked(e){
+  const f = e.target.files[0]; if(f) await processPhoto(f, photoTargetSide);
   e.target.value = "";
-};
+}
+$("#camInput").onchange = onPhotoPicked;
+$("#libInput").onchange = onPhotoPicked;
 
 async function runOCR(blob){
   const cloud = getCloud();
