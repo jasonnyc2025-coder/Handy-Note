@@ -97,16 +97,18 @@ function requireAuth(req, res, next) {
 app.get('/api/sync', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT notes, cats, thai, thai_rev FROM user_data WHERE user_id = $1',
+      'SELECT notes, cats, thai, thai_rev, cards, cards_rev FROM user_data WHERE user_id = $1',
       [req.user.userId]
     );
-    if (!result.rows.length) return res.json({ notes: [], cats: [], thai: [], thaiRev: 0 });
+    if (!result.rows.length) return res.json({ notes: [], cats: [], thai: [], thaiRev: 0, cards: [], cardsRev: 0 });
     const r = result.rows[0];
     res.json({
       notes: r.notes,
       cats: r.cats,
       thai: r.thai || [],
-      thaiRev: Number(r.thai_rev) || 0
+      thaiRev: Number(r.thai_rev) || 0,
+      cards: r.cards || [],
+      cardsRev: Number(r.cards_rev) || 0
     });
   } catch (err) {
     console.error('GET sync error:', err.message);
@@ -122,7 +124,7 @@ app.get('/api/sync', requireAuth, async (req, res) => {
 app.put('/api/sync', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { notes, cats, thai, thaiRev } = req.body;
+    const { notes, cats, thai, thaiRev, cards, cardsRev } = req.body;
 
     // Ensure a row exists (defaults fill the columns we don't touch)
     await pool.query(
@@ -150,6 +152,14 @@ app.put('/api/sync', requireAuth, async (req, res) => {
         [userId, JSON.stringify(thai), Number(thaiRev) || 0]
       );
     }
+    if (cards !== undefined) {
+      await pool.query(
+        `UPDATE user_data
+           SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
+         WHERE user_id = $1 AND $3 >= COALESCE(cards_rev, 0)`,
+        [userId, JSON.stringify(cards), Number(cardsRev) || 0]
+      );
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error('PUT sync error:', err.message);
@@ -164,6 +174,129 @@ app.delete('/api/sync', requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── Business-card photos (protected) ────────────────────────────────────────
+//
+// Card metadata + thumbnails sync via /api/sync (the `cards` JSONB). The full
+// photos are heavier, so they live here and are uploaded / fetched per card,
+// keyed by (user, cardId, side). This keeps the metadata sync light and lets a
+// fresh device download originals lazily, only when a card is opened.
+
+// strip an optional "data:...;base64," prefix and decode
+function decodeDataUrl(s) {
+  if (typeof s !== 'string') return null;
+  const m = s.match(/^data:([^;]+);base64,(.*)$/s);
+  const b64 = m ? m[2] : s;
+  const mime = m ? m[1] : 'image/jpeg';
+  try { return { buf: Buffer.from(b64, 'base64'), mime }; } catch { return null; }
+}
+
+// PUT /api/cards/image/:cardId?side=front  — upload/replace a card photo
+app.put('/api/cards/image/:cardId', requireAuth, async (req, res) => {
+  try {
+    const side = (req.query.side === 'back') ? 'back' : 'front';
+    const dec = decodeDataUrl(req.body && (req.body.data || req.body.image));
+    if (!dec || !dec.buf.length) return res.status(400).json({ error: 'No image data' });
+    await pool.query(
+      `INSERT INTO card_images (user_id, card_id, side, mime, data, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (user_id, card_id, side)
+         DO UPDATE SET mime = $4, data = $5, updated_at = NOW()`,
+      [req.user.userId, req.params.cardId, side, req.body.mime || dec.mime, dec.buf]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('PUT card image error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/cards/image/:cardId?side=front  — download a card photo
+app.get('/api/cards/image/:cardId', requireAuth, async (req, res) => {
+  try {
+    const side = (req.query.side === 'back') ? 'back' : 'front';
+    const r = await pool.query(
+      'SELECT mime, data FROM card_images WHERE user_id = $1 AND card_id = $2 AND side = $3',
+      [req.user.userId, req.params.cardId, side]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.set('Content-Type', r.rows[0].mime || 'image/jpeg');
+    res.set('Cache-Control', 'private, max-age=31536000');
+    res.send(r.rows[0].data);
+  } catch (err) {
+    console.error('GET card image error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// DELETE /api/cards/image/:cardId  — remove both sides' photos for a card
+app.delete('/api/cards/image/:cardId', requireAuth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM card_images WHERE user_id = $1 AND card_id = $2',
+      [req.user.userId, req.params.cardId]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/cards/ocr  — read a business-card photo and return structured fields.
+// Uses Claude vision when ANTHROPIC_API_KEY is configured; otherwise returns 501
+// so the client cleanly falls back to manual entry.
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OCR_MODEL = process.env.OCR_MODEL || 'claude-sonnet-4-5';
+
+app.post('/api/cards/ocr', requireAuth, async (req, res) => {
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(501).json({ error: 'ocr_unavailable', message: '服务器未配置 ANTHROPIC_API_KEY，自动识别不可用（可手动填写）' });
+  }
+  const dec = decodeDataUrl(req.body && (req.body.image || req.body.data));
+  if (!dec || !dec.buf.length) return res.status(400).json({ error: 'No image data' });
+  const mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(dec.mime) ? dec.mime : 'image/jpeg';
+  const b64 = dec.buf.toString('base64');
+  const prompt =
+    '这是一张名片的照片。请提取名片上的信息，只返回一个 JSON 对象，不要任何解释或代码块标记。' +
+    '字段：name(姓名), company(公司/机构), title(职位), phones(电话数组), emails(邮箱数组), ' +
+    'address(地址), website(网站), other(其它有用信息，如微信/部门等)。' +
+    '找不到的字段用空字符串或空数组。电话保留原样（含分机/区号）。';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: OCR_MODEL,
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => '');
+      console.error('OCR upstream error:', r.status, t.slice(0, 300));
+      return res.status(502).json({ error: 'ocr_failed', message: '识别服务出错，请稍后再试或手动填写' });
+    }
+    const j = await r.json();
+    let text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+    // tolerate a ```json fence if the model adds one
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) text = fence[1].trim();
+    let fields = {};
+    try { fields = JSON.parse(text); } catch { fields = { other: text }; }
+    res.json({ ok: true, fields });
+  } catch (err) {
+    console.error('OCR error:', err.message);
+    res.status(502).json({ error: 'ocr_failed', message: '识别服务出错，请稍后再试或手动填写' });
   }
 });
 

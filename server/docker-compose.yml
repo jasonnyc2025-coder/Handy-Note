@@ -8,6 +8,8 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       JWT_SECRET: ${JWT_SECRET}
       ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OCR_MODEL: ${OCR_MODEL:-claude-sonnet-4-5}
       PORT: 3000
     depends_on:
       db:

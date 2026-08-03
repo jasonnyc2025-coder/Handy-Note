@@ -1,0 +1,17 @@
+{
+  "name": "名片夹 · Card Holder",
+  "short_name": "名片夹",
+  "description": "离线名片夹：拍照收录名片，自动识别姓名/公司/电话，随手查找与拨号。",
+  "lang": "zh",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f7",
+  "theme_color": "#4f46e5",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

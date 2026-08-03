@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>名片夹 · Card Holder</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#f5f5f7; --surface:#ffffff; --surface-2:#ececf1;
+    --ink:#1a1a2e; --muted:#6b6b80; --line:#e4e4ec;
+    --brand:#4f46e5; --brand-ink:#3d35c9; --brand-soft:rgba(79,70,229,.10);
+    --amber:#f59e0b; --danger:#e5484d; --ok:#16a34a;
+    --shadow:0 6px 24px rgba(20,20,50,.08);
+    --card-shadow:0 10px 30px rgba(20,20,50,.10), 0 2px 6px rgba(20,20,50,.05);
+    --radius:18px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e0e14; --surface:#16161f; --surface-2:#1f1f2b;
+      --ink:#ececf2; --muted:#9a9aac; --line:#282836;
+      --brand:#818cf8; --brand-ink:#a5b0ff; --brand-soft:rgba(129,140,248,.16);
+      --amber:#fbbf24; --danger:#ff6b6f; --ok:#4ade80;
+      --shadow:0 6px 24px rgba(0,0,0,.4);
+      --card-shadow:0 10px 30px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--bg);color:var(--ink)}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    position:fixed;inset:0;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;width:100%;margin:0 auto;padding:0 14px;flex:1;min-height:0;display:flex;flex-direction:column}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea{font-family:inherit;font-size:16px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    flex:0 0 auto;z-index:20;background:var(--bg);
+    max-width:640px;width:100%;margin:0 auto;padding:calc(env(safe-area-inset-top) + 12px) 14px 8px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .brand-badge{width:40px;height:40px;border-radius:12px;background:var(--brand);color:#fff;
+    display:grid;place-items:center;font-size:22px;flex:0 0 auto;box-shadow:0 4px 12px rgba(79,70,229,.35)}
+  .title-col{flex:1;min-width:0}
+  .title-col h1{font-size:21px;font-weight:800;letter-spacing:.01em;display:flex;align-items:baseline;gap:8px}
+  .title-col h1 .ver{font-size:12px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);
+    border-radius:99px;padding:2px 8px}
+  .title-col .sub{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:2px}
+  .icon-btn{width:40px;height:40px;border-radius:12px;background:var(--surface);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:19px;flex:0 0 auto;box-shadow:var(--shadow)}
+  .icon-btn:active{filter:brightness(.92)}
+
+  /* ---------- search + tags ---------- */
+  .search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:13px 15px;font-size:16px;color:var(--ink);margin-top:6px;box-shadow:var(--shadow)}
+  .search::placeholder{color:var(--muted)}
+  .tagbar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px 2px 4px;flex:0 0 auto}
+  .tagbar::-webkit-scrollbar{display:none}
+  .tagchip{flex:0 0 auto;background:var(--surface-2);color:var(--muted);border-radius:99px;
+    padding:7px 14px;font-size:14px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+  .tagchip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+  /* ---------- card grid ---------- */
+  .listwrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 2px 120px}
+  .count{font-size:13px;color:var(--muted);margin:4px 2px 10px}
+  .grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:520px){ .grid{grid-template-columns:1fr 1fr} }
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:var(--card-shadow);display:flex;flex-direction:column;cursor:pointer}
+  .tile:active{filter:brightness(.97)}
+  .tile-img{width:100%;aspect-ratio:16/10;background:var(--surface-2);object-fit:cover;display:block}
+  .tile-img.ph{display:grid;place-items:center;font-size:34px;color:var(--muted)}
+  .tile-body{padding:11px 13px 13px}
+  .tile-name{font-size:17px;font-weight:800;line-height:1.3;word-break:break-word}
+  .tile-name .star{color:var(--amber)}
+  .tile-co{font-size:14px;color:var(--muted);margin-top:2px;word-break:break-word}
+  .tile-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .tile-tags span{font-size:11px;background:var(--brand-soft);color:var(--brand-ink);border-radius:99px;padding:2px 8px;font-weight:600}
+  .empty{text-align:center;color:var(--muted);padding:64px 20px}
+  .empty .em-ic{font-size:52px;margin-bottom:12px}
+  .empty p{font-size:15px;line-height:1.7}
+
+  /* ---------- FAB ---------- */
+  .fab{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:calc(env(safe-area-inset-bottom) + 22px);
+    z-index:30;width:62px;height:62px;border-radius:50%;background:var(--brand);color:#fff;font-size:30px;
+    display:grid;place-items:center;box-shadow:0 10px 26px rgba(79,70,229,.45)}
+  .fab:active{transform:translateY(1px)}
+
+  /* ---------- detail overlay ---------- */
+  #detailBg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:none}
+  #detail{position:fixed;inset:0;z-index:51;display:none;flex-direction:column;background:var(--bg)}
+  #detailBg.show,#detail.show{display:flex}
+  .d-top{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 14px 8px}
+  .d-top .grow{flex:1}
+  .d-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 40px;max-width:640px;width:100%;margin:0 auto}
+  .d-photo{width:100%;border-radius:16px;background:var(--surface-2);display:block;box-shadow:var(--card-shadow);margin-bottom:12px}
+  .d-photo.ph{aspect-ratio:16/10;display:grid;place-items:center;font-size:44px;color:var(--muted)}
+  .d-name{font-size:26px;font-weight:800;line-height:1.25;margin-top:4px;word-break:break-word}
+  .d-title{font-size:16px;color:var(--muted);margin-top:4px}
+  .d-co{font-size:18px;font-weight:600;color:var(--brand-ink);margin-top:2px}
+  .d-actions{display:flex;gap:8px;margin:16px 0 6px;flex-wrap:wrap}
+  .d-act{flex:1;min-width:74px;background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:12px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px;font-weight:600;
+    color:var(--ink);box-shadow:var(--shadow)}
+  .d-act .ic{font-size:20px}
+  .d-act:active{filter:brightness(.92)}
+  .d-field{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:13px 15px;margin-top:10px}
+  .d-field .lb{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+  .d-field a,.d-field .val{font-size:17px;color:var(--ink);text-decoration:none;word-break:break-word;display:block;line-height:1.5}
+  .d-field a{color:var(--brand-ink)}
+  .d-field .val.note{white-space:pre-wrap}
+  .d-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .d-tags span{font-size:13px;background:var(--brand-soft);color:var(--brand-ink);border-radius:99px;padding:4px 11px;font-weight:600}
+
+  /* ---------- edit view ---------- */
+  #editView{position:fixed;inset:0;z-index:55;background:var(--bg);display:none;flex-direction:column}
+  #editView.show{display:flex}
+  .e-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 120px;max-width:640px;width:100%;margin:0 auto}
+  .photo-row{display:flex;gap:10px;margin-top:6px}
+  .photo-slot{flex:1;aspect-ratio:16/10;border:2px dashed var(--line);border-radius:14px;background:var(--surface);
+    display:grid;place-items:center;overflow:hidden;position:relative;color:var(--muted);text-align:center;font-size:13px}
+  .photo-slot img{width:100%;height:100%;object-fit:cover}
+  .photo-slot .ph-in{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px}
+  .photo-slot .ph-in .ic{font-size:26px}
+  .photo-slot .clr{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;
+    background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;font-size:15px}
+  .ocr-hint{font-size:13px;color:var(--muted);margin:10px 2px 0;display:flex;align-items:center;gap:7px;min-height:20px}
+  .spin{width:15px;height:15px;border:2px solid var(--brand-soft);border-top-color:var(--brand);border-radius:50%;animation:sp .8s linear infinite;flex:0 0 auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .field{margin-top:14px}
+  .field label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:.02em}
+  .field input,.field textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;color:var(--ink)}
+  .field textarea{min-height:70px;resize:vertical;line-height:1.5}
+  .field .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .e-bar{position:fixed;left:0;right:0;bottom:0;z-index:56;background:var(--surface);border-top:1px solid var(--line);
+    padding:12px 14px calc(env(safe-area-inset-bottom) + 12px);display:flex;gap:10px;max-width:640px;margin:0 auto}
+  .btn{flex:1;border-radius:14px;padding:15px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:7px}
+  .btn.primary{background:var(--brand);color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.3)}
+  .btn.ghost{background:var(--surface-2);color:var(--ink);flex:0 0 auto;padding-left:22px;padding-right:22px}
+  .btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+  .btn:active{filter:brightness(.93)}
+  .view-h{flex:0 0 auto;font-size:20px;font-weight:800;max-width:640px;width:100%;margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 14px) 16px 8px}
+
+  /* ---------- settings sheet ---------- */
+  .sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.4);display:none}
+  .sheet-bg.show{display:block}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:var(--surface);border-radius:22px 22px 0 0;
+    padding:22px 20px calc(env(safe-area-inset-bottom) + 22px);transform:translateY(100%);transition:.25s;
+    max-width:640px;margin:0 auto;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  .sheet.show{transform:translateY(0)}
+  .sheet h3{font-size:18px;margin-bottom:4px}
+  .sheet .sub{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6}
+  .sheet .ghost{width:100%;background:var(--surface-2);color:var(--ink);border-radius:12px;padding:14px;
+    font-size:15px;font-weight:600;margin-top:9px;text-align:left;display:flex;align-items:center;gap:10px}
+  .sheet .about{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.7;text-align:center}
+
+  .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 96px);transform:translateX(-50%);
+    z-index:90;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 18px;font-size:14px;font-weight:600;
+    opacity:0;transition:.25s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.3);max-width:90vw}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-badge">📇</div>
+  <div class="title-col">
+    <h1>名片夹 <span class="ver" id="appVer">v1</span></h1>
+    <div class="sub">Card Holder</div>
+  </div>
+  <button class="icon-btn" id="gearBtn" aria-label="设置">⚙️</button>
+</header>
+
+<div class="wrap">
+  <input class="search" id="searchBox" placeholder="🔍 搜索姓名 / 公司 / 电话 / 标签">
+  <div class="tagbar" id="tagbar"></div>
+  <div class="listwrap">
+    <div class="count" id="count"></div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" style="display:none">
+      <div class="em-ic">📇</div>
+      <p>还没有名片<br>点右下角 ＋ 拍一张收进来</p>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="addFab" aria-label="添加名片">＋</button>
+
+<!-- ===== detail ===== -->
+<div id="detailBg"></div>
+<div id="detail">
+  <div class="d-top">
+    <button class="icon-btn" id="dBack" aria-label="返回">←</button>
+    <div class="grow"></div>
+    <button class="icon-btn" id="dStar" aria-label="收藏">☆</button>
+    <button class="icon-btn" id="dEdit" aria-label="编辑">✎</button>
+  </div>
+  <div class="d-scroll" id="dScroll"></div>
+</div>
+
+<!-- ===== add / edit ===== -->
+<div id="editView">
+  <div class="view-h" id="editTitle">添加名片</div>
+  <div class="e-scroll">
+    <div class="photo-row">
+      <div class="photo-slot" id="slotFront" data-side="front">
+        <div class="ph-in"><span class="ic">📷</span>正面（点击拍照）</div>
+      </div>
+      <div class="photo-slot" id="slotBack" data-side="back">
+        <div class="ph-in"><span class="ic">🔄</span>背面（可选）</div>
+      </div>
+    </div>
+    <div class="ocr-hint" id="ocrHint"></div>
+
+    <div class="field"><label>姓名</label><input id="fName" placeholder="张三"></div>
+    <div class="field"><label>公司 / 机构</label><input id="fCompany" placeholder="某某科技有限公司"></div>
+    <div class="field"><label>职位</label><input id="fTitle" placeholder="市场总监"></div>
+    <div class="field"><label>电话</label><textarea id="fPhones" placeholder="一行一个，可多个"></textarea></div>
+    <div class="field"><label>邮箱</label><textarea id="fEmails" placeholder="一行一个，可多个"></textarea></div>
+    <div class="field"><label>地址</label><textarea id="fAddress" placeholder="公司地址"></textarea></div>
+    <div class="field"><label>网站</label><input id="fWebsite" placeholder="https://"></div>
+    <div class="field"><label>标签</label><input id="fTags" placeholder="用逗号分隔，如：客户, 供应商">
+      <div class="hint">用来分组浏览，例如 客户 / 供应商 / 朋友</div></div>
+    <div class="field"><label>备注</label><textarea id="fNote" placeholder="其它信息：微信、认识的场合等"></textarea></div>
+    <button class="btn danger" id="delBtn" style="display:none;margin-top:20px">🗑 删除这张名片</button>
+  </div>
+  <div class="e-bar">
+    <button class="btn ghost" id="cancelBtn">取消</button>
+    <button class="btn primary" id="saveBtn">保存</button>
+  </div>
+</div>
+
+<!-- ===== settings ===== -->
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet">
+  <h3>设置与备份</h3>
+  <p class="sub">名片文字与缩略图会云同步；原图存在本机并同步到你的服务器。建议定期导出备份。</p>
+  <button class="ghost" id="exportBtn">⬇ 导出备份（含文字，不含原图）</button>
+  <button class="ghost" id="importBtn">⬆ 导入备份</button>
+  <button class="ghost" id="syncBtn">☁ 立即同步</button>
+  <input type="file" id="importFile" accept="application/json" style="display:none">
+  <div class="about" id="aboutBox">名片夹 · 离线优先 PWA</div>
+</div>
+
+<input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const STORE_KEY = "namecards.v1";
+const REV_KEY   = "namecards.rev";
+const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
+const APP_VER   = "v1";
+
+/* ---------------- storage ---------------- */
+let cards = [];
+function load(){
+  try{ cards = JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+  catch(e){ cards = []; }
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); bumpRev(); scheduleCardsPush(); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function getRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
+function bumpRev(){ const r = Date.now(); localStorage.setItem(REV_KEY, String(r)); return r; }
+// only the non-deleted cards
+function activeCards(){ return cards.filter(c=>!c._deleted); }
+function cardById(id){ return cards.find(c=>c.id===id); }
+
+/* ---------------- IndexedDB (full-res photos, offline cache) ---------------- */
+let _db;
+function idb(){
+  return new Promise((res,rej)=>{
+    if(_db) return res(_db);
+    const rq = indexedDB.open("namecards", 1);
+    rq.onupgradeneeded = ()=>{ if(!rq.result.objectStoreNames.contains("images")) rq.result.createObjectStore("images"); };
+    rq.onsuccess = ()=>{ _db = rq.result; res(_db); };
+    rq.onerror = ()=> rej(rq.error);
+  });
+}
+async function idbSet(k,v){ const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction("images","readwrite"); tx.objectStore("images").put(v,k); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+async function idbGet(k){ const db=await idb(); return new Promise((res,rej)=>{ const tx=db.transaction("images","readonly"); const rq=tx.objectStore("images").get(k); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+async function idbDel(k){ const db=await idb(); return new Promise((res)=>{ const tx=db.transaction("images","readwrite"); tx.objectStore("images").delete(k); tx.oncomplete=()=>res(); tx.onerror=()=>res(); }); }
+const imgKey = (id,side)=> id + ":" + side;
+
+/* ---------------- image processing ---------------- */
+function fileToImage(file){
+  return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file); });
+}
+async function downscale(file, maxDim, quality){
+  const img = await fileToImage(file);
+  const scale = Math.min(1, maxDim/Math.max(img.width,img.height));
+  const w = Math.max(1,Math.round(img.width*scale)), h = Math.max(1,Math.round(img.height*scale));
+  const c = document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(img,0,0,w,h);
+  URL.revokeObjectURL(img.src);
+  return new Promise(r=> c.toBlob(b=> r(b||file), "image/jpeg", quality));
+}
+function blobToDataURL(b){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); }); }
+
+/* ---------------- cloud sync (shares 随手记's login + /api/sync) ---------------- */
+function getCloud(){
+  try{ const c = JSON.parse(localStorage.getItem(CLOUD_KEY)); return (c && c.token && c.url) ? c : null; }
+  catch(e){ return null; }
+}
+let _pushTimer = null;
+function scheduleCardsPush(){ if(!getCloud()) return; clearTimeout(_pushTimer); _pushTimer = setTimeout(cardsPush, 900); }
+async function cardsPush(){
+  const cloud = getCloud(); if(!cloud) return;
+  try{
+    let cur = {};
+    try{ const g = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
+    const body = { cards: cards, cardsRev: getRev() };
+    // echo other sections back untouched so we never clobber notes/cats/thai
+    if(Array.isArray(cur.notes)) body.notes = cur.notes;
+    if(Array.isArray(cur.cats))  body.cats  = cur.cats;
+    if(Array.isArray(cur.thai)){ body.thai = cur.thai; body.thaiRev = cur.thaiRev||0; }
+    await fetch(`${cloud.url}/api/sync`, {
+      method:"PUT",
+      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+  }catch(e){}
+}
+async function cardsPull(){
+  const cloud = getCloud(); if(!cloud) return;
+  try{
+    const res = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } });
+    if(!res.ok) return;
+    const data = await res.json();
+    if(Array.isArray(data.cards) && (data.cardsRev||0) > getRev()){
+      cards = data.cards;
+      localStorage.setItem(STORE_KEY, JSON.stringify(cards));
+      localStorage.setItem(REV_KEY, String(data.cardsRev||0));
+      render();
+      if($("#detail").classList.contains("show")) { /* keep open card in sync if still there */ }
+    }
+  }catch(e){}
+}
+async function cardsSync(){ if(!getCloud()) return; await cardsPull(); cardsPush(); }
+
+// upload a card's full photo to the server (fire-and-forget)
+async function uploadImage(id, side, blob){
+  const cloud = getCloud(); if(!cloud || !blob) return;
+  try{
+    const dataUrl = await blobToDataURL(blob);
+    await fetch(`${cloud.url}/api/cards/image/${id}?side=${side}`, {
+      method:"PUT",
+      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
+      body: JSON.stringify({ data: dataUrl, mime:"image/jpeg" })
+    });
+  }catch(e){}
+}
+// resolve a full photo: local IndexedDB first, else download from server & cache
+async function getPhotoURL(card, side){
+  const key = imgKey(card.id, side);
+  let blob = await idbGet(key).catch(()=>null);
+  if(!blob){
+    const has = side==="back" ? card.hasBack : card.hasFront;
+    const cloud = getCloud();
+    if(has && cloud){
+      try{
+        const r = await fetch(`${cloud.url}/api/cards/image/${card.id}?side=${side}`, { headers:{ "Authorization":"Bearer "+cloud.token } });
+        if(r.ok){ blob = await r.blob(); await idbSet(key, blob).catch(()=>{}); }
+      }catch(e){}
+    }
+  }
+  return blob ? URL.createObjectURL(blob) : null;
+}
+
+/* ---------------- util ---------------- */
+function esc(s){ return (s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m])); }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove("show"),1900); }
+function splitLines(s){ return (s||"").split(/[\n,;、，；]+/).map(x=>x.trim()).filter(Boolean); }
+function cardTags(c){ return Array.isArray(c.tags)?c.tags:[]; }
+
+/* ---------------- render list ---------------- */
+let activeTag = "";   // "" = all
+let searchQ = "";
+function allTags(){
+  const set = new Map();
+  activeCards().forEach(c=> cardTags(c).forEach(t=>{ if(t) set.set(t,(set.get(t)||0)+1); }));
+  return [...set.entries()].sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+}
+function matches(c){
+  if(activeTag && !cardTags(c).includes(activeTag)) return false;
+  if(!searchQ) return true;
+  const hay = [c.name,c.company,c.title,c.address,c.website,c.note,(c.phones||[]).join(" "),(c.emails||[]).join(" "),cardTags(c).join(" ")].join(" ").toLowerCase();
+  return hay.includes(searchQ.toLowerCase());
+}
+function sortCards(list){
+  return list.slice().sort((a,b)=>{
+    if(!!b.star !== !!a.star) return (b.star?1:0)-(a.star?1:0);
+    return (b.createdAt||0)-(a.createdAt||0);
+  });
+}
+function render(){
+  renderTagbar();
+  const list = sortCards(activeCards().filter(matches));
+  const grid = $("#grid"), empty = $("#empty");
+  $("#count").textContent = activeCards().length ? `${list.length} / ${activeCards().length} 张名片` : "";
+  if(activeCards().length===0){ grid.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  grid.innerHTML = list.map(c=>{
+    const img = c.thumb
+      ? `<img class="tile-img" src="${c.thumb}" alt="">`
+      : `<div class="tile-img ph">📇</div>`;
+    const tags = cardTags(c).slice(0,3).map(t=>`<span>${esc(t)}</span>`).join("");
+    return `<div class="tile" data-id="${c.id}">
+      ${img}
+      <div class="tile-body">
+        <div class="tile-name">${c.star?'<span class="star">★</span> ':''}${esc(c.name||"（未命名）")}</div>
+        ${c.company?`<div class="tile-co">${esc(c.company)}${c.title?" · "+esc(c.title):""}</div>`:(c.title?`<div class="tile-co">${esc(c.title)}</div>`:"")}
+        ${tags?`<div class="tile-tags">${tags}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  grid.querySelectorAll(".tile").forEach(el=> el.onclick = ()=> openDetail(el.dataset.id));
+}
+function renderTagbar(){
+  const tags = allTags();
+  const bar = $("#tagbar");
+  const chips = [`<button class="tagchip ${activeTag===""?"on":""}" data-t="">全部</button>`]
+    .concat(tags.map(t=>`<button class="tagchip ${activeTag===t?"on":""}" data-t="${esc(t)}">${esc(t)}</button>`));
+  bar.innerHTML = chips.join("");
+  bar.style.display = tags.length ? "flex" : "none";
+  bar.querySelectorAll(".tagchip").forEach(el=> el.onclick = ()=>{ activeTag = el.dataset.t; render(); });
+}
+$("#searchBox").addEventListener("input", e=>{ searchQ = e.target.value.trim(); render(); });
+
+/* ---------------- detail ---------------- */
+let detailId = null;
+async function openDetail(id){
+  const c = cardById(id); if(!c) return;
+  detailId = id;
+  $("#dStar").textContent = c.star ? "★" : "☆";
+  const box = $("#dScroll");
+  const telRows = (c.phones||[]).map(p=>`<a href="tel:${encodeURIComponent(p)}">${esc(p)}</a>`).join("");
+  const mailRows = (c.emails||[]).map(m=>`<a href="mailto:${encodeURIComponent(m)}">${esc(m)}</a>`).join("");
+  box.innerHTML =
+    `<div class="d-photo ph" id="dPhoto">📇</div>` +
+    `<div class="d-name">${esc(c.name||"（未命名）")}</div>` +
+    (c.title?`<div class="d-title">${esc(c.title)}</div>`:"") +
+    (c.company?`<div class="d-co">${esc(c.company)}</div>`:"") +
+    `<div class="d-actions">
+       ${(c.phones&&c.phones[0])?`<button class="d-act" data-act="call"><span class="ic">📞</span>拨号</button>`:""}
+       ${(c.phones&&c.phones[0])?`<button class="d-act" data-act="sms"><span class="ic">💬</span>短信</button>`:""}
+       ${(c.emails&&c.emails[0])?`<button class="d-act" data-act="mail"><span class="ic">✉️</span>邮件</button>`:""}
+       ${c.address?`<button class="d-act" data-act="map"><span class="ic">📍</span>地图</button>`:""}
+       <button class="d-act" data-act="vcard"><span class="ic">👤</span>存通讯录</button>
+       <button class="d-act" data-act="share"><span class="ic">🔗</span>分享</button>
+     </div>` +
+    (telRows?`<div class="d-field"><div class="lb">电话</div>${telRows}</div>`:"") +
+    (mailRows?`<div class="d-field"><div class="lb">邮箱</div>${mailRows}</div>`:"") +
+    (c.address?`<div class="d-field"><div class="lb">地址</div><span class="val">${esc(c.address)}</span></div>`:"") +
+    (c.website?`<div class="d-field"><div class="lb">网站</div><a href="${esc(/^https?:/.test(c.website)?c.website:'https://'+c.website)}" target="_blank" rel="noopener">${esc(c.website)}</a></div>`:"") +
+    (c.note?`<div class="d-field"><div class="lb">备注</div><span class="val note">${esc(c.note)}</span></div>`:"") +
+    (cardTags(c).length?`<div class="d-tags">${cardTags(c).map(t=>`<span>${esc(t)}</span>`).join("")}</div>`:"");
+  box.querySelectorAll(".d-act").forEach(el=> el.onclick = ()=> detailAction(el.dataset.act, c));
+  // load the photo (local, then server)
+  const url = await getPhotoURL(c, "front");
+  if(url){ const ph=$("#dPhoto"); if(ph){ ph.outerHTML = `<img class="d-photo" id="dPhoto" src="${url}" alt="">`; } }
+  $("#detailBg").classList.add("show");
+  $("#detail").classList.add("show");
+}
+function closeDetail(){ $("#detail").classList.remove("show"); $("#detailBg").classList.remove("show"); detailId=null; }
+$("#dBack").onclick = closeDetail;
+$("#detailBg").onclick = closeDetail;
+$("#dStar").onclick = ()=>{ const c=cardById(detailId); if(!c) return; c.star=!c.star; c.modified=Date.now(); save(); $("#dStar").textContent=c.star?"★":"☆"; render(); };
+$("#dEdit").onclick = ()=>{ if(detailId) openEdit(detailId); };
+
+function detailAction(act, c){
+  if(act==="call") location.href = "tel:"+encodeURIComponent(c.phones[0]);
+  else if(act==="sms") location.href = "sms:"+encodeURIComponent(c.phones[0]);
+  else if(act==="mail") location.href = "mailto:"+encodeURIComponent(c.emails[0]);
+  else if(act==="map") window.open("https://maps.google.com/?q="+encodeURIComponent(c.address),"_blank");
+  else if(act==="vcard") downloadVCard(c);
+  else if(act==="share") shareCard(c);
+}
+function buildVCard(c){
+  const esc2 = s => (s||"").replace(/([,;\\])/g,"\\$1").replace(/\n/g,"\\n");
+  const L = ["BEGIN:VCARD","VERSION:3.0"];
+  L.push("FN:"+esc2(c.name||""));
+  L.push("N:"+esc2(c.name||"")+";;;;");
+  if(c.company) L.push("ORG:"+esc2(c.company));
+  if(c.title) L.push("TITLE:"+esc2(c.title));
+  (c.phones||[]).forEach(p=> L.push("TEL;TYPE=CELL:"+esc2(p)));
+  (c.emails||[]).forEach(m=> L.push("EMAIL:"+esc2(m)));
+  if(c.address) L.push("ADR;TYPE=WORK:;;"+esc2(c.address)+";;;;");
+  if(c.website) L.push("URL:"+esc2(c.website));
+  const noteBits = [c.note, cardTags(c).length?("标签: "+cardTags(c).join(", ")):""].filter(Boolean).join("\n");
+  if(noteBits) L.push("NOTE:"+esc2(noteBits));
+  L.push("END:VCARD");
+  return L.join("\r\n");
+}
+function downloadVCard(c){
+  const blob = new Blob([buildVCard(c)],{type:"text/vcard"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=(c.name||"contact")+".vcf"; a.click();
+  URL.revokeObjectURL(url);
+  toast("已生成 vCard，打开即可存入通讯录");
+}
+async function shareCard(c){
+  const text = [c.name,c.title,c.company,(c.phones||[]).join(" / "),(c.emails||[]).join(" / "),c.address,c.website].filter(Boolean).join("\n");
+  try{
+    if(navigator.share){ await navigator.share({ title:c.name||"名片", text }); }
+    else { await navigator.clipboard.writeText(text); toast("已复制名片信息"); }
+  }catch(e){}
+}
+
+/* ---------------- add / edit ---------------- */
+let editId = null;                 // null = new card
+let pendingImg = { front:null, back:null };   // { blob, thumb } waiting to save
+let editThumb = null;              // thumbnail dataURL for the card
+
+function openEdit(id){
+  editId = id || null;
+  pendingImg = { front:null, back:null };
+  const c = id ? cardById(id) : null;
+  $("#editTitle").textContent = id ? "编辑名片" : "添加名片";
+  $("#fName").value    = c?.name || "";
+  $("#fCompany").value = c?.company || "";
+  $("#fTitle").value   = c?.title || "";
+  $("#fPhones").value  = (c?.phones||[]).join("\n");
+  $("#fEmails").value  = (c?.emails||[]).join("\n");
+  $("#fAddress").value = c?.address || "";
+  $("#fWebsite").value = c?.website || "";
+  $("#fTags").value    = cardTags(c||{}).join(", ");
+  $("#fNote").value    = c?.note || "";
+  editThumb = c?.thumb || null;
+  $("#ocrHint").innerHTML = "";
+  $("#delBtn").style.display = id ? "block" : "none";
+  resetSlot("front", c); resetSlot("back", c);
+  $("#detail").classList.remove("show"); $("#detailBg").classList.remove("show");
+  $("#editView").classList.add("show");
+}
+async function resetSlot(side, c){
+  const slot = side==="front" ? $("#slotFront") : $("#slotBack");
+  const label = side==="front" ? `<div class="ph-in"><span class="ic">📷</span>正面（点击拍照）</div>`
+                               : `<div class="ph-in"><span class="ic">🔄</span>背面（可选）</div>`;
+  slot.innerHTML = label;
+  if(c){
+    const url = await getPhotoURL(c, side);
+    if(url) slot.innerHTML = `<img src="${url}" alt=""><div class="clr" data-side="${side}">✕</div>`;
+  }
+  bindSlot(slot, side);
+}
+function bindSlot(slot, side){
+  slot.onclick = e=>{
+    if(e.target.classList.contains("clr")){ e.stopPropagation(); clearSlot(side); return; }
+    photoTargetSide = side; $("#photoInput").value=""; $("#photoInput").click();
+  };
+}
+function clearSlot(side){
+  pendingImg[side] = { blob:null, thumb:null, cleared:true };
+  if(side==="front") editThumb = null;
+  resetSlot(side, null);
+}
+let photoTargetSide = "front";
+$("#photoInput").onchange = async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const side = photoTargetSide;
+  const slot = side==="front" ? $("#slotFront") : $("#slotBack");
+  slot.innerHTML = `<div class="ph-in"><span class="spin"></span>处理中…</div>`;
+  try{
+    const full = await downscale(f, 1600, 0.82);
+    const thumbBlob = await downscale(f, 460, 0.7);
+    const thumb = await blobToDataURL(thumbBlob);
+    pendingImg[side] = { blob:full, thumb };
+    if(side==="front") editThumb = thumb;
+    const url = URL.createObjectURL(full);
+    slot.innerHTML = `<img src="${url}" alt=""><div class="clr" data-side="${side}">✕</div>`;
+    bindSlot(slot, side);
+    if(side==="front") runOCR(full);
+  }catch(err){
+    slot.innerHTML = `<div class="ph-in"><span class="ic">⚠️</span>图片读取失败</div>`;
+    bindSlot(slot, side);
+  }
+  e.target.value = "";
+};
+
+async function runOCR(blob){
+  const cloud = getCloud();
+  const hint = $("#ocrHint");
+  if(!cloud){ hint.innerHTML = "💡 登录随手记账号后可自动识别（现在可手动填写）"; return; }
+  hint.innerHTML = `<span class="spin"></span> 正在自动识别名片…`;
+  try{
+    const dataUrl = await blobToDataURL(blob);
+    const r = await fetch(`${cloud.url}/api/cards/ocr`, {
+      method:"POST",
+      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    if(r.status===501){ hint.innerHTML = "ℹ️ 服务器未开启自动识别，请手动填写"; return; }
+    if(!r.ok){ hint.innerHTML = "⚠️ 识别失败，请手动填写"; return; }
+    const j = await r.json();
+    const f = j.fields || {};
+    fillIfEmpty("#fName", f.name);
+    fillIfEmpty("#fCompany", f.company);
+    fillIfEmpty("#fTitle", f.title);
+    fillIfEmpty("#fPhones", Array.isArray(f.phones)?f.phones.join("\n"):f.phones);
+    fillIfEmpty("#fEmails", Array.isArray(f.emails)?f.emails.join("\n"):f.emails);
+    fillIfEmpty("#fAddress", f.address);
+    fillIfEmpty("#fWebsite", f.website);
+    if(f.other) fillIfEmpty("#fNote", f.other);
+    hint.innerHTML = "✅ 已自动填写，可再手动修改";
+  }catch(e){ hint.innerHTML = "⚠️ 识别失败，请手动填写"; }
+}
+function fillIfEmpty(sel, val){ const el=$(sel); if(el && !el.value.trim() && val) el.value = val; }
+
+$("#addFab").onclick = ()=> openEdit(null);
+$("#cancelBtn").onclick = ()=>{ $("#editView").classList.remove("show"); };
+$("#delBtn").onclick = ()=>{
+  if(!editId) return;
+  if(!confirm("确定删除这张名片？")) return;
+  const c = cardById(editId);
+  if(c){ c._deleted=true; c._deletedAt=Date.now(); c.modified=Date.now(); }
+  idbDel(imgKey(editId,"front")); idbDel(imgKey(editId,"back"));
+  const cloud=getCloud(); if(cloud){ fetch(`${cloud.url}/api/cards/image/${editId}`,{method:"DELETE",headers:{Authorization:"Bearer "+cloud.token}}).catch(()=>{}); }
+  save();
+  $("#editView").classList.remove("show"); closeDetail(); render();
+  toast("已删除");
+};
+$("#saveBtn").onclick = async ()=>{
+  const now = Date.now();
+  let c = editId ? cardById(editId) : null;
+  const isNew = !c;
+  if(isNew){ c = { id: uid(), createdAt: now, day: todayStr() }; cards.push(c); }
+  c.name    = $("#fName").value.trim();
+  c.company = $("#fCompany").value.trim();
+  c.title   = $("#fTitle").value.trim();
+  c.phones  = splitLines($("#fPhones").value);
+  c.emails  = splitLines($("#fEmails").value);
+  c.address = $("#fAddress").value.trim();
+  c.website = $("#fWebsite").value.trim();
+  c.tags    = splitLines($("#fTags").value);
+  c.note    = $("#fNote").value.trim();
+  c.modified = now;
+  // apply photo changes
+  for(const side of ["front","back"]){
+    const p = pendingImg[side];
+    if(!p) continue;
+    if(p.cleared){
+      await idbDel(imgKey(c.id,side));
+      if(side==="front") c.hasFront=false; else c.hasBack=false;
+      const cloud=getCloud(); if(cloud){ /* leave server copy; overwritten next upload */ }
+    }else if(p.blob){
+      await idbSet(imgKey(c.id,side), p.blob).catch(()=>{});
+      if(side==="front"){ c.hasFront=true; c.thumb = p.thumb; } else c.hasBack=true;
+      uploadImage(c.id, side, p.blob);
+    }
+  }
+  if(editThumb===null && (pendingImg.front && pendingImg.front.cleared)) c.thumb = null;
+  save();
+  $("#editView").classList.remove("show");
+  render();
+  toast(isNew ? "已收录名片" : "已保存");
+  if(!isNew && detailId===c.id) openDetail(c.id);
+};
+
+/* ---------------- settings / backup ---------------- */
+function openSheet(v){ $("#sheet").classList.toggle("show",v); $("#sheetBg").classList.toggle("show",v);
+  if(v){ const cl=getCloud(); $("#aboutBox").innerHTML = `名片夹 ${APP_VER} · 离线优先 PWA<br>${cl?"☁ 云同步已开启":"未登录（在随手记登录后自动同步）"}`; } }
+$("#gearBtn").onclick = ()=> openSheet(true);
+$("#sheetBg").onclick = ()=> openSheet(false);
+$("#syncBtn").onclick = ()=>{ if(!getCloud()){ toast("请先在随手记里登录"); return; } cardsSync(); toast("正在同步…"); openSheet(false); };
+$("#exportBtn").onclick = ()=>{
+  const blob = new Blob([JSON.stringify(activeCards(),null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=`namecards-${todayStr()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast(`已导出 ${activeCards().length} 张（文字）`);
+};
+$("#importBtn").onclick = ()=> $("#importFile").click();
+$("#importFile").onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const data = JSON.parse(r.result);
+      if(!Array.isArray(data)) throw 0;
+      let added=0;
+      data.forEach(d=>{
+        d.id = d.id || uid();
+        if(!cards.some(c=>c.id===d.id)){ cards.push({ createdAt:Date.now(), day:todayStr(), ...d }); added++; }
+      });
+      save(); render(); toast(`导入 ${added} 张`); openSheet(false);
+    }catch(err){ toast("文件格式不正确"); }
+  };
+  r.readAsText(f); e.target.value="";
+};
+
+/* ---------------- boot ---------------- */
+const _av = $("#appVer"); if(_av) _av.textContent = APP_VER;
+load();
+render();
+cardsSync();
+setInterval(cardsPull, 20000);
+
+/* ---------------- auto-update ----------------
+   Each release bumps the SW cache name; sw.js calls skipWaiting()+clients.claim(),
+   so the new worker takes control and fires 'controllerchange' — we reload then. */
+if("serviceWorker" in navigator){
+  const hadController = !!navigator.serviceWorker.controller;
+  let _didReload = false;
+  function _applyUpdate(){
+    if(_didReload) return; _didReload = true;
+    try{ toast("正在更新到新版…"); }catch(e){}
+    setTimeout(()=>location.reload(), 600);
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", ()=>{ if(hadController) _applyUpdate(); });
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").then(reg=>{
+      reg.update().catch(()=>{});
+      document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") reg.update().catch(()=>{}); });
+      setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
+    }).catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

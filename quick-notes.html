@@ -2134,7 +2134,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v188</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v189</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2155,6 +2155,7 @@
     <div class="tabs" id="tabs"></div>
     <div class="gear-menu" id="gear-menu">
       <button class="menu-feature" data-menu="thai" data-i18n="menuThai">🇹🇭 泰语卡片</button>
+      <button class="menu-feature" data-menu="cards" data-i18n="menuCards">📇 名片夹</button>
       <div class="gear-sep"></div>
       <button data-menu="bg" data-i18n="menuBg">🎨 背景主题</button>
       <button data-menu="fontsize" data-i18n="menuFont">🔤 字体大小</button>
@@ -2651,7 +2652,7 @@ const I18N = {
   zh: {
     subtitle: '想到什么随时记 · 自动保存', search: '搜索', searchPlaceholder: '搜索记录、子项、类别…',
     menuBg: '🎨 背景主题', menuFont: '🔤 字体大小', fontSub: '选择记录文字的大小', fsSmall: '小', fsNormal: '中（默认）', fsLarge: '大', fsXlarge: '特大', menuExport: '⬇️ 导出数据（备份）', menuImport: '⬆️ 导入数据（恢复/合并）',
-    menuCloud: '☁️ 云同步设置', menuRepublishCats: '🏷️ 以本机分类名为准，推送修复', menuThai: '🇹🇭 泰语卡片', menuLang: '🌐 Language / 语言', menuLock: '🔒 密码锁', menuLockNow: '🔐 立即锁定',
+    menuCloud: '☁️ 云同步设置', menuRepublishCats: '🏷️ 以本机分类名为准，推送修复', menuThai: '🇹🇭 泰语卡片', menuCards: '📇 名片夹', menuLang: '🌐 Language / 语言', menuLock: '🔒 密码锁', menuLockNow: '🔐 立即锁定',
     idea: '想法', todo: '待办', tIdea: '💡 想法', tTodo: '✓ 待办', cReminder: '⏰ 提醒',
     inputPlaceholder: '写点什么…', inputTodo: '要做什么…', inputIdea: '记录一个想法…',
     camera: '📷 拍照', album: '🖼️ 从相册选', pdf: '📄 选 PDF',
@@ -2670,7 +2671,7 @@ const I18N = {
   en: {
     subtitle: 'Jot anything down · Auto-saved', search: 'Search', searchPlaceholder: 'Search notes, sub-items, categories…',
     menuBg: '🎨 Background', menuFont: '🔤 Font size', fontSub: 'Choose note text size', fsSmall: 'Small', fsNormal: 'Normal', fsLarge: 'Large', fsXlarge: 'X-Large', menuExport: '⬇️ Export data (backup)', menuImport: '⬆️ Import data (restore/merge)',
-    menuCloud: '☁️ Cloud sync', menuRepublishCats: '🏷️ Push this device\'s category names as authoritative', menuThai: '🇹🇭 Thai flashcards', menuLang: '🌐 Language / 语言', menuLock: '🔒 Passcode', menuLockNow: '🔐 Lock now',
+    menuCloud: '☁️ Cloud sync', menuRepublishCats: '🏷️ Push this device\'s category names as authoritative', menuThai: '🇹🇭 Thai flashcards', menuCards: '📇 Card holder', menuLang: '🌐 Language / 语言', menuLock: '🔒 Passcode', menuLockNow: '🔐 Lock now',
     idea: 'Idea', todo: 'Todo', tIdea: '💡 Idea', tTodo: '✓ Todo', cReminder: '⏰ Reminder',
     inputPlaceholder: 'Write something…', inputTodo: 'What to do…', inputIdea: 'Jot an idea…',
     camera: '📷 Camera', album: '🖼️ Photos', pdf: '📄 PDF',
@@ -5753,6 +5754,7 @@ gearMenu.addEventListener('click', e => {
   const m = e.target.dataset.menu;
   if (!m) return;
   if (m === 'thai') { window.location.href = 'thai/'; return; }
+  if (m === 'cards') { window.location.href = 'cards/'; return; }
   if (m === 'siri') { gearMenu.classList.remove('show'); openSiriModal(); return; }
   if (m === 'pushtest') { gearMenu.classList.remove('show'); pushDiagnostic(); return; }
   if (m === 'export') exportData();
