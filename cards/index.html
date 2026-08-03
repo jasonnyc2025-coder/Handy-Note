@@ -284,7 +284,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v2";
+const APP_VER   = "v3";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -637,8 +637,14 @@ async function runOCR(blob){
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify({ image: dataUrl })
     });
-    if(r.status===501){ hint.innerHTML = "ℹ️ 服务器未开启自动识别，请手动填写"; return; }
-    if(!r.ok){ hint.innerHTML = "⚠️ 识别失败，请手动填写"; return; }
+    if(r.status===501){ hint.innerHTML = "ℹ️ 服务器未配置识别密钥（ANTHROPIC_API_KEY），请手动填写"; return; }
+    if(r.status===404){ hint.innerHTML = "⚠️ 服务器还没更新（找不到识别接口，404）——请重新部署服务器后再试"; return; }
+    if(!r.ok){
+      let msg = "";
+      try{ const j = await r.json(); msg = j.message || j.error || ""; }catch(e){}
+      hint.innerHTML = `⚠️ 识别失败（${r.status}${msg?" · "+esc(msg):""}），请手动填写`;
+      return;
+    }
     const j = await r.json();
     const f = j.fields || {};
     fillIfEmpty("#fName", f.name);
