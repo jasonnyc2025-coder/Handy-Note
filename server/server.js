@@ -284,7 +284,12 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
     if (!r.ok) {
       const t = await r.text().catch(() => '');
       console.error('OCR upstream error:', r.status, t.slice(0, 300));
-      return res.status(502).json({ error: 'ocr_failed', message: '识别服务出错，请稍后再试或手动填写' });
+      // surface the model provider's own error message so the client can show
+      // exactly what went wrong (bad model id, invalid key, etc.). The key is
+      // never included in these messages, so this is safe to return.
+      let detail = '';
+      try { detail = JSON.parse(t).error.message; } catch (e) { detail = (t || '').slice(0, 200); }
+      return res.status(502).json({ error: 'ocr_failed', message: `识别模型返回 ${r.status}：${detail || '未知错误'}` });
     }
     const j = await r.json();
     let text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
@@ -296,7 +301,7 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
     res.json({ ok: true, fields });
   } catch (err) {
     console.error('OCR error:', err.message);
-    res.status(502).json({ error: 'ocr_failed', message: '识别服务出错，请稍后再试或手动填写' });
+    res.status(502).json({ error: 'ocr_failed', message: `调用识别服务异常：${err.message}` });
   }
 });
 
