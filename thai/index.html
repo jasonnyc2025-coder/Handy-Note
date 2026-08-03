@@ -323,6 +323,18 @@
     display:flex;align-items:center;justify-content:center;min-height:40px}
   #selPop #selSpeak{font-size:20px;padding-left:24px;padding-right:24px}   /* icon-only: enlarge so it matches the 高亮 button */
   #selPop button:active{background:rgba(255,255,255,.28)}
+  /* "peek at this word" read-only overlay — sits above the review screen */
+  #peekBg{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.5);display:none}
+  #peekPanel{position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
+    align-items:center;justify-content:center;padding:16px;gap:12px}
+  #peekBg.show,#peekPanel.show{display:flex}
+  #peekClose{align-self:center;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);border-radius:99px;padding:11px 22px;font-size:15px;font-weight:700;
+    box-shadow:var(--shadow)}
+  #peekClose:active{filter:brightness(.9)}
+  .peek-card{cursor:default;align-self:center;max-height:78vh}
+  .peek-card .peek-body{width:100%;display:flex;flex-direction:column;flex:1;min-height:0;
+    border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
 
   .rv-actions{display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
   .rv-actions.show{display:grid}
@@ -565,9 +577,29 @@
 
 <!-- popup when selecting text inside an example -->
 <div id="selPop">
+  <button id="selPeek" style="display:none">📖 查看该词</button>
   <button id="selAdd">➕ 加入生词</button>
   <button id="selHl">🖍 高亮</button>
   <button id="selSpeak" aria-label="朗读">🔊</button>
+</div>
+
+<!-- read-only "peek" at an existing vocab card referenced inside an example;
+     an overlay so the review queue/current card stay exactly as they were -->
+<div id="peekBg"></div>
+<div id="peekPanel" role="dialog" aria-modal="true" aria-label="查看生词">
+  <button id="peekClose">← 返回复习</button>
+  <div class="card peek-card">
+    <div class="card-thai thai" id="peekThai">—</div>
+    <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
+    <div class="peek-body">
+      <div class="cb-mean" id="peekMean"></div>
+      <div class="cb-read" id="peekRead"></div>
+      <div class="cb-scroll">
+        <div class="cb-note" id="peekNote"></div>
+        <div class="cb-exlist" id="peekExList"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- quick "add selected word to vocab" sheet -->
@@ -594,7 +626,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v31";   // shown in the top bar; bump with each release
+const APP_VER = "v32";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1204,9 +1236,40 @@ function onSelChange(){
   if(node.nodeType===3) node = node.parentElement;
   const exThai = node && node.closest ? node.closest(".ex-thai") : null;
   if(!exThai){ hideSelPop(); return; }
-  selCtx = { text, cbEx: exThai.closest(".cb-ex") };
+  const cbEx = exThai.closest(".cb-ex");
+  selCtx = { text, cbEx };
+  // if the selected word is itself a headword in the vocab book (and not the
+  // very card that owns this example), offer a "peek at that word" button
+  const ownId = cbEx ? cbEx.dataset.card : null;
+  const match = findCardByThai(text);
+  selCtx.match = (match && match.id !== ownId) ? match : null;
+  $("#selPeek").style.display = selCtx.match ? "flex" : "none";
   $("#selPop").classList.add("show");   // fixed position via CSS (bottom-centered)
 }
+function findCardByThai(text){
+  const t = (text||"").trim();
+  if(!t) return null;
+  return cards.find(c => (c.thai||"").trim() === t) || null;
+}
+// read-only peek at a vocab card, layered over the review (queue untouched)
+function openPeek(card){
+  if(!card) return;
+  $("#peekThai").textContent = card.thai || "—";
+  $("#peekMean").textContent = card.meaning || "";
+  $("#peekRead").textContent = card.reading || "";
+  renderNote($("#peekNote"), card.note);
+  renderCardExamples($("#peekExList"), card.examples || [], card.id);
+  $("#peekBg").classList.add("show");
+  $("#peekPanel").classList.add("show");
+}
+function closePeek(){
+  $("#peekBg").classList.remove("show");
+  $("#peekPanel").classList.remove("show");
+  speechSynthesis.cancel();
+}
+$("#peekBg").onclick = closePeek;
+$("#peekClose").onclick = closePeek;
+$("#peekSpk").onclick = e=>{ e.stopPropagation(); const t=$("#peekThai").textContent; if(t && t!=="—") speak(t); };
 document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
 document.addEventListener("scroll", hideSelPop, true);
 function toggleHighlight(cbEx, text){
@@ -1225,6 +1288,7 @@ function toggleHighlight(cbEx, text){
 $("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
 $("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
 $("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); };
+$("#selPeek").onclick = ()=>{ const m = selCtx && selCtx.match; hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); if(m) openPeek(m); };
 
 /* ---------- add selected word as a new vocab card ---------- */
 function openAddWord(thai){
