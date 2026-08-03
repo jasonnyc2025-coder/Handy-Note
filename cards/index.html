@@ -236,16 +236,16 @@
     </div>
     <div class="ocr-hint" id="ocrHint"></div>
 
-    <div class="field"><label>姓名</label><input id="fName" placeholder="张三"></div>
-    <div class="field"><label>公司 / 机构</label><input id="fCompany" placeholder="某某科技有限公司"></div>
-    <div class="field"><label>职位</label><input id="fTitle" placeholder="市场总监"></div>
-    <div class="field"><label>电话</label><textarea id="fPhones" placeholder="一行一个，可多个"></textarea></div>
-    <div class="field"><label>邮箱</label><textarea id="fEmails" placeholder="一行一个，可多个"></textarea></div>
-    <div class="field"><label>地址</label><textarea id="fAddress" placeholder="公司地址"></textarea></div>
-    <div class="field"><label>网站</label><input id="fWebsite" placeholder="https://"></div>
-    <div class="field"><label>标签</label><input id="fTags" placeholder="用逗号分隔，如：客户, 供应商">
-      <div class="hint">用来分组浏览，例如 客户 / 供应商 / 朋友</div></div>
-    <div class="field"><label>备注</label><textarea id="fNote" placeholder="其它信息：微信、认识的场合等"></textarea></div>
+    <div class="field"><label>姓名</label><input id="fName" placeholder=""></div>
+    <div class="field"><label>公司 / 机构</label><input id="fCompany" placeholder=""></div>
+    <div class="field"><label>职位</label><input id="fTitle" placeholder=""></div>
+    <div class="field"><label>电话</label><textarea id="fPhones" placeholder="一行一个"></textarea></div>
+    <div class="field"><label>邮箱</label><textarea id="fEmails" placeholder="一行一个"></textarea></div>
+    <div class="field"><label>地址</label><textarea id="fAddress" placeholder=""></textarea></div>
+    <div class="field"><label>网站</label><input id="fWebsite" placeholder=""></div>
+    <div class="field"><label>标签</label><input id="fTags" placeholder="多个用逗号分隔">
+      <div class="hint">用来分组浏览</div></div>
+    <div class="field"><label>备注</label><textarea id="fNote" placeholder=""></textarea></div>
     <button class="btn danger" id="delBtn" style="display:none;margin-top:20px">🗑 删除这张名片</button>
   </div>
   <div class="e-bar">
@@ -285,7 +285,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v4";
+const APP_VER   = "v5";
 
 /* ---------------- storage ---------------- */
 let cards = [];
