@@ -186,6 +186,7 @@
 <body>
 
 <header class="topbar">
+  <a class="icon-btn" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记" style="text-decoration:none">←</a>
   <div class="brand-badge">📇</div>
   <div class="title-col">
     <h1>名片夹 <span class="ver" id="appVer">v1</span></h1>
@@ -284,7 +285,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v3";
+const APP_VER   = "v4";
 
 /* ---------------- storage ---------------- */
 let cards = [];
