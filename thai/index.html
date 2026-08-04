@@ -313,13 +313,15 @@
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
   /* two alternating highlight colors so two touching highlighted words
-     (common in spaceless Thai) don't merge into one blob */
+     (common in spaceless Thai) don't merge into one blob.
+     hl-a = amber, hl-b = soft violet — kept away from the app's teal/green
+     theme so a highlight never blends into the accent color */
   mark.hl{border-radius:5px;padding:0 3px}
   mark.hl-a{background:#ffe08a;color:#5a4200}
-  mark.hl-b{background:#bfe3d0;color:#12503a}
+  mark.hl-b{background:#e0d4fb;color:#4a2a86}
   @media(prefers-color-scheme:dark){
     mark.hl-a{background:#8a6a1f;color:#ffe9b0}
-    mark.hl-b{background:#1f6a52;color:#bff0dd}
+    mark.hl-b{background:#4a3a7c;color:#e7ddff}
   }
   /* floating popup shown when text is selected inside an example */
   /* fixed near the bottom (above the action buttons) so it never clashes with
@@ -637,7 +639,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v35";   // shown in the top bar; bump with each release
+const APP_VER = "v36";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
