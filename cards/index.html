@@ -220,6 +220,7 @@
     <div class="grow"></div>
     <button class="icon-btn" id="dStar" aria-label="收藏">☆</button>
     <button class="icon-btn" id="dEdit" aria-label="编辑">✎</button>
+    <button class="icon-btn" id="dDel" aria-label="删除">🗑</button>
   </div>
   <div class="d-scroll" id="dScroll"></div>
 </div>
@@ -289,7 +290,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v7";
+const APP_VER   = "v8";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -727,17 +728,25 @@ $("#batchInput").onchange = e=>{ const fs = [...e.target.files]; e.target.value=
 
 $("#addFab").onclick = ()=> openEdit(null);
 $("#cancelBtn").onclick = ()=>{ $("#editView").classList.remove("show"); };
-$("#delBtn").onclick = ()=>{
-  if(!editId) return;
-  if(!confirm("确定删除这张名片？")) return;
-  const c = cardById(editId);
-  if(c){ c._deleted=true; c._deletedAt=Date.now(); c.modified=Date.now(); }
-  idbDel(imgKey(editId,"front")); idbDel(imgKey(editId,"back"));
-  const cloud=getCloud(); if(cloud){ fetch(`${cloud.url}/api/cards/image/${editId}`,{method:"DELETE",headers:{Authorization:"Bearer "+cloud.token}}).catch(()=>{}); }
+// soft-delete a card (tombstone syncs the deletion) and drop its photos locally + on the server
+function removeCard(id){
+  const c = cardById(id); if(!c) return;
+  c._deleted = true; c._deletedAt = Date.now(); c.modified = Date.now();
+  idbDel(imgKey(id,"front")); idbDel(imgKey(id,"back"));
+  const cloud = getCloud();
+  if(cloud){ fetch(`${cloud.url}/api/cards/image/${id}`,{ method:"DELETE", headers:{ Authorization:"Bearer "+cloud.token } }).catch(()=>{}); }
   save();
+}
+function confirmDelete(id){
+  const c = cardById(id); if(!c) return;
+  const label = (c.name||c.company||"").trim();
+  if(!confirm(label ? `删除「${label}」？` : "确定删除这张名片？")) return;
+  removeCard(id);
   $("#editView").classList.remove("show"); closeDetail(); render();
   toast("已删除");
-};
+}
+$("#delBtn").onclick = ()=>{ if(editId) confirmDelete(editId); };
+$("#dDel").onclick = ()=>{ if(detailId) confirmDelete(detailId); };
 $("#saveBtn").onclick = async ()=>{
   const now = Date.now();
   let c = editId ? cardById(editId) : null;
