@@ -290,7 +290,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v8";
+const APP_VER   = "v9";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -698,30 +698,52 @@ function applyFields(c, f){
 }
 // keep a message visible (no auto-hide) while a long job runs
 function showProgress(msg){ const t=$("#toast"); clearTimeout(window._tt); t.textContent=msg; t.classList.add("show"); }
-// one card per selected photo; auto-OCR each if a key is configured
+// --- duplicate detection for batch import ---
+async function sha256Blob(blob){
+  try{ const buf = await blob.arrayBuffer(); const h = await crypto.subtle.digest("SHA-256", buf);
+    return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  catch(e){ return ""; }
+}
+function _norm(s){ return (s||"").trim().toLowerCase().replace(/\s+/g,""); }
+// a card's identity key from name(+company); empty when there's no name (so
+// unnamed cards are never merged together)
+function nameKeyOf(c){ const n=_norm(c.name); return n ? n+"|"+_norm(c.company) : ""; }
+// one card per selected photo; skip photos already imported (same image or same person)
 async function batchImport(fileList){
   const files = [...(fileList||[])]; if(!files.length) return;
   openSheet(false);
   const cloud = getCloud();
-  let done = 0, ocrOk = 0;
+  const seenHashes = new Set(activeCards().map(c=>c.imgHash).filter(Boolean));
+  const seenNames  = new Set(activeCards().map(nameKeyOf).filter(Boolean));
+  let done = 0, ocrOk = 0, skipped = 0;
   for(let i=0;i<files.length;i++){
     showProgress(`正在导入 ${i+1} / ${files.length}…`);
     try{
       const f = files[i];
       const full = await downscale(f, 1600, 0.82);
-      const thumbBlob = await downscale(f, 460, 0.7);
-      const thumb = await blobToDataURL(thumbBlob);
+      const hash = await sha256Blob(full);
+      if(hash && seenHashes.has(hash)){ skipped++; continue; }   // exact same photo already in
       const now = Date.now();
-      const c = { id: uid(), createdAt: now, modified: now, day: todayStr(), hasFront: true, thumb, phones:[], emails:[], tags:[] };
-      await idbSet(imgKey(c.id, "front"), full).catch(()=>{});
+      const c = { id: uid(), createdAt: now, modified: now, day: todayStr(), hasFront: true, phones:[], emails:[], tags:[] };
       if(cloud){ const fields = await ocrFields(full); if(fields){ applyFields(c, fields); ocrOk++; } }
+      const nk = nameKeyOf(c);
+      if(nk && seenNames.has(nk)){ skipped++; continue; }        // same person already in
+      const thumbBlob = await downscale(f, 460, 0.7);
+      c.thumb = await blobToDataURL(thumbBlob);
+      c.imgHash = hash;
+      await idbSet(imgKey(c.id, "front"), full).catch(()=>{});
       cards.push(c);
       uploadImage(c.id, "front", full);
+      if(hash) seenHashes.add(hash);
+      if(nk) seenNames.add(nk);
       done++;
       save(); render();
     }catch(e){}
   }
-  toast(`已导入 ${done} 张${ocrOk?`（其中 ${ocrOk} 张已自动识别）`:"，可逐张编辑补全"}`);
+  const bits = [`已导入 ${done} 张`];
+  if(skipped) bits.push(`跳过 ${skipped} 张重复`);
+  if(ocrOk) bits.push(`识别 ${ocrOk} 张`);
+  toast(bits.join(" · "));
 }
 $("#batchBtn").onclick = ()=>{ $("#batchInput").value=""; $("#batchInput").click(); };
 $("#batchInput").onchange = e=>{ const fs = [...e.target.files]; e.target.value=""; batchImport(fs); };
