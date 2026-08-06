@@ -309,6 +309,39 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
   }
 });
 
+// Tidy up voice-dictated text: add correct Chinese punctuation / sentence breaks
+// and drop obvious filler, WITHOUT changing meaning. Reuses the same OpenAI-compatible
+// endpoint as OCR. Best-effort: returns the original text on any failure so a note
+// is never lost. Model defaults to OCR_MODEL (override with AI_TEXT_MODEL).
+async function punctuateText(text) {
+  if (!OCR_API_KEY || !text || !text.trim()) return text;
+  const model = process.env.AI_TEXT_MODEL || OCR_MODEL;
+  const sys = '你是中文文本整理助手。用户给你一段语音听写的文字，通常没有标点、可能带口语化的重复或语气词。' +
+    '请只做三件事：1) 断句并补上正确的标点；2) 去掉明显的口头语气词和重复；3) 保持原意，不增删信息、不解释、不翻译。' +
+    '直接输出整理后的文本本身，不要加任何前后缀、引号或代码块。';
+  try {
+    const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${OCR_API_KEY}` },
+      body: JSON.stringify({
+        model, max_tokens: 1200,
+        messages: [{ role: 'system', content: sys }, { role: 'user', content: text }]
+      })
+    });
+    if (!r.ok) { console.error('punctuate upstream', r.status); return text; }
+    const j = await r.json();
+    const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
+    let out = String(msg.content || msg.reasoning_content || '').trim();
+    const fence = out.match(/```(?:\w+)?\s*([\s\S]*?)```/);
+    if (fence) out = fence[1].trim();
+    out = out.replace(/^["“”'']+|["“”'']+$/g, '').trim();
+    return out || text;
+  } catch (err) {
+    console.error('punctuate error:', err.message);
+    return text;
+  }
+}
+
 // ── Background push reminders (anonymous — no login required) ────────────────
 //
 // Devices register their Web Push subscription plus the reminders they want
@@ -535,6 +568,14 @@ app.post('/api/quick-add', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Missing token' });
     if (typeof text !== 'string' || !text.trim()) return res.status(400).json({ error: 'Missing text' });
     text = text.trim().slice(0, 2000);
+
+    // AI tidy-up for voice notes: add punctuation / sentence breaks. On by default
+    // when the AI key is set; the Shortcut can opt out with {"punctuate": false} or
+    // {"raw": true}, or disable globally with QUICKADD_AI=off. Never blocks saving.
+    if (OCR_API_KEY && process.env.QUICKADD_AI !== 'off'
+        && req.body.punctuate !== false && req.body.raw !== true) {
+      try { text = await punctuateText(text); } catch (e) {}
+    }
 
     // optional reminder from the Shortcut
     let remindAt = 0;

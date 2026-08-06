@@ -11,6 +11,8 @@ services:
       OCR_API_KEY: ${OCR_API_KEY:-}
       OCR_BASE_URL: ${OCR_BASE_URL:-}
       OCR_MODEL: ${OCR_MODEL:-qwen3-vl-flash}
+      AI_TEXT_MODEL: ${AI_TEXT_MODEL:-}
+      QUICKADD_AI: ${QUICKADD_AI:-}
       PORT: 3000
     depends_on:
       db:
