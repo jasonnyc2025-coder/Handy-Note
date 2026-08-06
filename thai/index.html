@@ -335,11 +335,14 @@
   #selPop button:active{background:rgba(255,255,255,.28)}
   /* "peek at this word" read-only overlay — sits above the review screen */
   #peekBg{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.5);display:none}
+  /* read-only peek: no text selection inside (it was eating the first tap on 关闭,
+     and starting a selection popup over the overlay) */
   #peekPanel{position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
-    align-items:center;justify-content:center;padding:16px;gap:12px}
+    align-items:center;justify-content:center;padding:16px;gap:12px;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
   #peekBg.show,#peekPanel.show{display:flex}
-  #peekClose{align-self:center;background:var(--surface);color:var(--ink);
-    border:1px solid var(--line);border-radius:99px;padding:11px 22px;font-size:15px;font-weight:700;
+  #peekClose{align-self:center;background:var(--surface);color:var(--ink);cursor:pointer;
+    border:1px solid var(--line);border-radius:99px;padding:13px 26px;font-size:15px;font-weight:700;
     box-shadow:var(--shadow)}
   #peekClose:active{filter:brightness(.9)}
   .peek-card{cursor:default;align-self:center;max-height:78vh}
@@ -639,7 +642,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v36";   // shown in the top bar; bump with each release
+const APP_VER = "v37";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1287,10 +1290,14 @@ function openPeek(card){
 function closePeek(){
   $("#peekBg").classList.remove("show");
   $("#peekPanel").classList.remove("show");
+  hideSelPop();
+  const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
   speechSynthesis.cancel();
 }
 $("#peekBg").onclick = closePeek;
 $("#peekClose").onclick = closePeek;
+// tapping the dark area around the card also closes (peekPanel covers peekBg)
+$("#peekPanel").onclick = e=>{ if(e.target.id === "peekPanel") closePeek(); };
 $("#peekSpk").onclick = e=>{ e.stopPropagation(); const t=$("#peekThai").textContent; if(t && t!=="—") speak(t); };
 document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
 document.addEventListener("scroll", hideSelPop, true);
