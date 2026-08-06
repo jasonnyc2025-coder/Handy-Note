@@ -297,7 +297,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v11";
+const APP_VER   = "v12";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -332,7 +332,13 @@ const imgKey = (id,side)=> id + ":" + side;
 
 /* ---------------- image processing ---------------- */
 function fileToImage(file){
-  return new Promise((res,rej)=>{ const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=URL.createObjectURL(file); });
+  return new Promise((res,rej)=>{
+    const img=new Image(); const url=URL.createObjectURL(file);
+    const to=setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} rej(new Error("decode timeout")); }, 20000);
+    img.onload=()=>{ clearTimeout(to); res(img); };
+    img.onerror=()=>{ clearTimeout(to); try{URL.revokeObjectURL(url);}catch(e){} rej(new Error("decode error")); };
+    img.src=url;
+  });
 }
 async function downscale(file, maxDim, quality){
   const img = await fileToImage(file);
@@ -695,11 +701,14 @@ async function ocrFields(blob){
   const cloud = getCloud(); if(!cloud) return null;
   try{
     const dataUrl = await blobToDataURL(blob);
+    const ctl = new AbortController();
+    const to = setTimeout(()=>ctl.abort(), 30000);
     const r = await fetch(`${cloud.url}/api/cards/ocr`, {
       method:"POST",
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
-      body: JSON.stringify({ image: dataUrl })
-    });
+      body: JSON.stringify({ image: dataUrl }),
+      signal: ctl.signal
+    }).finally(()=>clearTimeout(to));
     if(!r.ok) return null;
     const j = await r.json();
     return j.fields || null;
@@ -734,6 +743,7 @@ function nameKeyOf(c){ const n=_norm(c.name); return n ? n+"|"+_norm(c.company) 
 async function batchImport(fileList){
   const files = [...(fileList||[])]; if(!files.length) return;
   openSheet(false);
+  showProgress(`正在准备 ${files.length} 张…`);
   const cloud = getCloud();
   const seenHashes = new Set(activeCards().map(c=>c.imgHash).filter(Boolean));
   const seenNames  = new Set(activeCards().map(nameKeyOf).filter(Boolean));
