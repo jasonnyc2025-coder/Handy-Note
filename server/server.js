@@ -243,14 +243,16 @@ app.delete('/api/cards/image/:cardId', requireAuth, async (req, res) => {
 });
 
 // POST /api/cards/ocr  — read a business-card photo and return structured fields.
-// Uses Claude vision when ANTHROPIC_API_KEY is configured; otherwise returns 501
-// so the client cleanly falls back to manual entry.
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OCR_MODEL = process.env.OCR_MODEL || 'claude-sonnet-4-5';
+// Uses an OpenAI-compatible vision model (Alibaba Model Studio, qwen3-vl-flash) when
+// OCR_API_KEY is configured; otherwise returns 501 so the client cleanly falls back
+// to manual entry. Provider is chosen entirely by env: OCR_BASE_URL + OCR_MODEL.
+const OCR_API_KEY = process.env.OCR_API_KEY;
+const OCR_BASE_URL = (process.env.OCR_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
+const OCR_MODEL = process.env.OCR_MODEL || 'qwen3-vl-flash';
 
 app.post('/api/cards/ocr', requireAuth, async (req, res) => {
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(501).json({ error: 'ocr_unavailable', message: '服务器未配置 ANTHROPIC_API_KEY，自动识别不可用（可手动填写）' });
+  if (!OCR_API_KEY) {
+    return res.status(501).json({ error: 'ocr_unavailable', message: '服务器未配置 OCR_API_KEY，自动识别不可用（可手动填写）' });
   }
   const dec = decodeDataUrl(req.body && (req.body.image || req.body.data));
   if (!dec || !dec.buf.length) return res.status(400).json({ error: 'No image data' });
@@ -262,12 +264,11 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
     'address(地址), website(网站), other(其它有用信息，如微信/部门等)。' +
     '找不到的字段用空字符串或空数组。电话保留原样（含分机/区号）。';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'authorization': `Bearer ${OCR_API_KEY}`
       },
       body: JSON.stringify({
         model: OCR_MODEL,
@@ -275,8 +276,8 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
-            { type: 'text', text: prompt }
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }
           ]
         }]
       })
@@ -292,7 +293,10 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
       return res.status(502).json({ error: 'ocr_failed', message: `识别模型返回 ${r.status}：${detail || '未知错误'}` });
     }
     const j = await r.json();
-    let text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('').trim();
+    const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
+    // OpenAI-compatible returns a string; Qwen reasoning models sometimes put the
+    // answer in reasoning_content when content is empty.
+    let text = String(msg.content || msg.reasoning_content || '').trim();
     // tolerate a ```json fence if the model adds one
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence) text = fence[1].trim();
