@@ -297,7 +297,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v10";
+const APP_VER   = "v11";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -868,25 +868,42 @@ cardsSync();
 setInterval(cardsPull, 20000);
 
 /* ---------------- auto-update ----------------
-   Each release bumps the SW cache name; sw.js calls skipWaiting()+clients.claim(),
-   so the new worker takes control and fires 'controllerchange' — we reload then. */
+   Two independent paths so an update always lands:
+   1) service worker: sw.js calls skipWaiting()+clients.claim(); a new worker
+      taking control fires 'controllerchange' → reload.
+   2) version poll (robust on iOS, where a resumed PWA never re-navigates): on
+      open / returning to the foreground / hourly, fetch the live page with a
+      cache-busting query and compare its APP_VER to the running one — reload if
+      it changed. This doesn't depend on the SW timing at all. */
+let _didReload = false;
+function _applyUpdate(){
+  if(_didReload) return; _didReload = true;
+  try{ toast("正在更新到新版…"); }catch(e){}
+  setTimeout(()=>location.reload(), 600);
+}
+let _checking = false;
+async function checkForUpdate(){
+  if(_checking || _didReload) return; _checking = true;
+  try{
+    const r = await fetch("./index.html?u=" + Date.now(), { cache:"no-store" });
+    if(r.ok){
+      const t = await r.text();
+      const m = t.match(/APP_VER\s*=\s*"([^"]+)"/);
+      if(m && m[1] && m[1] !== APP_VER) _applyUpdate();
+    }
+  }catch(e){}
+  finally{ _checking = false; }
+}
 if("serviceWorker" in navigator){
   const hadController = !!navigator.serviceWorker.controller;
-  let _didReload = false;
-  function _applyUpdate(){
-    if(_didReload) return; _didReload = true;
-    try{ toast("正在更新到新版…"); }catch(e){}
-    setTimeout(()=>location.reload(), 600);
-  }
   navigator.serviceWorker.addEventListener("controllerchange", ()=>{ if(hadController) _applyUpdate(); });
   window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("sw.js").then(reg=>{
-      reg.update().catch(()=>{});
-      document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") reg.update().catch(()=>{}); });
-      setInterval(()=>reg.update().catch(()=>{}), 60*60*1000);
-    }).catch(()=>{});
+    navigator.serviceWorker.register("sw.js").then(reg=>{ reg.update().catch(()=>{}); }).catch(()=>{});
   });
 }
+window.addEventListener("load", checkForUpdate);
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") checkForUpdate(); });
+setInterval(checkForUpdate, 30*60*1000);
 </script>
 </body>
 </html>
