@@ -69,7 +69,11 @@
 
   /* ---------- card grid ---------- */
   .listwrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 2px 120px}
-  .count{font-size:13px;color:var(--muted);margin:4px 2px 10px}
+  .listhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 10px}
+  .count{font-size:13px;color:var(--muted)}
+  .sort-btn{flex:0 0 auto;font-size:13px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);
+    border-radius:99px;padding:5px 12px;white-space:nowrap}
+  .sort-btn:active{filter:brightness(.9)}
   /* compact contact list: a mini card thumbnail + name/company per row, tap to open */
   .grid{display:flex;flex-direction:column;gap:10px}
   .tile{background:var(--surface);border:1px solid var(--line);border-radius:14px;
@@ -201,7 +205,10 @@
   <input class="search" id="searchBox" placeholder="🔍 搜索姓名 / 公司 / 电话 / 标签">
   <div class="tagbar" id="tagbar"></div>
   <div class="listwrap">
-    <div class="count" id="count"></div>
+    <div class="listhead">
+      <span class="count" id="count"></span>
+      <button class="sort-btn" id="sortBtn">⇅ 姓名</button>
+    </div>
     <div class="grid" id="grid"></div>
     <div class="empty" id="empty" style="display:none">
       <div class="em-ic">📇</div>
@@ -290,7 +297,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v9";
+const APP_VER   = "v10";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -428,17 +435,31 @@ function matches(c){
   const hay = [c.name,c.company,c.title,c.address,c.website,c.note,(c.phones||[]).join(" "),(c.emails||[]).join(" "),cardTags(c).join(" ")].join(" ").toLowerCase();
   return hay.includes(searchQ.toLowerCase());
 }
+let sortMode = localStorage.getItem("namecards.sort") || "name";   // "name" | "recent"
 function sortCards(list){
-  return list.slice().sort((a,b)=>{
+  const arr = list.slice();
+  if(sortMode === "name"){
+    return arr.sort((a,b)=>{
+      const an=(a.name||"").trim(), bn=(b.name||"").trim();
+      if(!an && !bn) return (b.createdAt||0)-(a.createdAt||0);
+      if(!an) return 1;                 // unnamed cards sink to the bottom
+      if(!bn) return -1;
+      return an.localeCompare(bn, undefined, { sensitivity:"base", numeric:true });
+    });
+  }
+  return arr.sort((a,b)=>{
     if(!!b.star !== !!a.star) return (b.star?1:0)-(a.star?1:0);
     return (b.createdAt||0)-(a.createdAt||0);
   });
 }
+function updateSortBtn(){ const b=$("#sortBtn"); if(b) b.textContent = sortMode==="name" ? "⇅ 姓名" : "⇅ 最近"; }
 function render(){
   renderTagbar();
+  updateSortBtn();
   const list = sortCards(activeCards().filter(matches));
   const grid = $("#grid"), empty = $("#empty");
   $("#count").textContent = activeCards().length ? `${list.length} / ${activeCards().length} 张名片` : "";
+  $("#sortBtn").style.display = activeCards().length ? "block" : "none";
   if(activeCards().length===0){ grid.innerHTML=""; empty.style.display="block"; return; }
   empty.style.display="none";
   grid.innerHTML = list.map(c=>{
@@ -468,6 +489,7 @@ function renderTagbar(){
   bar.querySelectorAll(".tagchip").forEach(el=> el.onclick = ()=>{ activeTag = el.dataset.t; render(); });
 }
 $("#searchBox").addEventListener("input", e=>{ searchQ = e.target.value.trim(); render(); });
+$("#sortBtn").onclick = ()=>{ sortMode = sortMode==="name" ? "recent" : "name"; localStorage.setItem("namecards.sort", sortMode); render(); };
 
 /* ---------------- detail ---------------- */
 let detailId = null;
