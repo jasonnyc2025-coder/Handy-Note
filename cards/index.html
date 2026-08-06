@@ -273,6 +273,7 @@
   <button class="ghost" id="exportBtn">⬇ 导出备份（含文字，不含原图）</button>
   <button class="ghost" id="importBtn">⬆ 导入备份</button>
   <button class="ghost" id="syncBtn">☁ 立即同步</button>
+  <button class="ghost" id="updateBtn">🔄 检查更新</button>
   <input type="file" id="importFile" accept="application/json" style="display:none">
   <input type="file" id="batchInput" accept="image/*" multiple style="display:none">
   <div class="about" id="aboutBox">名片夹 · 离线优先 PWA</div>
@@ -297,7 +298,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v13";
+const APP_VER   = "v14";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -942,6 +943,22 @@ if("serviceWorker" in navigator){
 window.addEventListener("load", checkForUpdate);
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") checkForUpdate(); });
 setInterval(checkForUpdate, 30*60*1000);
+
+// Manual "check for updates": reads the version the server is actually serving and
+// says plainly which step is behind — so a stuck update is never a mystery.
+const _upBtn = document.getElementById("updateBtn");
+if(_upBtn) _upBtn.onclick = async ()=>{
+  toast("正在检查…");
+  try{
+    const r = await fetch("./index.html?u=" + Date.now(), { cache:"no-store" });
+    if(!r.ok){ toast("检查失败，请检查网络"); return; }
+    const t = await r.text();
+    const m = t.match(/APP_VER\s*=\s*"([^"]+)"/);
+    const serverVer = m ? m[1] : "?";
+    if(serverVer !== APP_VER){ toast(`发现新版 ${serverVer}，正在更新…`); _applyUpdate(); }
+    else toast(`已是最新版 ${APP_VER}`);
+  }catch(e){ toast("检查失败，请检查网络"); }
+};
 </script>
 </body>
 </html>
