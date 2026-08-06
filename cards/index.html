@@ -297,15 +297,39 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v12";
+const APP_VER   = "v13";
 
 /* ---------------- storage ---------------- */
 let cards = [];
 function load(){
   try{ cards = JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
   catch(e){ cards = []; }
+  cards.forEach(stashThumb);   // migrate any inline thumbs (old format) into IndexedDB
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); bumpRev(); scheduleCardsPush(); }
+// Thumbnails live in IndexedDB (huge quota), never in localStorage. localStorage
+// only holds lightweight metadata, so the collection can grow without ever
+// hitting the ~5MB origin ceiling shared with 随手记 / 泰语.
+let _quotaWarned = false;
+function stashThumb(c){ if(c && c.thumb) idbSet(imgKey(c.id,"thumb"), c.thumb).catch(()=>{}); }
+function persistLocal(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(cards, (k,v)=> k==="thumb" ? undefined : v));
+    _quotaWarned = false; return true;
+  }catch(e){
+    if(!_quotaWarned){ _quotaWarned = true; toast("本机存储空间不足，请先导出备份"); }
+    return false;
+  }
+}
+function save(){ persistLocal(); bumpRev(); scheduleCardsPush(); }
+// on later loads localStorage has no thumbnails — pull them back from IndexedDB
+async function hydrateThumbs(){
+  let changed = false;
+  for(const c of cards){
+    if(c.thumb){ stashThumb(c); continue; }   // migrate old inline thumbs → IDB
+    try{ const t = await idbGet(imgKey(c.id,"thumb")); if(t){ c.thumb = t; changed = true; } }catch(e){}
+  }
+  if(changed) render();
+}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function getRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
@@ -383,7 +407,8 @@ async function cardsPull(){
     const data = await res.json();
     if(Array.isArray(data.cards) && (data.cardsRev||0) > getRev()){
       cards = data.cards;
-      localStorage.setItem(STORE_KEY, JSON.stringify(cards));
+      cards.forEach(stashThumb);   // keep thumbnails in IDB; strip them from localStorage
+      persistLocal();
       localStorage.setItem(REV_KEY, String(data.cardsRev||0));
       render();
       if($("#detail").classList.contains("show")) { /* keep open card in sync if still there */ }
@@ -763,6 +788,7 @@ async function batchImport(fileList){
       const thumbBlob = await downscale(f, 460, 0.7);
       c.thumb = await blobToDataURL(thumbBlob);
       c.imgHash = hash;
+      await idbSet(imgKey(c.id, "thumb"), c.thumb).catch(()=>{});
       await idbSet(imgKey(c.id, "front"), full).catch(()=>{});
       cards.push(c);
       uploadImage(c.id, "front", full);
@@ -786,7 +812,7 @@ $("#cancelBtn").onclick = ()=>{ $("#editView").classList.remove("show"); };
 function removeCard(id){
   const c = cardById(id); if(!c) return;
   c._deleted = true; c._deletedAt = Date.now(); c.modified = Date.now();
-  idbDel(imgKey(id,"front")); idbDel(imgKey(id,"back"));
+  idbDel(imgKey(id,"front")); idbDel(imgKey(id,"back")); idbDel(imgKey(id,"thumb"));
   const cloud = getCloud();
   if(cloud){ fetch(`${cloud.url}/api/cards/image/${id}`,{ method:"DELETE", headers:{ Authorization:"Bearer "+cloud.token } }).catch(()=>{}); }
   save();
@@ -830,7 +856,8 @@ $("#saveBtn").onclick = async ()=>{
       uploadImage(c.id, side, p.blob);
     }
   }
-  if(editThumb===null && (pendingImg.front && pendingImg.front.cleared)) c.thumb = null;
+  if(editThumb===null && (pendingImg.front && pendingImg.front.cleared)){ c.thumb = null; idbDel(imgKey(c.id,"thumb")); }
+  stashThumb(c);
   save();
   $("#editView").classList.remove("show");
   render();
@@ -862,7 +889,7 @@ $("#importFile").onchange = e=>{
       let added=0;
       data.forEach(d=>{
         d.id = d.id || uid();
-        if(!cards.some(c=>c.id===d.id)){ cards.push({ createdAt:Date.now(), day:todayStr(), ...d }); added++; }
+        if(!cards.some(c=>c.id===d.id)){ const nc = { createdAt:Date.now(), day:todayStr(), ...d }; cards.push(nc); stashThumb(nc); added++; }
       });
       save(); render(); toast(`导入 ${added} 张`); openSheet(false);
     }catch(err){ toast("文件格式不正确"); }
@@ -874,6 +901,7 @@ $("#importFile").onchange = e=>{
 const _av = $("#appVer"); if(_av) _av.textContent = APP_VER;
 load();
 render();
+hydrateThumbs();
 cardsSync();
 setInterval(cardsPull, 20000);
 
