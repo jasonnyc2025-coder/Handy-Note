@@ -2101,6 +2101,61 @@
     box-shadow: 0 8px 34px rgba(0,0,0,0.5);
   }
   #sel-speak-btn:active { background: #000; }
+
+  /* ===== 今日 · Today card view ===== */
+  #today-view {
+    position: fixed; inset: 0; z-index: 95;
+    background: var(--bg);
+    background-image: radial-gradient(var(--line) 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+    display: none; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 20px);
+  }
+  #today-view.show { display: flex; animation: rise 0.22s ease both; }
+  .today-head { display: flex; align-items: baseline; gap: 10px; margin: 4px 4px 16px; }
+  .today-head .td-date {
+    font-family: 'Fraunces', serif; font-size: 1.9rem; font-weight: 600; color: var(--ink); line-height: 1;
+  }
+  .today-head .td-week { font-size: 1rem; font-weight: 700; color: var(--accent); }
+  .today-head .td-close {
+    margin-left: auto; border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+    width: 40px; height: 40px; border-radius: 50%; font-size: 1.15rem; cursor: pointer; line-height: 1;
+  }
+  .today-head .td-close:active { background: var(--accent-soft); }
+  .today-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .td-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 20px;
+    padding: 8px 6px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  }
+  .td-card-head {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px;
+  }
+  .td-card-head .tch-title { font-weight: 800; font-size: 1.05rem; color: var(--ink); }
+  .td-card-head .tch-prog { margin-left: auto; font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); }
+  .td-row {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border-top: 1px solid var(--line);
+  }
+  .td-row:first-child { border-top: none; }
+  .td-check {
+    width: 22px; height: 22px; flex-shrink: 0; border-radius: 7px;
+    border: 2px solid var(--line); cursor: pointer; position: relative; transition: .15s;
+  }
+  .td-check.on { background: var(--accent); border-color: var(--accent); }
+  .td-check.on::after {
+    content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px;
+    border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+  }
+  .td-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: var(--accent); opacity: .55; margin: 0 6px; }
+  .td-text { flex: 1; min-width: 0; color: var(--ink); font-size: 1rem; line-height: 1.35;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .td-row.done .td-text { color: var(--ink-soft); text-decoration: line-through; opacity: .7; }
+  .td-time { flex-shrink: 0; font-size: 0.85rem; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .td-time.past { color: var(--accent); }
+  .td-empty { text-align: center; color: var(--ink-soft); padding: 60px 20px; }
+  .td-empty .big { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--ink); }
+  .td-sec-label { font-size: 0.8rem; font-weight: 800; color: var(--ink-soft); letter-spacing: .05em;
+    padding: 4px 4px 8px; text-transform: uppercase; }
 </style>
 </head>
 <body>
@@ -2134,12 +2189,13 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v189</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v190</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
       <button class="desktop-new-btn" id="desktop-new-btn" title="新建记录" style="display:none">＋ 新建</button>
       <button class="gear header-add-btn" id="header-add-btn" title="新建记录">＋</button>
+      <button class="gear" id="today-btn" title="今日">📅</button>
       <button class="gear" id="search-btn" data-i18n-title="search" title="搜索">🔍</button>
       <div id="tts-header-bar" style="display:none;align-items:center;gap:4px;background:rgba(28,26,24,0.88);border-radius:20px;padding:4px 10px;color:#fff;font-size:0.8rem">
         <span style="opacity:.8">🔊</span>
@@ -2178,6 +2234,15 @@
   <input type="file" id="import-file" accept="application/json,.json" style="display:none">
 
   <div class="list" id="list"></div>
+</div>
+
+<div id="today-view">
+  <div class="today-head">
+    <span class="td-date" id="td-date"></span>
+    <span class="td-week" id="td-week"></span>
+    <button class="td-close" id="td-close" title="关闭">✕</button>
+  </div>
+  <div class="today-scroll" id="td-scroll"></div>
 </div>
 
 <div id="desktop-pane" class="desktop-pane"></div>
@@ -6355,6 +6420,107 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+// ===== 今日 · Today card view =====
+(function () {
+  const view = document.getElementById('today-view');
+  if (!view) return;
+  const scroll = document.getElementById('td-scroll');
+  const pad2 = n => String(n).padStart(2, '0');
+
+  function sameDay(ts, ref) {
+    const d = new Date(ts), r = new Date(ref);
+    return d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth() && d.getDate() === r.getDate();
+  }
+  function firstLine(n) {
+    const s = (plainOf(n.text) || '').trim().split('\n')[0];
+    if (s) return s;
+    if (n.atts && n.atts.length) return '📎 ' + (n.atts[0].name || '附件');
+    return '（无文字）';
+  }
+  // Today = items with a reminder today (shown with time) + any outstanding todo not
+  // scheduled for a future day (shown without time). Keeps it a real daily to-do list.
+  function collect() {
+    const now = Date.now();
+    const act = notes.filter(n => !n._deleted);
+    const timed = act.filter(n => n.remindAt && sameDay(n.remindAt, now))
+                     .sort((a, b) => a.remindAt - b.remindAt);
+    const timedIds = new Set(timed.map(n => n.id));
+    const todos = act.filter(n => n.type === 'todo' && !n.done && !timedIds.has(n.id)
+                     && !(n.remindAt && n.remindAt > now))
+                     .sort((a, b) => b.ts - a.ts);
+    return { timed, todos };
+  }
+  function rowHTML(n, showTime) {
+    const done = !!n.done;
+    let time = '';
+    if (showTime && n.remindAt) {
+      const d = new Date(n.remindAt);
+      const past = n.remindAt < Date.now() && (!n.repeat || n.repeat === 'none') && !done;
+      time = `<span class="td-time ${past ? 'past' : ''}">${pad2(d.getHours())}:${pad2(d.getMinutes())}</span>`;
+    }
+    const box = n.type === 'todo'
+      ? `<div class="td-check ${done ? 'on' : ''}" data-tid="${n.id}"></div>`
+      : `<div class="td-dot"></div>`;
+    return `<div class="td-row ${done ? 'done' : ''}">
+      ${box}<div class="td-text">${esc(firstLine(n))}</div>${time}</div>`;
+  }
+  function renderToday() {
+    const now = new Date();
+    document.getElementById('td-date').textContent = `${now.getMonth() + 1}月${now.getDate()}日`;
+    document.getElementById('td-week').textContent = '周' + '日一二三四五六'[now.getDay()];
+    const { timed, todos } = collect();
+
+    if (!timed.length && !todos.length) {
+      scroll.innerHTML = `<div class="td-empty"><div class="big">今天很轻松 🎐</div><div>没有安排在今天的提醒和待办</div></div>`;
+      return;
+    }
+    let html = '';
+    if (timed.length) {
+      const doneN = timed.filter(n => n.done).length;
+      html += `<div class="td-card">
+        <div class="td-card-head"><span class="tch-title">📅 今日安排</span>
+          <span class="tch-prog">${doneN}/${timed.length}</span></div>
+        ${timed.map(n => rowHTML(n, true)).join('')}</div>`;
+    }
+    if (todos.length) {
+      html += `<div class="td-sec-label">待办（未完成）</div>
+        <div class="td-card">${todos.map(n => rowHTML(n, false)).join('')}</div>`;
+    }
+    scroll.innerHTML = html;
+  }
+
+  function open() {
+    renderToday();
+    view.classList.add('show');
+    if (location.hash !== '#today') { try { history.replaceState(null, '', '#today'); } catch (e) {} }
+  }
+  function close() {
+    view.classList.remove('show');
+    if (location.hash === '#today') { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+  }
+  window.openToday = open;
+
+  document.getElementById('today-btn').addEventListener('click', open);
+  document.getElementById('td-close').addEventListener('click', close);
+  // tap a checkbox → toggle the underlying note's done state
+  scroll.addEventListener('click', e => {
+    const box = e.target.closest('.td-check');
+    if (!box) return;
+    const n = notes.find(x => x.id === box.dataset.tid);
+    if (!n) return;
+    n.done = !n.done; n.modified = Date.now();
+    save();
+    renderToday();
+    if (typeof render === 'function') render();
+  });
+  // deep link: open straight to Today when launched with #today (add-to-home-screen)
+  if (location.hash === '#today') setTimeout(open, 0);
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#today') { if (!view.classList.contains('show')) open(); }
+    else if (view.classList.contains('show')) view.classList.remove('show');
+  });
+})();
 
 // ===== 密码锁 =====
 const LOCK_KEY = 'quicknotes.lock';
