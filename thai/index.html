@@ -646,7 +646,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v40";   // shown in the top bar; bump with each release
+const APP_VER = "v41";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -903,8 +903,17 @@ $("#cancelEdit").onclick = ()=>{ if(returnToReviewIfNeeded()) return; resetForm(
 $("#saveCard").onclick = ()=>{
   const thai=$("#fThai").value.trim();
   const meaning=$("#fMean").value.trim();
-  if(!thai){ $("#addMsg").textContent="请填写泰文单词"; return; }
-  if(!meaning){ $("#addMsg").textContent="请填写中文释义"; return; }
+  // required fields sit at the top of the form; when the user is scrolled down by
+  // the save button an inline message is invisible — jump to the field + toast.
+  const flagMissing = (id, msg)=>{
+    $("#addMsg").textContent = msg; toast(msg);
+    const el = $("#"+id);
+    el.scrollIntoView({ behavior:"smooth", block:"center" });
+    setTimeout(()=>el.focus(), 300);
+  };
+  if(!thai){ flagMissing("fThai", "请填写泰文单词"); return; }
+  if(!meaning){ flagMissing("fMean", "请填写中文释义"); return; }
+  $("#addMsg").textContent = "";
   const data={
     thai, meaning,
     reading:$("#fRead").value.trim(),
