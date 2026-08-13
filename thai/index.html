@@ -215,6 +215,8 @@
     border-radius:13px;padding:13px;font-size:14px;font-weight:600;
   }
   .form-msg{text-align:center;font-size:13px;color:var(--teal-ink);margin-top:12px;min-height:18px}
+  .field-missing{border-color:#e5533d !important;box-shadow:0 0 0 3px rgba(229,83,61,.28) !important;animation:missingPulse .4s ease}
+  @keyframes missingPulse{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 
   /* ---------- review ---------- */
   .review-screen{
@@ -481,8 +483,8 @@
       </div>
     </div>
     <div class="field">
-      <label>中文释义</label>
-      <input id="fMean" placeholder="" autocomplete="off">
+      <label>中文释义 <span class="opt">（选填）</span></label>
+      <input id="fMean" placeholder="可留空，之后再补" autocomplete="off">
     </div>
     <div class="field">
       <label>读音 / 罗马音 <span class="opt">（选填）</span></label>
@@ -646,7 +648,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v41";   // shown in the top bar; bump with each release
+const APP_VER = "v42";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -903,16 +905,20 @@ $("#cancelEdit").onclick = ()=>{ if(returnToReviewIfNeeded()) return; resetForm(
 $("#saveCard").onclick = ()=>{
   const thai=$("#fThai").value.trim();
   const meaning=$("#fMean").value.trim();
-  // required fields sit at the top of the form; when the user is scrolled down by
-  // the save button an inline message is invisible — jump to the field + toast.
-  const flagMissing = (id, msg)=>{
-    $("#addMsg").textContent = msg; toast(msg);
-    const el = $("#"+id);
+  // Only the Thai word is required — a card can be defined by its examples, and the
+  // meaning can be added later. When it IS missing, the message must be impossible
+  // to miss (the field is at the top, the button at the bottom): toast + scroll +
+  // a red highlight on the field itself.
+  if(!thai){
+    const el = $("#fThai");
+    $("#addMsg").textContent = "请先填写最上面的『泰文单词』";
+    toast("请先填写『泰文单词』");
     el.scrollIntoView({ behavior:"smooth", block:"center" });
-    setTimeout(()=>el.focus(), 300);
-  };
-  if(!thai){ flagMissing("fThai", "请填写泰文单词"); return; }
-  if(!meaning){ flagMissing("fMean", "请填写中文释义"); return; }
+    el.classList.add("field-missing");
+    setTimeout(()=>el.focus(), 320);
+    setTimeout(()=>el.classList.remove("field-missing"), 2200);
+    return;
+  }
   $("#addMsg").textContent = "";
   const data={
     thai, meaning,
