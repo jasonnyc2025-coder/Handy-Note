@@ -196,7 +196,7 @@
   .field .with-spk .mini{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
   /* example rows */
   .ex-row{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
-  .ex-row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .ex-row-head{display:flex;justify-content:flex-start;gap:8px;align-items:center;margin-bottom:8px}
   .ex-row-head span{font-size:12px;font-weight:600;color:var(--muted)}
   .ex-row-head .mini{width:28px;height:28px;font-size:13px;background:var(--surface)}
   .ex-row .with-spk{position:relative}
@@ -646,7 +646,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v39";   // shown in the top bar; bump with each release
+const APP_VER = "v40";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -829,7 +829,7 @@ function addExRow(thai="", meaning="", listEl){
   const row = document.createElement("div");
   row.className = "ex-row";
   row.innerHTML = `
-    <div class="ex-row-head"><span></span><button class="mini" data-act="rmEx" aria-label="删除例句">✕</button></div>
+    <div class="ex-row-head"><button class="mini" data-act="rmEx" aria-label="删除例句">✕</button><span></span></div>
     <div class="with-spk">
       <textarea class="thai ex-thai-in"></textarea>
       <button class="mini spk" data-act="exSpk" aria-label="例句发音">🔊</button>
