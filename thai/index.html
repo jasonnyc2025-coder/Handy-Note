@@ -18,7 +18,7 @@
     --teal-soft:rgba(13,148,136,.12);                   /* active-tab pill */
     --note-bg:#fdf6e9; --note-line:#f0e2c4; --amber-ink:#a15c0a;   /* 备注 card (light) */
     --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
-    --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5;
+    --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5; --field-line:#b9c6c2;
     --teal:#0d9488; --teal-ink:#0a6f66; --amber:#f59e0b;
     --again:#e5484d; --hard:#f5a623; --good:#0d9488; --easy:#3b82f6;
     --shadow:0 6px 24px rgba(18,32,30,.08);
@@ -31,7 +31,7 @@
       --home-card-bg:#123a34; --home-card-line:#1f5148;
       --teal-soft:rgba(45,212,191,.16);
       --note-bg:#2a2416; --note-line:#3d3420; --amber-ink:#fbbf24;
-      --ink:#eef2f1; --muted:#8a9a97; --line:#26332f;
+      --ink:#eef2f1; --muted:#8a9a97; --line:#26332f; --field-line:#43584f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
       --shadow:0 6px 24px rgba(0,0,0,.4);
     }
@@ -183,27 +183,29 @@
   .empty p{margin-top:10px;font-size:14px;line-height:1.6}
 
   /* ---------- forms ---------- */
-  .field{margin-top:14px}
-  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.02em}
-  .field label .opt{font-weight:400;opacity:.7}
+  .field{margin-top:18px}
+  .field label{display:block;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px;letter-spacing:.01em}
+  .field label .opt{font-size:12px;font-weight:500;color:var(--muted)}
   .field input,.field textarea{
-    width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;
-    padding:13px 14px;font-size:16px;color:var(--ink);
+    width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:12px;
+    padding:14px 14px;font-size:16px;color:var(--ink);
   }
-  .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal)}
+  .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
   .field textarea{min-height:70px;resize:vertical;line-height:1.5}
   .field .with-spk{position:relative}
   .field .with-spk .mini{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
+  /* the "添加生词 / 编辑生词" screen title */
+  #view-add .section-h{font-size:19px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin:10px 4px 4px}
   /* example rows */
-  .ex-row{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
-  .ex-row-head{display:flex;justify-content:flex-start;gap:8px;align-items:center;margin-bottom:8px}
-  .ex-row-head span{font-size:12px;font-weight:600;color:var(--muted)}
+  .ex-row{background:var(--surface-2);border:1.5px solid var(--field-line);border-radius:14px;padding:14px;margin-top:12px}
+  .ex-row-head{display:flex;justify-content:flex-start;gap:8px;align-items:center;margin-bottom:10px}
+  .ex-row-head span{font-size:13px;font-weight:700;color:var(--ink)}
   .ex-row-head .mini{width:28px;height:28px;font-size:13px;background:var(--surface)}
   .ex-row .with-spk{position:relative}
   .ex-row .with-spk .mini{position:absolute;right:8px;top:14px}
-  .ex-row textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:12px 44px 12px 12px;font-size:16px;color:var(--ink);min-height:56px;resize:vertical;line-height:1.5}
-  .ex-row .ex-mean-in{width:100%;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:15px;color:var(--ink)}
-  .ex-row textarea:focus,.ex-row .ex-mean-in:focus{outline:none;border-color:var(--teal)}
+  .ex-row textarea{width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 46px 14px 14px;font-size:16px;color:var(--ink);min-height:72px;resize:vertical;line-height:1.5}
+  .ex-row .ex-mean-in{width:100%;margin-top:12px;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 14px;font-size:16px;color:var(--ink)}
+  .ex-row textarea:focus,.ex-row .ex-mean-in:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
   .primary{
     width:100%;margin-top:22px;background:var(--teal);color:#fff;border-radius:13px;
     padding:15px;font-size:16px;font-weight:700;letter-spacing:.02em;
@@ -648,7 +650,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v42";   // shown in the top bar; bump with each release
+const APP_VER = "v43";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -833,10 +835,10 @@ function addExRow(thai="", meaning="", listEl){
   row.innerHTML = `
     <div class="ex-row-head"><button class="mini" data-act="rmEx" aria-label="删除例句">✕</button><span></span></div>
     <div class="with-spk">
-      <textarea class="thai ex-thai-in"></textarea>
+      <textarea class="thai ex-thai-in" placeholder="在此输入泰文例句…"></textarea>
       <button class="mini spk" data-act="exSpk" aria-label="例句发音">🔊</button>
     </div>
-    <input class="ex-mean-in" placeholder="翻译（选填）" autocomplete="off">`;
+    <input class="ex-mean-in" placeholder="这句话的中文翻译（选填）" autocomplete="off">`;
   row.querySelector(".ex-thai-in").value = thai;
   row.querySelector(".ex-mean-in").value = meaning;
   row.querySelector('[data-act="rmEx"]').onclick = ()=>{ row.remove(); renumberEx(listEl); };
