@@ -1,5 +1,5 @@
 // 名片夹 service worker — caches the app shell so it works fully offline.
-const CACHE = "namecards-v20";
+const CACHE = "namecards-v21";
 const SHELL = [
   "./",
   "./index.html",

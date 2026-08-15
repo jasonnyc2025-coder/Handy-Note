@@ -104,9 +104,12 @@
   .home-back{position:fixed;left:50%;transform:translateX(-50%);
     bottom:calc(env(safe-area-inset-bottom) + 20px);z-index:29;
     display:flex;align-items:center;gap:6px;
-    background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:99px;
-    padding:15px 38px;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-  .home-back:active{transform:translateX(-50%) translateY(1px);filter:brightness(.92)}
+    background:var(--brand);color:#fff;border:none;border-radius:99px;
+    padding:15px 40px;font-size:16px;font-weight:800;text-decoration:none;box-shadow:0 10px 26px rgba(79,70,229,.55)}
+  .home-back:active{transform:translateX(-50%) translateY(1px);filter:brightness(.94)}
+  /* fade the list out behind the floating buttons so they don't blend into cards */
+  .bottom-scrim{position:fixed;left:0;right:0;bottom:0;height:130px;pointer-events:none;z-index:28;
+    background:linear-gradient(to top, var(--bg) 45%, transparent)}
 
   /* ---------- detail overlay ---------- */
   #detailBg{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);display:none}
@@ -232,6 +235,7 @@
   </div>
 </div>
 
+<div class="bottom-scrim"></div>
 <button class="fab" id="addFab" aria-label="添加名片">＋</button>
 <a class="home-back" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记">← 返回随手记</a>
 
@@ -315,7 +319,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v20";
+const APP_VER   = "v21";
 
 /* ---------------- storage ---------------- */
 let cards = [];
