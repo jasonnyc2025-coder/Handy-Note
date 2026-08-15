@@ -664,7 +664,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v50";   // shown in the top bar; bump with each release
+const APP_VER = "v51";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1326,13 +1326,15 @@ function findCardByThai(text){
 let _peekReturnId = null;   // which 生词 list row opened this peek (to highlight on close)
 function flashViewed(id){
   if(!id) return;
+  // clear any previous highlight first, so only the latest card ever glows
+  clearTimeout(window._viewedT);
+  document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed"));
   const el = document.querySelector(`#wordList .witem[data-id="${id}"]`)
           || document.querySelector(`#homeRecent .witem[data-id="${id}"]`);
   if(!el) return;
   el.scrollIntoView({ behavior:"smooth", block:"center" });
   el.classList.add("just-viewed");
-  clearTimeout(window._viewedT);
-  window._viewedT = setTimeout(()=> el.classList.remove("just-viewed"), 3000);
+  window._viewedT = setTimeout(()=> document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed")), 3000);
 }
 function openPeek(card){
   if(!card) return;
