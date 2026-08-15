@@ -666,7 +666,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v52";   // shown in the top bar; bump with each release
+const APP_VER = "v53";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -801,8 +801,8 @@ function wordItemHTML(c){
 function bindWordItems(scope){
   scope.querySelectorAll(".witem").forEach(el=>{
     const id = el.dataset.id;
-    el.querySelector('[data-act="speak"]').onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===id); if(c) speak(c.thai); };
-    el.querySelector('[data-act="edit"]').onclick = e=>{ e.stopPropagation(); startEdit(id); };
+    el.querySelector('[data-act="speak"]').onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===id); if(c) speak(c.thai); flashViewed(id, false); };
+    el.querySelector('[data-act="edit"]').onclick = e=>{ e.stopPropagation(); _flashPendingId = id; startEdit(id); };
     el.querySelector('[data-act="del"]').onclick = e=>{ e.stopPropagation(); delCard(id); };
     // tap the row (not its action buttons) -> peek at the full read-only card
     el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c){ openPeek(c); _peekReturnId = id; } });
@@ -815,6 +815,7 @@ function cardHaystack(c){
   (c.examples||[]).forEach(e=>{ if(e){ parts.push(e.thai); parts.push(e.meaning); } });
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
+let _flashPendingId = null;   // a card edited from the list — highlight it when we come back
 function renderList(){
   const q = $("#searchBox").value.trim().toLowerCase();
   const box = $("#wordList");
@@ -827,6 +828,8 @@ function renderList(){
   }
   box.innerHTML = list.map(wordItemHTML).join("");
   bindWordItems(box);
+  // returning from editing a card → briefly highlight it
+  if(_flashPendingId != null){ const fid = _flashPendingId; _flashPendingId = null; requestAnimationFrame(()=> flashViewed(fid, true)); }
 }
 function toggleSearchClear(){ const b=$("#searchClear"); if(b) b.style.display = $("#searchBox").value ? "grid" : "none"; }
 $("#searchBox").addEventListener("input", ()=>{ toggleSearchClear(); renderList(); });
@@ -1326,15 +1329,15 @@ function findCardByThai(text){
 }
 // read-only peek at a vocab card, layered over the review (queue untouched)
 let _peekReturnId = null;   // which 生词 list row opened this peek (to highlight on close)
-function flashViewed(id){
-  if(!id) return;
+function flashViewed(id, scroll){
+  if(id==null) return;
   // clear any previous highlight first, so only the latest card ever glows
   clearTimeout(window._viewedT);
   document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed"));
   const el = document.querySelector(`#wordList .witem[data-id="${id}"]`)
           || document.querySelector(`#homeRecent .witem[data-id="${id}"]`);
   if(!el) return;
-  el.scrollIntoView({ behavior:"smooth", block:"center" });
+  if(scroll !== false) el.scrollIntoView({ behavior:"smooth", block:"center" });
   el.classList.add("just-viewed");
   window._viewedT = setTimeout(()=> document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed")), 3000);
 }
