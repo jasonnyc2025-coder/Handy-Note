@@ -56,10 +56,10 @@
   /* absolutely centered so the wider 返回 button on the left can't shift it */
   .title-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;white-space:nowrap;pointer-events:none}
   /* labeled back button with its own background, reads as one solid control */
-  .app-back{display:flex;align-items:center;gap:6px;height:46px;padding:0 20px;border-radius:13px;
-    background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:16px;font-weight:700;
-    text-decoration:none;flex:0 0 auto}
-  .app-back:active{background:var(--surface-2)}
+  .app-back{display:flex;align-items:center;gap:6px;height:46px;padding:0 22px;border-radius:13px;
+    background:var(--teal);border:none;color:#04201c;font-size:16px;font-weight:800;
+    text-decoration:none;flex:0 0 auto;box-shadow:0 4px 14px rgba(45,212,191,.35)}
+  .app-back:active{filter:brightness(.92)}
   .logo{
     width:34px;height:34px;border-radius:10px;background:var(--teal);flex:0 0 auto;
     display:grid;place-items:center;color:#fff;font-weight:700;font-size:19px;
@@ -657,7 +657,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v45";   // shown in the top bar; bump with each release
+const APP_VER = "v46";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
