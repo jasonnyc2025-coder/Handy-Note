@@ -182,7 +182,9 @@
   /* reading may hold a long note; keep it to one ellipsized line so it can't
      collapse into a one-character column and shove the row buttons around */
   .witem .w-read{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .witem .w-actions{display:flex;gap:6px;flex:0 0 auto}
+  .witem .w-actions{display:flex;gap:12px;flex:0 0 auto}
+  /* bigger, better-spaced row buttons so the middle 编辑 key isn't easy to mis-tap */
+  .witem .w-actions .mini{width:46px;height:46px;font-size:20px;border-radius:12px}
   .mini{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center;font-size:15px;color:var(--muted)}
   .mini:active{background:var(--line)}
   .mini.spk{color:var(--teal-ink)}
@@ -664,7 +666,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v51";   // shown in the top bar; bump with each release
+const APP_VER = "v52";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
