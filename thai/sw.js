@@ -1,5 +1,5 @@
 // 泰语卡片 service worker — caches the app shell so it works fully offline.
-const CACHE = "thaicards-v47";
+const CACHE = "thaicards-v48";
 const SHELL = [
   "./",
   "./index.html",
