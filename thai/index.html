@@ -666,7 +666,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v53";   // shown in the top bar; bump with each release
+const APP_VER = "v54";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -723,6 +723,7 @@ function toast(msg){
 
 /* ---------------- navigation ---------------- */
 function showTab(tab){
+  if(typeof clearViewed === "function") clearViewed();   // leaving/switching clears the highlight
   $$(".view").forEach(v=>v.classList.remove("active"));
   $("#view-"+tab).classList.add("active");
   $$(".nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===tab));
@@ -1329,17 +1330,17 @@ function findCardByThai(text){
 }
 // read-only peek at a vocab card, layered over the review (queue untouched)
 let _peekReturnId = null;   // which 生词 list row opened this peek (to highlight on close)
+function clearViewed(){ document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed")); }
 function flashViewed(id, scroll){
   if(id==null) return;
-  // clear any previous highlight first, so only the latest card ever glows
-  clearTimeout(window._viewedT);
-  document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed"));
+  // keep only the latest card highlighted; it stays lit until another card is
+  // touched or the user leaves the screen (no auto-fade)
+  clearViewed();
   const el = document.querySelector(`#wordList .witem[data-id="${id}"]`)
           || document.querySelector(`#homeRecent .witem[data-id="${id}"]`);
   if(!el) return;
   if(scroll !== false) el.scrollIntoView({ behavior:"smooth", block:"center" });
   el.classList.add("just-viewed");
-  window._viewedT = setTimeout(()=> document.querySelectorAll(".witem.just-viewed").forEach(e=> e.classList.remove("just-viewed")), 3000);
 }
 function openPeek(card){
   if(!card) return;
