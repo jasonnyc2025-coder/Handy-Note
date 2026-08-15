@@ -145,8 +145,10 @@
   .home-list-wrap{flex:1;min-height:0;display:flex;flex-direction:column}
   .home-list-wrap .section-h{flex:0 0 auto;margin:16px 4px 8px}
   #homeRecent{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:14px;display:flex;flex-direction:column;gap:10px}
-  .witem{cursor:pointer}
+  .witem{cursor:pointer;transition:box-shadow .3s ease,border-color .3s ease}
   .witem.sel{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal)}
+  /* the card you just peeked at — glows briefly after closing so you find your place */
+  .witem.just-viewed{border-color:var(--teal);box-shadow:0 0 0 2px var(--teal),0 0 20px rgba(45,212,191,.5)}
   /* list tab: search fixed, list scrolls */
   #view-list .search{flex:0 0 auto}
   #wordList{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:14px}
@@ -662,7 +664,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v49";   // shown in the top bar; bump with each release
+const APP_VER = "v50";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -801,7 +803,7 @@ function bindWordItems(scope){
     el.querySelector('[data-act="edit"]').onclick = e=>{ e.stopPropagation(); startEdit(id); };
     el.querySelector('[data-act="del"]').onclick = e=>{ e.stopPropagation(); delCard(id); };
     // tap the row (not its action buttons) -> peek at the full read-only card
-    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c) openPeek(c); });
+    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c){ openPeek(c); _peekReturnId = id; } });
   });
 }
 // everything searchable on a card: word, meaning, reading, note, and every
@@ -1321,8 +1323,20 @@ function findCardByThai(text){
   return cards.find(c => (c.thai||"").trim() === t) || null;
 }
 // read-only peek at a vocab card, layered over the review (queue untouched)
+let _peekReturnId = null;   // which 生词 list row opened this peek (to highlight on close)
+function flashViewed(id){
+  if(!id) return;
+  const el = document.querySelector(`#wordList .witem[data-id="${id}"]`)
+          || document.querySelector(`#homeRecent .witem[data-id="${id}"]`);
+  if(!el) return;
+  el.scrollIntoView({ behavior:"smooth", block:"center" });
+  el.classList.add("just-viewed");
+  clearTimeout(window._viewedT);
+  window._viewedT = setTimeout(()=> el.classList.remove("just-viewed"), 3000);
+}
 function openPeek(card){
   if(!card) return;
+  _peekReturnId = null;   // reset; the 生词 list tap re-sets it right after this call
   $("#peekThai").textContent = card.thai || "—";
   $("#peekMean").textContent = card.meaning || "";
   $("#peekRead").textContent = card.reading || "";
@@ -1337,6 +1351,7 @@ function closePeek(){
   hideSelPop();
   const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
   speechSynthesis.cancel();
+  if(_peekReturnId){ flashViewed(_peekReturnId); _peekReturnId = null; }
 }
 $("#peekBg").onclick = closePeek;
 $("#peekClose").onclick = closePeek;
