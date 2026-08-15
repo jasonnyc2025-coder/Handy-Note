@@ -662,7 +662,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v48";   // shown in the top bar; bump with each release
+const APP_VER = "v49";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1284,16 +1284,27 @@ async function thaiSync(){
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
 let selCtx = null;   // { text, cbEx }
 function hideSelPop(){ $("#selPop").classList.remove("show"); selCtx=null; }
+function exThaiOf(node){
+  if(!node) return null;
+  if(node.nodeType===3) node = node.parentElement;
+  return node && node.closest ? node.closest(".ex-thai") : null;
+}
 function onSelChange(){
   const sel = window.getSelection();
   if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
+  // Thai has no spaces between words, so a drag easily runs past the sentence and
+  // spills into the NEXT example. Keep the selection inside one example: if the two
+  // ends landed in different examples, snap it back to just this example's text.
+  const aEx = exThaiOf(sel.anchorNode), fEx = exThaiOf(sel.focusNode);
+  const exThai = fEx || aEx;
+  if(!exThai){ hideSelPop(); return; }
+  if(aEx && fEx && aEx !== fEx){
+    const span = exThai.querySelector("span") || exThai;   // the text only, not the 🔊 button
+    const r = document.createRange(); r.selectNodeContents(span);
+    sel.removeAllRanges(); sel.addRange(r);
+  }
   const text = sel.toString().trim();
   if(!text){ hideSelPop(); return; }
-  const range = sel.getRangeAt(0);
-  let node = range.commonAncestorContainer;
-  if(node.nodeType===3) node = node.parentElement;
-  const exThai = node && node.closest ? node.closest(".ex-thai") : null;
-  if(!exThai){ hideSelPop(); return; }
   const cbEx = exThai.closest(".cb-ex");
   selCtx = { text, cbEx };
   // if the selected word is itself a headword in the vocab book (and not the
