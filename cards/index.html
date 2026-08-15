@@ -299,7 +299,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v16";
+const APP_VER   = "v17";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -594,7 +594,8 @@ async function reocrCard(c){
   try{
     const blob = await getPhotoBlob(c, "front");
     if(!blob){ toast("没有找到名片原图（可能还没同步到本机）"); return; }
-    const fields = await ocrFields(blob);
+    const small = await downscale(blob, 1280, 0.72).catch(()=>blob);   // shrink so OCR doesn't time out
+    const fields = await ocrFields(small);
     if(!fields){ alert("识别失败：\n" + (lastOcrError || "未知原因")); return; }
     applyFields(c, fields);
     c.modified = Date.now();
@@ -761,7 +762,7 @@ async function ocrFields(blob){
   try{
     const dataUrl = await blobToDataURL(blob);
     const ctl = new AbortController();
-    const to = setTimeout(()=>ctl.abort(), 30000);
+    const to = setTimeout(()=>ctl.abort(), 45000);
     let r;
     try{
       r = await fetch(`${cloud.url}/api/cards/ocr`, {
@@ -828,7 +829,7 @@ async function batchImport(fileList){
       if(hash && seenHashes.has(hash)){ skipped++; continue; }   // exact same photo already in
       const now = Date.now();
       const c = { id: uid(), createdAt: now, modified: now, day: todayStr(), hasFront: true, phones:[], emails:[], tags:[] };
-      if(cloud){ const fields = await ocrFields(full); if(fields){ applyFields(c, fields); ocrOk++; } }
+      if(cloud){ const ocrImg = await downscale(full, 1280, 0.72).catch(()=>full); const fields = await ocrFields(ocrImg); if(fields){ applyFields(c, fields); ocrOk++; } }
       const nk = nameKeyOf(c);
       if(nk && seenNames.has(nk)){ skipped++; continue; }        // same person already in
       const thumbBlob = await downscale(f, 460, 0.7);
@@ -866,7 +867,8 @@ async function reocrAll(){
     try{
       const blob = await getPhotoBlob(c, "front");
       if(!blob){ fail++; continue; }
-      const fields = await ocrFields(blob);
+      const small = await downscale(blob, 1280, 0.72).catch(()=>blob);
+      const fields = await ocrFields(small);
       if(fields && ((fields.name||"").trim() || (fields.company||"").trim())){
         applyFields(c, fields); c.modified = Date.now(); ok++;
         save(); render();
