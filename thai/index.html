@@ -345,7 +345,8 @@
   #selPop #selSpeak{font-size:20px;padding-left:24px;padding-right:24px}   /* icon-only: enlarge so it matches the 高亮 button */
   #selPop button:active{background:rgba(255,255,255,.28)}
   /* "peek at this word" read-only overlay — sits above the review screen */
-  #peekBg{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.5);display:none}
+  #peekBg{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.72);display:none;
+    -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
   /* read-only peek: no text selection inside (it was eating the first tap on 关闭,
      and starting a selection popup over the overlay) */
   #peekPanel{position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
@@ -356,10 +357,10 @@
   /* close button pinned to the bottom of the screen — easy thumb reach */
   #peekClose{position:fixed;left:50%;transform:translateX(-50%);
     bottom:calc(env(safe-area-inset-bottom) + 22px);z-index:90;
-    background:var(--surface);color:var(--ink);cursor:pointer;
-    border:1px solid var(--line);border-radius:99px;padding:15px 40px;font-size:16px;font-weight:800;
-    box-shadow:0 8px 24px rgba(0,0,0,.35)}
-  #peekClose:active{transform:translateX(-50%) translateY(1px);filter:brightness(.9)}
+    background:var(--teal);color:#04201c;cursor:pointer;
+    border:none;border-radius:99px;padding:16px 48px;font-size:16px;font-weight:800;
+    box-shadow:0 8px 26px rgba(45,212,191,.45)}
+  #peekClose:active{transform:translateX(-50%) translateY(1px);filter:brightness(.92)}
   .peek-card{cursor:default;align-self:center;max-height:74vh}
   .peek-card .peek-body{width:100%;display:flex;flex-direction:column;flex:1;min-height:0;
     border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
@@ -657,7 +658,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v46";   // shown in the top bar; bump with each release
+const APP_VER = "v47";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
