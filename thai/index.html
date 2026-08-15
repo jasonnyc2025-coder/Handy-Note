@@ -52,7 +52,8 @@
     flex:0 0 auto;z-index:20;background:var(--bg);
     padding:calc(env(safe-area-inset-top) + 14px) 16px 12px;
   }
-  .topbar .inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:12px}
+  .topbar .inner{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:8px}
+  .title-center{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:10px}
   .logo{
     width:34px;height:34px;border-radius:10px;background:var(--teal);flex:0 0 auto;
     display:grid;place-items:center;color:#fff;font-weight:700;font-size:19px;
@@ -62,8 +63,8 @@
   .title small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
   .topbar .spacer{flex:1}
   .icon-btn{
-    width:38px;height:38px;border-radius:11px;background:var(--surface);border:1px solid var(--line);
-    display:grid;place-items:center;color:var(--muted);font-size:17px;
+    width:46px;height:46px;border-radius:13px;background:var(--surface);border:1px solid var(--line);
+    display:grid;place-items:center;color:var(--ink);font-size:22px;flex:0 0 auto;
   }
   .icon-btn:active{background:var(--surface-2)}
 
@@ -430,9 +431,10 @@
 <div class="topbar">
   <div class="inner">
     <a class="icon-btn" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记" style="text-decoration:none">←</a>
-    <div class="logo"><span class="thai">ก</span></div>
-    <div class="title">泰语卡片<small>Thai Flashcards · <span id="appVer"></span></small></div>
-    <div class="spacer"></div>
+    <div class="title-center">
+      <div class="logo"><span class="thai">ก</span></div>
+      <div class="title">泰语卡片<small>Thai Flashcards · <span id="appVer"></span></small></div>
+    </div>
     <button class="icon-btn" id="btnSettings" aria-label="设置">⚙</button>
   </div>
 </div>
@@ -650,7 +652,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v43";   // shown in the top bar; bump with each release
+const APP_VER = "v44";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
