@@ -105,13 +105,14 @@
   #detailBg.show,#detail.show{display:flex}
   .d-top{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 10px) 14px 8px}
   .d-top .grow{flex:1}
-  /* prominent, easy-to-hit back button (was a tiny arrow) */
-  .d-back{display:flex;align-items:center;gap:7px;height:48px;padding:0 22px 0 18px;border-radius:14px;
-    background:var(--surface);border:1px solid var(--line);color:var(--ink);font-size:17px;font-weight:700;
-    box-shadow:var(--shadow);flex:0 0 auto}
-  .d-back:active{filter:brightness(.9);transform:translateY(1px)}
   .d-top .icon-btn{width:48px;height:48px;font-size:21px}
-  .d-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px 40px;max-width:640px;width:100%;margin:0 auto}
+  /* prominent返回 button pinned to the bottom-center — easiest to reach on big screens */
+  .d-back-fixed{position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(env(safe-area-inset-bottom) + 20px);z-index:60;
+    background:var(--brand);color:#fff;border:none;border-radius:99px;
+    padding:16px 52px;font-size:17px;font-weight:800;box-shadow:0 10px 26px rgba(79,70,229,.5)}
+  .d-back-fixed:active{transform:translateX(-50%) translateY(1px);filter:brightness(.94)}
+  .d-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 14px calc(env(safe-area-inset-bottom) + 110px);max-width:640px;width:100%;margin:0 auto}
   .d-photo{width:100%;border-radius:16px;background:var(--surface-2);display:block;box-shadow:var(--card-shadow);margin-bottom:12px}
   .d-photo.ph{aspect-ratio:16/10;display:grid;place-items:center;font-size:44px;color:var(--muted)}
   .d-name{font-size:26px;font-weight:800;line-height:1.25;margin-top:4px;word-break:break-word}
@@ -229,13 +230,13 @@
 <div id="detailBg"></div>
 <div id="detail">
   <div class="d-top">
-    <button class="d-back" id="dBack" aria-label="返回">← 返回</button>
     <div class="grow"></div>
     <button class="icon-btn" id="dStar" aria-label="收藏">☆</button>
     <button class="icon-btn" id="dEdit" aria-label="编辑">✎</button>
     <button class="icon-btn" id="dDel" aria-label="删除">🗑</button>
   </div>
   <div class="d-scroll" id="dScroll"></div>
+  <button class="d-back-fixed" id="dBack" aria-label="返回">← 返回</button>
 </div>
 
 <!-- ===== add / edit ===== -->
@@ -305,7 +306,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v18";
+const APP_VER   = "v19";
 
 /* ---------------- storage ---------------- */
 let cards = [];
