@@ -1821,6 +1821,8 @@
     align-items: center;
     justify-content: center;
     z-index: 100;
+    touch-action: none;        /* we handle pinch/pan ourselves; don't let the page zoom */
+    overflow: hidden;
     padding: calc(env(safe-area-inset-top, 0px) + 60px)
              calc(env(safe-area-inset-right, 0px) + 24px)
              calc(env(safe-area-inset-bottom, 0px) + 24px)
@@ -1832,6 +1834,9 @@
     max-height: 100%;
     border-radius: 10px;
     box-shadow: 0 10px 50px rgba(0,0,0,0.5);
+    transform-origin: 0 0;
+    touch-action: none;
+    will-change: transform;
   }
   .lightbox .close {
     position: absolute;
@@ -2134,7 +2139,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v189</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v190</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -4866,7 +4871,66 @@ function startEdit(item, n) {
 function openLightbox(src) {
   document.getElementById('lb-img').src = src;
   document.getElementById('lightbox').classList.add('show');
+  if (window._lbReset) window._lbReset();
 }
+// pinch-to-zoom / pan / double-tap for the photo viewer. iOS Safari ignores
+// user-scalable=no, so without this a pinch zooms the whole page behind instead
+// of the photo. We handle the gestures ourselves and block the page zoom.
+(function(){
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lb-img');
+  if (!lb || !img) return;
+  let s = 1, tx = 0, ty = 0, base = null, g = null, lastTap = 0;
+  const apply = ()=>{ img.style.transform = `translate(${tx}px,${ty}px) scale(${s})`; };
+  const measure = ()=>{ img.style.transition='none'; img.style.transform='none';
+    const r = img.getBoundingClientRect(); base = { l:r.left, t:r.top }; apply(); };
+  const reset = (anim)=>{ s=1; tx=0; ty=0; if(anim) img.style.transition='transform .2s ease'; apply();
+    if(anim) setTimeout(()=>{ img.style.transition='none'; }, 210); };
+  window._lbReset = ()=>{ base=null; reset(false); };
+  const clampS = v => Math.max(1, Math.min(v, 6));
+  const dist = t => Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+  const mid  = t => ({ x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 });
+  // scale toward screen-point P (keeps the pinched spot under the fingers)
+  const zoomTo = (ns, P)=>{ if(!base) measure(); const lx=(P.x-base.l-tx)/s, ly=(P.y-base.t-ty)/s;
+    s=ns; tx=P.x-base.l-lx*ns; ty=P.y-base.t-ly*ns; };
+
+  lb.addEventListener('gesturestart', e=>{ if(lb.classList.contains('show')) e.preventDefault(); }, {passive:false});
+  lb.addEventListener('touchstart', e=>{
+    if(!lb.classList.contains('show')) return;
+    if(!base) measure();
+    if(e.touches.length===2){ e.preventDefault(); g={ mode:'pinch', d0:dist(e.touches), s0:s, tx0:tx, ty0:ty, P:mid(e.touches) }; }
+    else if(e.touches.length===1){ g={ mode:(s>1?'pan':'idle'), x0:e.touches[0].clientX, y0:e.touches[0].clientY, tx0:tx, ty0:ty, moved:false }; }
+  }, {passive:false});
+  lb.addEventListener('touchmove', e=>{
+    if(!g || !lb.classList.contains('show')) return;
+    if(g.mode==='pinch' && e.touches.length===2){
+      e.preventDefault();
+      const ns = clampS(g.s0 * dist(e.touches)/g.d0);
+      const lx=(g.P.x-base.l-g.tx0)/g.s0, ly=(g.P.y-base.t-g.ty0)/g.s0;
+      s=ns; tx=g.P.x-base.l-lx*ns; ty=g.P.y-base.t-ly*ns; apply();
+    } else if(g.mode==='pan' && e.touches.length===1){
+      e.preventDefault();
+      tx=g.tx0+(e.touches[0].clientX-g.x0); ty=g.ty0+(e.touches[0].clientY-g.y0); apply();
+    } else if(g.mode==='idle' && e.touches.length===1){
+      if(Math.hypot(e.touches[0].clientX-g.x0, e.touches[0].clientY-g.y0)>10) g.moved=true;
+    }
+  }, {passive:false});
+  lb.addEventListener('touchend', e=>{
+    if(!g) return;
+    if(g.mode==='pinch'){ if(s<=1.02) reset(true); }
+    else if(g.mode==='idle' && !g.moved){
+      const now=Date.now();
+      if(now-lastTap<300){ lastTap=0;
+        if(s>1){ reset(true); }
+        else { zoomTo(2.5, {x:g.x0,y:g.y0}); img.style.transition='transform .2s ease'; apply(); setTimeout(()=>{ img.style.transition='none'; },210); }
+      } else {
+        lastTap=now;
+        setTimeout(()=>{ if(lastTap===now && s===1) lb.classList.remove('show'); }, 310);  // single tap (not zoomed) closes
+      }
+    }
+    g=null;
+  }, {passive:false});
+})();
 async function openPdf(att) {
   // 必须先同步打开窗口（避免被拦截），再异步取数据
   const w = window.open('');
