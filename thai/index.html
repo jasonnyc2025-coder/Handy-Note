@@ -365,7 +365,13 @@
     border:none;border-radius:99px;padding:16px 48px;font-size:16px;font-weight:800;
     box-shadow:0 8px 26px rgba(45,212,191,.45)}
   #peekClose:active{transform:translateX(-50%) translateY(1px);filter:brightness(.92)}
-  .peek-card{cursor:default;align-self:center;max-height:74vh}
+  .peek-card{cursor:default;align-self:center;max-height:74vh;zoom:var(--peekZoom,1)}
+  /* A− / A+ 字号控制，方便看清浮层里的文字 */
+  #peekZoomCtl{position:fixed;left:calc(env(safe-area-inset-left) + 16px);
+    bottom:calc(env(safe-area-inset-bottom) + 22px);z-index:90;display:flex;gap:8px}
+  #peekZoomCtl button{width:52px;height:52px;border-radius:14px;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);font-size:18px;font-weight:800;cursor:pointer}
+  #peekZoomCtl button:active{filter:brightness(.88)}
   /* the example text inside the peek is selectable (rest of the panel is not), so
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
   #peekExList .ex-thai, #peekExList .ex-thai *{
@@ -640,6 +646,10 @@
     </div>
   </div>
   <button id="peekClose">✕ 关闭</button>
+  <div id="peekZoomCtl">
+    <button id="peekZoomOut" aria-label="字号减小">A−</button>
+    <button id="peekZoomIn" aria-label="字号增大">A+</button>
+  </div>
 </div>
 
 <!-- quick "add selected word to vocab" sheet -->
@@ -666,7 +676,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v54";   // shown in the top bar; bump with each release
+const APP_VER = "v55";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1366,6 +1376,16 @@ $("#peekClose").onclick = closePeek;
 // tapping the dark area around the card also closes (peekPanel covers peekBg)
 $("#peekPanel").onclick = e=>{ if(e.target.id === "peekPanel") closePeek(); };
 $("#peekSpk").onclick = e=>{ e.stopPropagation(); const t=$("#peekThai").textContent; if(t && t!=="—") speak(t); };
+// peek font-size (zoom) control — remembered across sessions
+let peekZoom = parseFloat(localStorage.getItem("thaicards.peekZoom")) || 1;
+function applyPeekZoom(){
+  peekZoom = Math.max(1, Math.min(peekZoom, 2));
+  document.documentElement.style.setProperty("--peekZoom", peekZoom);
+  try{ localStorage.setItem("thaicards.peekZoom", String(peekZoom)); }catch(e){}
+}
+applyPeekZoom();
+$("#peekZoomIn").onclick  = e=>{ e.stopPropagation(); peekZoom += 0.15; applyPeekZoom(); };
+$("#peekZoomOut").onclick = e=>{ e.stopPropagation(); peekZoom -= 0.15; applyPeekZoom(); };
 document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
 document.addEventListener("scroll", hideSelPop, true);
 function toggleHighlight(cbEx, text){
