@@ -366,6 +366,8 @@
     box-shadow:0 8px 26px rgba(45,212,191,.45)}
   #peekClose:active{transform:translateX(-50%) translateY(1px);filter:brightness(.92)}
   .peek-card{cursor:default;align-self:center;max-height:74vh;zoom:var(--peekZoom,1)}
+  /* search-term highlight inside the opened card */
+  mark.s-hit{background:#ffd54a;color:#3a2c00;border-radius:4px;padding:0 2px;font-weight:800}
   /* A− / A+ 字号控制，方便看清浮层里的文字 */
   #peekZoomCtl{position:fixed;left:calc(env(safe-area-inset-left) + 16px);
     bottom:calc(env(safe-area-inset-bottom) + 22px);z-index:90;display:flex;gap:8px}
@@ -676,7 +678,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v55";   // shown in the top bar; bump with each release
+const APP_VER = "v56";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1360,8 +1362,39 @@ function openPeek(card){
   $("#peekRead").textContent = card.reading || "";
   renderNote($("#peekNote"), card.note);
   renderCardExamples($("#peekExList"), card.examples || [], card.id);
+  highlightInPeek($("#searchBox") ? $("#searchBox").value.trim() : "");  // mark the searched word
   $("#peekBg").classList.add("show");
   $("#peekPanel").classList.add("show");
+}
+// mark every occurrence of the current search term inside the opened card, so
+// you can immediately see why/where it matched
+function highlightInPeek(q){
+  if(!q) return;
+  const root = document.querySelector("#peekPanel .peek-card");
+  if(!root) return;
+  const ql = q.toLowerCase();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!n.nodeValue || !n.nodeValue.toLowerCase().includes(ql)) return NodeFilter.FILTER_REJECT;
+      if(n.parentElement && n.parentElement.closest("mark.s-hit")) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes = []; let n; while(n = walker.nextNode()) nodes.push(n);
+  nodes.forEach(node=>{
+    const text = node.nodeValue, low = text.toLowerCase();
+    const frag = document.createDocumentFragment();
+    let idx = 0, i;
+    while((i = low.indexOf(ql, idx)) !== -1){
+      if(i > idx) frag.appendChild(document.createTextNode(text.slice(idx, i)));
+      const mk = document.createElement("mark"); mk.className = "s-hit";
+      mk.textContent = text.slice(i, i + q.length);
+      frag.appendChild(mk);
+      idx = i + q.length;
+    }
+    if(idx < text.length) frag.appendChild(document.createTextNode(text.slice(idx)));
+    node.parentNode.replaceChild(frag, node);
+  });
 }
 function closePeek(){
   $("#peekBg").classList.remove("show");
