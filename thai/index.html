@@ -374,6 +374,13 @@
   #peekZoomCtl button{width:52px;height:52px;border-radius:14px;background:var(--surface);color:var(--ink);
     border:1px solid var(--line);font-size:18px;font-weight:800;cursor:pointer}
   #peekZoomCtl button:active{filter:brightness(.88)}
+  /* ‹ › 上一张 / 下一张，浏览时连续翻卡 */
+  #peekNav{position:fixed;right:calc(env(safe-area-inset-right) + 16px);
+    bottom:calc(env(safe-area-inset-bottom) + 22px);z-index:90;display:flex;gap:8px}
+  #peekNav button{width:52px;height:52px;border-radius:14px;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);font-size:26px;font-weight:800;line-height:1;cursor:pointer}
+  #peekNav button:active{filter:brightness(.88)}
+  #peekNav button:disabled{opacity:.32}
   /* the example text inside the peek is selectable (rest of the panel is not), so
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
   #peekExList .ex-thai, #peekExList .ex-thai *{
@@ -652,6 +659,10 @@
     <button id="peekZoomOut" aria-label="字号减小">A−</button>
     <button id="peekZoomIn" aria-label="字号增大">A+</button>
   </div>
+  <div id="peekNav">
+    <button id="peekPrev" aria-label="上一张">‹</button>
+    <button id="peekNext" aria-label="下一张">›</button>
+  </div>
 </div>
 
 <!-- quick "add selected word to vocab" sheet -->
@@ -678,7 +689,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v56";   // shown in the top bar; bump with each release
+const APP_VER = "v57";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -829,12 +840,14 @@ function cardHaystack(c){
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
 let _flashPendingId = null;   // a card edited from the list — highlight it when we come back
+let _listOrder = [];          // ids in the order they're shown, for peek prev/next
 function renderList(){
   const q = $("#searchBox").value.trim().toLowerCase();
   const box = $("#wordList");
   toggleSearchClear();
   let list = [...cards].reverse();
   if(q) list = list.filter(c => cardHaystack(c).includes(q));
+  _listOrder = list.map(c => c.id);
   if(list.length===0){
     box.innerHTML = `<div class="empty"><div class="em-ic">${q?"🔍":"📚"}</div><p>${q?"没有匹配的生词":"生词本还是空的<br>去「添加」录入第一个吧"}</p></div>`;
     return;
@@ -1363,8 +1376,28 @@ function openPeek(card){
   renderNote($("#peekNote"), card.note);
   renderCardExamples($("#peekExList"), card.examples || [], card.id);
   highlightInPeek($("#searchBox") ? $("#searchBox").value.trim() : "");  // mark the searched word
+  _peekCardId = card.id;
+  updatePeekNav();
+  const sc = $("#peekPanel .cb-scroll"); if(sc) sc.scrollTop = 0;
   $("#peekBg").classList.add("show");
   $("#peekPanel").classList.add("show");
+}
+// prev / next navigation through the current 生词 list order
+let _peekCardId = null;
+function _peekIndex(){ return _peekCardId ? _listOrder.indexOf(_peekCardId) : -1; }
+function updatePeekNav(){
+  const i = _peekIndex();
+  const prev = $("#peekPrev"), next = $("#peekNext");
+  if(!prev || !next) return;
+  prev.disabled = !(i > 0);
+  next.disabled = !(i >= 0 && i < _listOrder.length - 1);
+}
+function peekStep(dir){
+  const i = _peekIndex(); if(i < 0) return;
+  const j = i + dir; if(j < 0 || j >= _listOrder.length) return;
+  const c = cards.find(x => x.id === _listOrder[j]); if(!c) return;
+  openPeek(c);
+  _peekReturnId = c.id;   // closing highlights whichever card we ended on
 }
 // mark every occurrence of the current search term inside the opened card, so
 // you can immediately see why/where it matched
@@ -1419,6 +1452,8 @@ function applyPeekZoom(){
 applyPeekZoom();
 $("#peekZoomIn").onclick  = e=>{ e.stopPropagation(); peekZoom += 0.15; applyPeekZoom(); };
 $("#peekZoomOut").onclick = e=>{ e.stopPropagation(); peekZoom -= 0.15; applyPeekZoom(); };
+$("#peekPrev").onclick = e=>{ e.stopPropagation(); peekStep(-1); };
+$("#peekNext").onclick = e=>{ e.stopPropagation(); peekStep(1); };
 document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
 document.addEventListener("scroll", hideSelPop, true);
 function toggleHighlight(cbEx, text){
