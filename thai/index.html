@@ -325,7 +325,7 @@
   .cb-ex{margin-top:12px;background:var(--card-ex-bg);border:1px solid var(--line);border-left:3px solid var(--teal);
     border-radius:14px;padding:14px 14px;text-align:left}
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
-  .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px}
+  .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px;width:54px;height:54px;font-size:24px;border-radius:14px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
   /* two alternating highlight colors so two touching highlighted words
      (common in spaceless Thai) don't merge into one blob.
@@ -689,7 +689,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v57";   // shown in the top bar; bump with each release
+const APP_VER = "v58";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
