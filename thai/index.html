@@ -324,6 +324,7 @@
   .cb-exlist:empty::before{display:none}
   .cb-ex{margin-top:12px;background:var(--card-ex-bg);border:1px solid var(--line);border-left:3px solid var(--teal);
     border-radius:14px;padding:14px 14px;text-align:left}
+  .cb-ex .ex-no{font-size:12px;font-weight:800;color:var(--teal-ink);letter-spacing:.04em;margin-bottom:6px}
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:flex;align-items:flex-start;gap:8px;justify-content:space-between}
   .cb-ex .ex-thai .mini{flex:0 0 auto;margin-top:2px;width:54px;height:54px;font-size:24px;border-radius:14px}
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
@@ -689,7 +690,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v58";   // shown in the top bar; bump with each release
+const APP_VER = "v59";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1108,12 +1109,17 @@ function renderNote(box, note){
 }
 function renderCardExamples(box, list, cardId){
   box.innerHTML = "";
-  (list||[]).forEach((e,idx)=>{
+  const arr = list || [];
+  const total = arr.filter(e => e && e.thai).length;
+  let no = 0;
+  arr.forEach((e,idx)=>{
     if(!e || !e.thai) return;
+    no++;
     const el = document.createElement("div");
     el.className = "cb-ex";
     if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
-    el.innerHTML = `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
+    el.innerHTML = `<div class="ex-no">${no} / ${total}</div>` +
+      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
       (e.meaning ? `<div class="ex-mean">${esc(e.meaning)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
