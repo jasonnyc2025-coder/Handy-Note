@@ -563,6 +563,20 @@
     cursor: pointer;
   }
   .more-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .collapse-btn {
+    flex-shrink: 0; margin-top: 2px;
+    border: 1px solid var(--line); background: var(--line); color: var(--ink-soft);
+    font-size: 0.9rem; line-height: 1; padding: 3px 10px; border-radius: 20px; cursor: pointer;
+  }
+  /* ===== collapsed one-line note ===== */
+  .item.item-collapsed { padding: 9px 12px; align-items: center; }
+  .item-collapsed .idea-bar { width: 3px; align-self: stretch; background: var(--accent); border-radius: 4px; flex-shrink: 0; opacity: 0.4; min-height: 20px; }
+  .collapsed-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; }
+  .collapsed-row .c-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink); }
+  .item-collapsed.done .c-text { text-decoration: line-through; opacity: 0.55; }
+  .collapsed-row .c-ic { flex-shrink: 0; font-size: 0.85em; opacity: 0.85; }
+  .collapsed-row .c-sub { flex-shrink: 0; font-size: 0.72rem; font-weight: 700; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 8px; }
+  .collapsed-row .c-chev { flex-shrink: 0; color: var(--ink-soft); font-size: 1.2rem; line-height: 1; font-weight: 600; }
   /* 操作按钮行：默认收起 */
   .meta-actions {
     display: none;
@@ -2139,7 +2153,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v190</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v191</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2862,6 +2876,26 @@ function toggleSubCollapse(nid) {
   try { localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs)); } catch {}
 }
 
+// ===== 笔记正文展开状态（按记录 id）：默认收起成一行，点开看全部 =====
+const NOTEEXPAND_KEY = 'quicknotes.noteExpanded';
+let expandedNotes = {};
+function loadNoteExpanded() {
+  try { expandedNotes = JSON.parse(localStorage.getItem(NOTEEXPAND_KEY)) || {}; } catch { expandedNotes = {}; }
+}
+function isNoteExpanded(id) { return !!expandedNotes[id]; }   // default: collapsed
+function setNoteExpanded(id, v) {
+  if (v) expandedNotes[id] = true; else delete expandedNotes[id];
+  try { localStorage.setItem(NOTEEXPAND_KEY, JSON.stringify(expandedNotes)); } catch {}
+}
+// first non-empty line of a note, for the collapsed one-line view
+function firstLine(n) {
+  const s = (plainOf(n.text) || '').split('\n').map(x => x.trim()).filter(Boolean)[0];
+  if (s) return s;
+  if (n.atts && n.atts.length) return '📎 ' + (n.atts[0].name || '附件');
+  if (n.subs && n.subs.length) return `（${n.subs.length} 个子项）`;
+  return '（无文字）';
+}
+
 function timeAgo(ts) {
   const d = Math.floor((Date.now() - ts) / 1000);
   if (d < 60) return '刚刚';
@@ -2950,7 +2984,26 @@ function reminderState(n) {
   return any ? (future ? 'future' : 'past') : null;
 }
 
+// one-line collapsed row — the whole list reads as a tidy list; tap to expand
+function renderItemCollapsed(n) {
+  const rs = reminderState(n);
+  const sub = n.subs && n.subs.length ? (n.type === 'todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : `${n.subs.length}`) : '';
+  return `
+    <div class="item item-collapsed ${n.type} ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
+      ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div class="idea-bar"></div>`}
+      <div class="collapsed-row" data-act="expand">
+        <span class="c-text">${esc(firstLine(n))}</span>
+        ${n.pinned ? '<span class="c-ic">📌</span>' : ''}
+        ${rs ? '<span class="c-ic">⏰</span>' : ''}
+        ${n.atts && n.atts.length ? '<span class="c-ic">📎</span>' : ''}
+        ${sub ? `<span class="c-sub">${sub}</span>` : ''}
+        <span class="c-chev">›</span>
+      </div>
+    </div>`;
+}
 function renderItem(n) {
+  // default: collapsed to a single line. Search always shows the full card.
+  if (!searchQuery && !isNoteExpanded(n.id)) return renderItemCollapsed(n);
   const rs = reminderState(n);
   const alarmFlag = rs ? `<span class="alarm-flag ${rs}" data-act="setremind" title="有提醒">⏰</span>` : '';
   return `
@@ -2960,6 +3013,7 @@ function renderItem(n) {
         <div class="note-head">
           ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
           ${alarmFlag}
+          ${searchQuery ? '' : '<button class="collapse-btn" data-act="collapse" title="收起">▾</button>'}
           <button class="more-btn" data-act="more">⋯</button>
         </div>
         ${renderAtts(n.atts)}
@@ -2986,6 +3040,7 @@ function renderItem(n) {
 function render() {
   const list = document.getElementById('list');
   let items = notes.filter(n => !n._deleted).sort((a,b) => {
+    if ((a.type==='todo') !== (b.type==='todo')) return a.type==='todo' ? -1 : 1;  // 待办置顶
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
     return b.ts - a.ts;
@@ -3642,6 +3697,8 @@ document.addEventListener('click', async e => {
     if (typeof selectDesktopNote === 'function') selectDesktopNote(id);
     return;
   }
+  if (act === 'expand') { setNoteExpanded(id, true); render(); return; }
+  if (act === 'collapse') { setNoteExpanded(id, false); render(); return; }
   if (act === 'more') {
     const box = item.querySelector('.meta-actions');
     if (box) box.classList.toggle('show');
@@ -6319,6 +6376,7 @@ if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
   loadFontSize();
   loadCollapsed();
   loadSubCollapsed();
+  loadNoteExpanded();
   loadFilter();
   applyStaticI18n();
   render();
