@@ -443,6 +443,9 @@
     max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   }
   .sheet.show{transform:none}
+  /* 加入生词表单可从「读一眼」浮层里唤出，必须盖在浮层(z-89/90)之上 */
+  #addWordBg{z-index:96}
+  #addWordSheet{z-index:97}
   .sheet h3{font-size:17px;font-weight:700;margin-bottom:4px}
   .sheet .sub{font-size:13px;color:var(--muted);margin-bottom:16px}
   .sheet .opt-row{display:flex;gap:10px}
@@ -690,7 +693,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v59";   // shown in the top bar; bump with each release
+const APP_VER = "v60";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
