@@ -639,6 +639,7 @@
   <button id="selPeek" style="display:none">📖 查看该词</button>
   <button id="selAdd">➕ 加入生词</button>
   <button id="selHl">🖍 高亮</button>
+  <button id="selCopy">📋 复制</button>
   <button id="selSpeak" aria-label="朗读">🔊</button>
 </div>
 
@@ -693,7 +694,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v61";   // shown in the top bar; bump with each release
+const APP_VER = "v62";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1515,6 +1516,22 @@ function toggleHighlight(cbEx, text){
 $("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
 $("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
 $("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); };
+function copyText(t){
+  if(!t) return;
+  const done = ()=>{ toast("已复制"); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(()=>_copyFallback(t));
+  } else _copyFallback(t);
+}
+function _copyFallback(t){
+  try{
+    const ta=document.createElement("textarea"); ta.value=t;
+    ta.style.position="fixed"; ta.style.opacity="0"; ta.style.left="-9999px";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta); toast("已复制");
+  }catch(e){ toast("复制失败"); }
+}
+$("#selCopy").onclick = ()=>{ if(selCtx) copyText(selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
 $("#selPeek").onclick = ()=>{ const m = selCtx && selCtx.match; hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); if(m) openPeek(m); };
 
 /* ---------- add selected word as a new vocab card ---------- */
