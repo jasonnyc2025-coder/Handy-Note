@@ -693,7 +693,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v60";   // shown in the top bar; bump with each release
+const APP_VER = "v61";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1465,6 +1465,40 @@ $("#peekPrev").onclick = e=>{ e.stopPropagation(); peekStep(-1); };
 $("#peekNext").onclick = e=>{ e.stopPropagation(); peekStep(1); };
 document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
 document.addEventListener("scroll", hideSelPop, true);
+
+// Thai has no spaces, so long-press selects the whole sentence. Let a *single tap*
+// on an example pick just the one word under the finger, using the browser's Thai
+// word segmenter. Long-press + drag still works for a custom range.
+function _caretAtPoint(x, y){
+  let node=null, off=0;
+  if(document.caretRangeFromPoint){ const r=document.caretRangeFromPoint(x,y); if(r){ node=r.startContainer; off=r.startOffset; } }
+  else if(document.caretPositionFromPoint){ const p=document.caretPositionFromPoint(x,y); if(p){ node=p.offsetNode; off=p.offset; } }
+  return node ? { node, off } : null;
+}
+function selectWordInNode(textNode, offset){
+  if(!textNode || textNode.nodeType!==3) return false;
+  if(typeof Intl==="undefined" || !Intl.Segmenter) return false;
+  const text = textNode.nodeValue || ""; if(!text.trim()) return false;
+  const off = Math.max(0, Math.min(offset, text.length));
+  let segs;
+  try{ segs = [...new Intl.Segmenter("th", { granularity:"word" }).segment(text)]; }catch(e){ return false; }
+  let seg = segs.find(s => off >= s.index && off < s.index + s.segment.length)
+         || segs.find(s => off > s.index && off <= s.index + s.segment.length);
+  if(!seg || !seg.segment.trim()) return false;
+  const r = document.createRange();
+  r.setStart(textNode, seg.index); r.setEnd(textNode, seg.index + seg.segment.length);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  onSelChange();
+  return true;
+}
+document.addEventListener("click", e=>{
+  const exThai = e.target.closest ? e.target.closest(".ex-thai") : null;
+  if(!exThai || e.target.closest("button")) return;
+  const c = _caretAtPoint(e.clientX, e.clientY);
+  let tn = c && c.node;
+  if(tn && tn.nodeType!==3) tn = [...(tn.childNodes||[])].find(n=>n.nodeType===3);
+  if(tn && exThai.contains(tn)) selectWordInNode(tn, c ? c.off : 0);
+}, false);
 function toggleHighlight(cbEx, text){
   if(!cbEx) return;
   const card = cards.find(c=>c.id===cbEx.dataset.card);
