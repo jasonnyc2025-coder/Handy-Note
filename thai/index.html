@@ -695,7 +695,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v63";   // shown in the top bar; bump with each release
+const APP_VER = "v64";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1325,13 +1325,18 @@ async function thaiPush(){
     // Read the server first: merge our set with theirs (so a concurrent add on
     // another device is never wiped), and echo notes/cats back untouched.
     let cur = {};
-    try{ const g = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
+    try{ const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
     let out = combinedThai();
+    let changed = false;
     if(Array.isArray(cur.thai)){
+      const before = thaiSig(out);
       const merged = mergeThai(out, cur.thai);
-      applyCombinedThai(merged);
-      persistThai();
-      out = combinedThai();
+      if(thaiSig(merged) !== before){
+        applyCombinedThai(merged);
+        persistThai();
+        out = combinedThai();
+        changed = true;
+      }
     }
     // rev must beat the stored one so the server (which rev-gates) always accepts it
     const pushRev = Math.max(getThaiRev(), (Number(cur.thaiRev)||0) + 1);
@@ -1344,14 +1349,18 @@ async function thaiPush(){
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify(body)
     });
-    renderHome();
-    if(document.querySelector("#view-list.active")) renderList();
+    // only repaint when the merge actually brought something in — repainting on
+    // every push would wipe the「刚看过」高亮并把词表滚回顶部
+    if(changed){
+      renderHome();
+      if(document.querySelector("#view-list.active")) renderList();
+    }
   }catch(e){}
 }
 async function thaiPull(){
   const cloud = getCloud(); if(!cloud) return;
   try{
-    const res = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } });
+    const res = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
     if(!res.ok) return;
     const data = await res.json();
     if(!Array.isArray(data.thai)) return;

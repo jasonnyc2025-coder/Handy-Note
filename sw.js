@@ -1,5 +1,5 @@
 // 随手记 Service Worker —— 离线缓存
-const CACHE = 'quicknotes-v191';
+const CACHE = 'quicknotes-v192';
 const ASSETS = [
   'index.html',
   'quick-notes.html',
@@ -95,6 +95,9 @@ self.addEventListener('notificationclick', e => {
 // 网络优先，失败回退缓存；同时把成功的响应写入缓存
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // 同步 / 接口请求一律直连，绝不进缓存（缓存过的 /api/sync 会让某台设备一直
+  // 读到旧快照，多设备合并就永远对不上）
+  try { if (new URL(e.request.url).pathname.startsWith('/api/')) return; } catch (_) {}
   e.respondWith(
     fetch(e.request).then(res => {
       const copy = res.clone();

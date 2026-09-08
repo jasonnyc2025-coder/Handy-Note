@@ -1,5 +1,5 @@
 // 泰语卡片 service worker — caches the app shell so it works fully offline.
-const CACHE = "thaicards-v63";
+const CACHE = "thaicards-v64";
 const SHELL = [
   "./",
   "./index.html",
@@ -25,6 +25,9 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  // never cache the sync/API endpoints — a cached /api/sync would hand the app
+  // a stale snapshot forever and silently break multi-device merging.
+  if (url.pathname.startsWith("/api/")) return;
 
   // network-first for the HTML so updates land; cache-first for the rest.
   if (e.request.mode === "navigate") {
