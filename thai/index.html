@@ -709,7 +709,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v65";   // shown in the top bar; bump with each release
+const APP_VER = "v66";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1277,6 +1277,15 @@ $("#syncNowBtn").onclick = async ()=>{
   const btn = $("#syncNowBtn"), cloud = getCloud();
   if(!cloud){ renderSyncBox(); alert("这台设备还没登录。\n请先打开「随手记」登录 Google 账号，泰语卡片会用同一个登录。"); return; }
   btn.disabled = true; btn.textContent = "同步中…";
+  // 先不带登录信息探一下主机，这样能分清「服务器根本连不上」和「登录被拒」
+  const host = await probeHost(cloud.url);
+  if(!host.ok){
+    noteSync(false, host.detail);
+    btn.disabled = false; btn.textContent = "🔄 立即同步并检查";
+    renderSyncBox();
+    alert(`❌ 连不上服务器\n\n${host.detail}\n\n地址：${cloud.url}\n本机：${navigator.onLine===false?"没有网络":"有网络"}\n\n请先在手机浏览器里打开：\n${cloud.url}/health\n能看到 {"ok":true} 才说明服务器是通的。`);
+    return;
+  }
   await thaiPull();
   await thaiPush();
   let verdict = syncInfo.ok ? "" : "❌ " + syncInfo.msg;
@@ -1351,6 +1360,31 @@ function getCloud(){
 function getThaiRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
 function bumpThaiRev(){ const r = Date.now(); localStorage.setItem(REV_KEY, String(r)); return r; }
 
+// 手机上一个卡住不动的请求和「没网」看起来一模一样，所以每个同步请求都限时
+function fetchT(url, opts, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(()=>ctl.abort(), ms||15000);
+  return fetch(url, Object.assign({ signal: ctl.signal }, opts||{}))
+    .finally(()=>clearTimeout(t));
+}
+// fetch 抛错时说人话：区分超时 / 域名打不开 / 证书 / 离线
+function netReason(e){
+  if(e && e.name === "AbortError") return "请求超时（15 秒没响应）";
+  if(navigator.onLine === false)   return "手机当前没有网络";
+  return "打不开服务器地址（域名解析失败、证书问题，或服务器没在运行）";
+}
+// 不带登录信息探 /health，用来区分「主机根本连不上」和「登录被拒」
+async function probeHost(url){
+  try{
+    const r = await fetchT(`${url}/health?t=${Date.now()}`, { cache:"no-store" }, 12000);
+    return r.ok
+      ? { ok:true,  detail:`服务器正常（HTTP ${r.status}）` }
+      : { ok:false, detail:`域名通了，但服务器报错 HTTP ${r.status}（后端没启动好，或反向代理没连上后端）` };
+  }catch(e){
+    return { ok:false, detail:netReason(e) };
+  }
+}
+
 /* 同步状态 —— 以前 push/pull 出任何错都被 catch 静默吞掉，设备之间对不上时
    完全没法判断是没登录、登录过期、还是服务器没通。现在全部记录下来并显示。 */
 const SYNCINFO_KEY = "thaicards.syncinfo";
@@ -1406,10 +1440,10 @@ async function thaiPush(){
     // another device is never wiped), and echo notes/cats back untouched.
     let cur = {}, getFailed = "";
     try{
-      const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
+      const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
       if(g.ok) cur = await g.json();
       else getFailed = (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`;
-    }catch(e){ getFailed = "连不上服务器（网络不通或服务器没开）"; }
+    }catch(e){ getFailed = netReason(e); }
     if(getFailed){ noteSync(false, getFailed); return; }   // 读不到就别推，否则会用旧数据覆盖服务器
     let out = combinedThai();
     let changed = false;
@@ -1429,7 +1463,7 @@ async function thaiPush(){
     const body = { thai: out, thaiRev: pushRev };
     if(Array.isArray(cur.notes)) body.notes = cur.notes;
     if(Array.isArray(cur.cats))  body.cats  = cur.cats;
-    const put = await fetch(`${cloud.url}/api/sync`, {
+    const put = await fetchT(`${cloud.url}/api/sync`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify(body)
@@ -1445,13 +1479,13 @@ async function thaiPush(){
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
     }
-  }catch(e){ noteSync(false, "同步出错：" + (e && e.message ? e.message : e)); }
+  }catch(e){ noteSync(false, netReason(e)); }
 }
 async function thaiPull(){
   const cloud = getCloud();
   if(!cloud){ noteSync(false, "未登录，无法同步"); return; }
   try{
-    const res = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
+    const res = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
     if(!res.ok){
       noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
       return;
@@ -1476,7 +1510,7 @@ async function thaiPull(){
       // we have something the server lacks — push the union up
       thaiPush();
     }
-  }catch(e){ noteSync(false, "连不上服务器（网络不通或服务器没开）"); }
+  }catch(e){ noteSync(false, netReason(e)); }
 }
 async function thaiSync(){
   if(!getCloud()) return;
