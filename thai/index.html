@@ -709,7 +709,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v66";   // shown in the top bar; bump with each release
+const APP_VER = "v67";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1283,7 +1283,12 @@ $("#syncNowBtn").onclick = async ()=>{
     noteSync(false, host.detail);
     btn.disabled = false; btn.textContent = "🔄 立即同步并检查";
     renderSyncBox();
-    alert(`❌ 连不上服务器\n\n${host.detail}\n\n地址：${cloud.url}\n本机：${navigator.onLine===false?"没有网络":"有网络"}\n\n请先在手机浏览器里打开：\n${cloud.url}/health\n能看到 {"ok":true} 才说明服务器是通的。`);
+    alert(
+      (host.backend===false ? "❌ 后端服务没在运行" : "❌ 连不上服务器") +
+      `\n\n${host.detail}\n\n地址：${cloud.url}\n本机：${navigator.onLine===false?"没有网络":"有网络"}\n\n` +
+      (host.backend===false
+        ? `你的卡片（${cards.length} 张）都安全存在这台手机上，等服务器恢复会自动同步上去。\n\n需要去服务器上把它重新启动。`
+        : `请在手机浏览器里打开：\n${cloud.url}/health\n看到 {"ok":true} 才说明服务器是通的。`));
     return;
   }
   await thaiPull();
@@ -1375,13 +1380,25 @@ function netReason(e){
 }
 // 不带登录信息探 /health，用来区分「主机根本连不上」和「登录被拒」
 async function probeHost(url){
+  // 1) 正常跨域请求。成功 = 带 CORS 头的后端确实在跑
   try{
     const r = await fetchT(`${url}/health?t=${Date.now()}`, { cache:"no-store" }, 12000);
     return r.ok
       ? { ok:true,  detail:`服务器正常（HTTP ${r.status}）` }
-      : { ok:false, detail:`域名通了，但服务器报错 HTTP ${r.status}（后端没启动好，或反向代理没连上后端）` };
+      : { ok:false, detail:`域名通了，但服务器报错 HTTP ${r.status}（后端没启动好，或反向代理没连上后端）`, backend:false };
   }catch(e){
-    return { ok:false, detail:netReason(e) };
+    if(e && e.name === "AbortError") return { ok:false, detail:"请求超时（12 秒没响应）" };
+    if(navigator.onLine === false)   return { ok:false, detail:"手机当前没有网络" };
+  }
+  // 2) 再用 no-cors 探一次。这种请求不校验 CORS，只要主机回了任何东西就算通。
+  //    能通 = 域名和证书都没问题，只是那个响应没有 CORS 头 —— 典型就是反向代理
+  //    直接回了 404/502 错误页，请求压根没到后端。
+  try{
+    await fetchT(`${url}/health?t=${Date.now()}`, { cache:"no-store", mode:"no-cors" }, 12000);
+    return { ok:false, backend:false,
+      detail:"域名和证书都正常，但请求没到达后端（反向代理直接返回了错误页）—— 后端服务多半没在运行" };
+  }catch(e2){
+    return { ok:false, detail:"打不开服务器地址（域名解析失败、证书问题，或服务器没在运行）" };
   }
 }
 
