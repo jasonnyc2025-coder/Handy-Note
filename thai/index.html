@@ -451,6 +451,15 @@
   .sheet .opt-row{display:flex;gap:10px}
   .sheet .opt-row .ghost{margin-top:0}
   .about{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.6;text-align:center}
+  /* 云同步状态 —— 以前同步出错是完全静默的，现在把状态摆出来 */
+  .sync-box{margin:14px 0 4px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+  .sync-box .sync-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:700}
+  .sync-box .sync-pill{font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;white-space:nowrap}
+  .sync-pill.ok{background:rgba(45,212,191,.18);color:#2dd4bf}
+  .sync-pill.bad{background:rgba(248,113,113,.18);color:#f87171}
+  .sync-pill.off{background:rgba(148,163,184,.18);color:var(--muted)}
+  .sync-box .sync-detail{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px;word-break:break-word}
+  .sync-box .sync-detail b{color:var(--ink);font-weight:700}
   .toast{
     position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
     background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:99px;font-size:13px;font-weight:600;
@@ -619,7 +628,12 @@
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <h3>设置与备份</h3>
-  <p class="sub">数据只存在这台设备上，建议定期导出备份。</p>
+  <p class="sub">卡片存在这台设备上，登录后会自动和其它设备同步。</p>
+  <div class="sync-box" id="syncBox">
+    <div class="sync-head"><span>☁️ 云同步</span><span class="sync-pill off" id="syncPill">检查中…</span></div>
+    <div class="sync-detail" id="syncDetail"></div>
+    <button class="ghost" id="syncNowBtn" style="margin-top:10px">🔄 立即同步并检查</button>
+  </div>
   <div class="opt-row">
     <button class="ghost" id="exportBtn">⬇ 导出备份</button>
     <button class="ghost" id="importBtn">⬆ 导入备份</button>
@@ -627,7 +641,7 @@
   <button class="ghost" id="voiceBtn">🔊 测试泰语发音</button>
   <input type="file" id="importFile" accept="application/json" style="display:none">
   <div class="about">
-    泰语卡片 · 离线优先 PWA · 无需联网、不上传任何数据<br>
+    泰语卡片 · 离线优先 PWA · 登录后卡片才会在多台设备之间同步<br>
     发音使用系统内置泰语语音（th-TH）
   </div>
 </div>
@@ -695,7 +709,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v64";   // shown in the top bar; bump with each release
+const APP_VER = "v65";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1256,7 +1270,31 @@ $("#sheetBg").onclick = ()=>openSheet(false);
 function openSheet(show){
   $("#sheet").classList.toggle("show",show);
   $("#sheetBg").classList.toggle("show",show);
+  if(show) renderSyncBox();
 }
+// 手动同步：跑完一整轮 pull→push，然后再读一次服务器核对，确认真的写进去了
+$("#syncNowBtn").onclick = async ()=>{
+  const btn = $("#syncNowBtn"), cloud = getCloud();
+  if(!cloud){ renderSyncBox(); alert("这台设备还没登录。\n请先打开「随手记」登录 Google 账号，泰语卡片会用同一个登录。"); return; }
+  btn.disabled = true; btn.textContent = "同步中…";
+  await thaiPull();
+  await thaiPush();
+  let verdict = syncInfo.ok ? "" : "❌ " + syncInfo.msg;
+  if(syncInfo.ok){
+    try{
+      const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
+      const d = g.ok ? await g.json() : null;
+      const srv = d && Array.isArray(d.thai) ? d.thai.filter(x=>!x._deleted).length : -1;
+      if(srv < 0)      verdict = `❌ 核对失败：服务器返回 ${g.status}`;
+      else if(srv === cards.length) verdict = `✅ 同步成功\n本机和服务器都是 ${srv} 张卡片`;
+      else             verdict = `⚠️ 还没对齐\n本机 ${cards.length} 张，服务器 ${srv} 张\n（服务器上有更新的数据没被接受，请把这个数字告诉我）`;
+      noteSync(g.ok, g.ok ? "已同步" : `核对失败 ${g.status}`, { serverCount: srv<0?null:srv, serverRev: d ? Number(d.thaiRev)||0 : 0 });
+    }catch(e){ verdict = "❌ 核对时连不上服务器"; }
+  }
+  btn.disabled = false; btn.textContent = "🔄 立即同步并检查";
+  renderSyncBox();
+  alert(verdict);
+};
 $("#voiceBtn").onclick = ()=> speak("สวัสดี ยินดีต้อนรับ");
 $("#exportBtn").onclick = ()=>{
   const blob = new Blob([JSON.stringify(cards,null,2)],{type:"application/json"});
@@ -1313,6 +1351,47 @@ function getCloud(){
 function getThaiRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
 function bumpThaiRev(){ const r = Date.now(); localStorage.setItem(REV_KEY, String(r)); return r; }
 
+/* 同步状态 —— 以前 push/pull 出任何错都被 catch 静默吞掉，设备之间对不上时
+   完全没法判断是没登录、登录过期、还是服务器没通。现在全部记录下来并显示。 */
+const SYNCINFO_KEY = "thaicards.syncinfo";
+let syncInfo = { at:0, ok:null, msg:"从未同步", serverCount:null, serverRev:0 };
+try{ const s = JSON.parse(localStorage.getItem(SYNCINFO_KEY)); if(s) syncInfo = s; }catch(e){}
+function noteSync(ok, msg, extra){
+  syncInfo = Object.assign({ at:Date.now(), ok, msg, serverCount:null, serverRev:0 }, extra||{});
+  try{ localStorage.setItem(SYNCINFO_KEY, JSON.stringify(syncInfo)); }catch(e){}
+  renderSyncBox();
+}
+function fmtWhen(t){
+  if(!t) return "从未";
+  const d = new Date(t), p = n=>String(n).padStart(2,"0");
+  const mins = Math.round((Date.now()-t)/60000);
+  const stamp = `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  if(mins < 1) return "刚刚";
+  if(mins < 60) return `${mins} 分钟前（${stamp}）`;
+  return stamp;
+}
+function renderSyncBox(){
+  const pill = document.getElementById("syncPill"), det = document.getElementById("syncDetail");
+  if(!pill || !det) return;
+  const cloud = getCloud();
+  const mine = cards.length;
+  if(!cloud){
+    pill.className = "sync-pill off"; pill.textContent = "未登录";
+    det.innerHTML = `这台设备<b>没有登录</b>，卡片只存在本机，不会和别的手机同步。<br>
+      请先打开「随手记」登录 Google 账号，再回到这里。<br>本机卡片：<b>${mine}</b> 张`;
+    return;
+  }
+  const okState = syncInfo.ok === true;
+  pill.className = "sync-pill " + (syncInfo.ok===null ? "off" : okState ? "ok" : "bad");
+  pill.textContent = syncInfo.ok===null ? "未同步" : okState ? "正常" : "有问题";
+  det.innerHTML =
+    `状态：<b>${esc(syncInfo.msg||"")}</b><br>` +
+    `最近一次：<b>${fmtWhen(syncInfo.at)}</b><br>` +
+    `本机卡片：<b>${mine}</b> 张` +
+    (syncInfo.serverCount!=null ? ` ｜ 服务器：<b>${syncInfo.serverCount}</b> 张` : "") + `<br>` +
+    `服务器：${esc(cloud.url)}`;
+}
+
 let _pushTimer = null;
 function scheduleThaiPush(){
   if(!getCloud()) return;
@@ -1320,12 +1399,18 @@ function scheduleThaiPush(){
   _pushTimer = setTimeout(thaiPush, 800);   // debounce rapid edits
 }
 async function thaiPush(){
-  const cloud = getCloud(); if(!cloud) return;
+  const cloud = getCloud();
+  if(!cloud){ noteSync(false, "未登录，无法同步"); return; }
   try{
     // Read the server first: merge our set with theirs (so a concurrent add on
     // another device is never wiped), and echo notes/cats back untouched.
-    let cur = {};
-    try{ const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
+    let cur = {}, getFailed = "";
+    try{
+      const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
+      if(g.ok) cur = await g.json();
+      else getFailed = (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`;
+    }catch(e){ getFailed = "连不上服务器（网络不通或服务器没开）"; }
+    if(getFailed){ noteSync(false, getFailed); return; }   // 读不到就别推，否则会用旧数据覆盖服务器
     let out = combinedThai();
     let changed = false;
     if(Array.isArray(cur.thai)){
@@ -1344,26 +1429,37 @@ async function thaiPush(){
     const body = { thai: out, thaiRev: pushRev };
     if(Array.isArray(cur.notes)) body.notes = cur.notes;
     if(Array.isArray(cur.cats))  body.cats  = cur.cats;
-    await fetch(`${cloud.url}/api/sync`, {
+    const put = await fetch(`${cloud.url}/api/sync`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify(body)
     });
+    if(!put.ok){
+      noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
+    }else{
+      noteSync(true, "已同步", { serverCount: out.filter(x=>!x._deleted).length, serverRev: pushRev });
+    }
     // only repaint when the merge actually brought something in — repainting on
     // every push would wipe the「刚看过」高亮并把词表滚回顶部
     if(changed){
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
     }
-  }catch(e){}
+  }catch(e){ noteSync(false, "同步出错：" + (e && e.message ? e.message : e)); }
 }
 async function thaiPull(){
-  const cloud = getCloud(); if(!cloud) return;
+  const cloud = getCloud();
+  if(!cloud){ noteSync(false, "未登录，无法同步"); return; }
   try{
     const res = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-    if(!res.ok) return;
+    if(!res.ok){
+      noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
+      return;
+    }
     const data = await res.json();
-    if(!Array.isArray(data.thai)) return;
+    if(!Array.isArray(data.thai)){ noteSync(false, "服务器返回的数据格式不对"); return; }
+    const srvCount = data.thai.filter(x=>!x._deleted).length;
+    noteSync(true, "已同步", { serverCount: srvCount, serverRev: Number(data.thaiRev)||0 });
     const local = combinedThai();
     const merged = mergeThai(local, data.thai);
     const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
@@ -1380,7 +1476,7 @@ async function thaiPull(){
       // we have something the server lacks — push the union up
       thaiPush();
     }
-  }catch(e){}
+  }catch(e){ noteSync(false, "连不上服务器（网络不通或服务器没开）"); }
 }
 async function thaiSync(){
   if(!getCloud()) return;
