@@ -694,13 +694,17 @@
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
-const APP_VER = "v62";   // shown in the top bar; bump with each release
+const TOMB_KEY = "thaicards.tombs.v1";
+const APP_VER = "v63";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
+let tombs = [];   // 删除墓碑 {id,_deletedAt}：让"删除"也能跨设备传播
 function load(){
   try{ cards = JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
   catch(e){ cards = []; }
+  try{ tombs = JSON.parse(localStorage.getItem(TOMB_KEY)) || []; }
+  catch(e){ tombs = []; }
   // migrate old single-example fields -> examples array
   let migrated = false;
   cards.forEach(c=>{
@@ -712,7 +716,37 @@ function load(){
   });
   if(migrated) save();
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); bumpThaiRev(); scheduleThaiPush(); }
+function persistThai(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); }catch(e){}
+  try{ localStorage.setItem(TOMB_KEY, JSON.stringify(tombs)); }catch(e){}
+}
+function save(){ persistThai(); bumpThaiRev(); scheduleThaiPush(); }
+
+/* --- cross-device merge (by card id): additions / edits / deletes from every
+   device all survive, instead of the last writer overwriting the whole set --- */
+function combinedThai(){
+  return cards.concat(tombs.map(t=>({ id:t.id, _deleted:true, _deletedAt:t._deletedAt||0 })));
+}
+function _rankThai(e){ return e._deleted ? (e._deletedAt||0) : (e.modified || e.createdAt || 0); }
+function mergeThai(a, b){
+  const byId = new Map();
+  const consider = e=>{
+    if(!e || !e.id) return;
+    const prev = byId.get(e.id);
+    if(!prev || _rankThai(e) >= _rankThai(prev)) byId.set(e.id, e);
+  };
+  (a||[]).forEach(consider); (b||[]).forEach(consider);
+  return [...byId.values()];
+}
+function applyCombinedThai(arr){
+  cards = arr.filter(e=> e && !e._deleted);
+  const cutoff = Date.now() - 120*864e5;   // drop tombstones older than ~120 days
+  tombs = arr.filter(e=> e && e._deleted && (e._deletedAt||0) > cutoff)
+             .map(e=>({ id:e.id, _deletedAt:e._deletedAt||0 }));
+}
+function thaiSig(arr){
+  return (arr||[]).map(e=> e.id+":"+(e._deleted?("D"+(e._deletedAt||0)):(e.modified||e.createdAt||0))).sort().join("|");
+}
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
 
@@ -871,6 +905,7 @@ function delCard(id){
   if(!c) return;
   if(!confirm(`删除「${c.thai}」？`)) return;
   cards = cards.filter(x=>x.id!==id);
+  tombs = tombs.filter(t=>t.id!==id); tombs.push({ id, _deletedAt: Date.now() });
   save(); renderList(); renderHome(); toast("已删除");
 }
 
@@ -980,12 +1015,12 @@ $("#saveCard").onclick = ()=>{
   };
   if(editingId){
     const c=cards.find(x=>x.id===editingId);
-    Object.assign(c,data); save();
+    Object.assign(c,data); c.modified=Date.now(); save();
     toast("已更新");
     if(returnToReviewIfNeeded()) return;
     resetForm(); showTab("list");
   }else{
-    cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), ...data });
+    cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), modified:Date.now(), ...data });
     save();
     toast("已添加 ✓"); resetForm();
     $("#fThai").focus();
@@ -1248,7 +1283,7 @@ $("#importFile").onchange = e=>{
         }
         delete d.example; delete d.exampleMeaning;
         if(!cards.some(c=>c.id===d.id || (c.thai===d.thai && c.meaning===d.meaning))){
-          cards.push({day:todayStr(),createdAt:Date.now(),...d});
+          cards.push({day:todayStr(),createdAt:Date.now(),modified:Date.now(),...d});
           added++;
         }
       });
@@ -1287,13 +1322,21 @@ function scheduleThaiPush(){
 async function thaiPush(){
   const cloud = getCloud(); if(!cloud) return;
   try{
-    // Echo the server's current notes/cats back untouched. On the updated
-    // server this is redundant (it does partial upserts), but it keeps us safe
-    // against an older server that overwrites every field — so pushing only the
-    // Thai section can never wipe the user's notes.
+    // Read the server first: merge our set with theirs (so a concurrent add on
+    // another device is never wiped), and echo notes/cats back untouched.
     let cur = {};
     try{ const g = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } }); if(g.ok) cur = await g.json(); }catch(e){}
-    const body = { thai: cards, thaiRev: getThaiRev() };
+    let out = combinedThai();
+    if(Array.isArray(cur.thai)){
+      const merged = mergeThai(out, cur.thai);
+      applyCombinedThai(merged);
+      persistThai();
+      out = combinedThai();
+    }
+    // rev must beat the stored one so the server (which rev-gates) always accepts it
+    const pushRev = Math.max(getThaiRev(), (Number(cur.thaiRev)||0) + 1);
+    localStorage.setItem(REV_KEY, String(pushRev));
+    const body = { thai: out, thaiRev: pushRev };
     if(Array.isArray(cur.notes)) body.notes = cur.notes;
     if(Array.isArray(cur.cats))  body.cats  = cur.cats;
     await fetch(`${cloud.url}/api/sync`, {
@@ -1301,6 +1344,8 @@ async function thaiPush(){
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify(body)
     });
+    renderHome();
+    if(document.querySelector("#view-list.active")) renderList();
   }catch(e){}
 }
 async function thaiPull(){
@@ -1309,12 +1354,22 @@ async function thaiPull(){
     const res = await fetch(`${cloud.url}/api/sync`, { headers:{ "Authorization":"Bearer "+cloud.token } });
     if(!res.ok) return;
     const data = await res.json();
-    if(Array.isArray(data.thai) && (data.thaiRev||0) > getThaiRev()){
-      cards = data.thai;
-      localStorage.setItem(STORE_KEY, JSON.stringify(cards));
-      localStorage.setItem(REV_KEY, String(data.thaiRev||0));
+    if(!Array.isArray(data.thai)) return;
+    const local = combinedThai();
+    const merged = mergeThai(local, data.thai);
+    const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
+    if(mergedSig === localSig && mergedSig === remoteSig) return;   // already in sync
+    if(mergedSig !== localSig){
+      // remote had something new for us — adopt the merged result
+      applyCombinedThai(merged);
+      persistThai();
+      localStorage.setItem(REV_KEY, String(Math.max(getThaiRev(), Number(data.thaiRev)||0)));
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
+    }
+    if(mergedSig !== remoteSig){
+      // we have something the server lacks — push the union up
+      thaiPush();
     }
   }catch(e){}
 }
@@ -1550,7 +1605,7 @@ $("#addWordBg").onclick = closeAddWord;
 $("#awAddEx").onclick = ()=> addExRow("", "", $("#awExList"));
 $("#awSave").onclick = ()=>{
   const thai = $("#awThai").value.trim(); if(!thai){ closeAddWord(); return; }
-  cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:collectExamples($("#awExList")) });
+  cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), modified:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:collectExamples($("#awExList")) });
   save();
   closeAddWord();
   toast("已加入生词：" + thai);
