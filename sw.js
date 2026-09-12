@@ -1,5 +1,5 @@
 // 随手记 Service Worker —— 离线缓存
-const CACHE = 'quicknotes-v192';
+const CACHE = 'quicknotes-v195';
 const ASSETS = [
   'index.html',
   'quick-notes.html',
@@ -17,8 +17,11 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil(
+    // 只清理随手记自己的旧缓存。caches 是整个域名共享的，以前这里会把
+    // 泰语卡片（thaicards-*）和名片夹（namecards-*）的离线缓存一并删掉，
+    // 导致「后打开哪个 App，另外两个就离线打不开」
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith('quicknotes-') && k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
       .then(() => self.clients.matchAll({ type: 'window' })
         .then(clients => clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' }))))
@@ -103,6 +106,55 @@ self.addEventListener('fetch', e => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
       return res;
-    }).catch(() => caches.match(e.request).then(r => r || caches.match('quick-notes.html')))
+    }).catch(() => _offlineFallback(e.request))
   );
 });
+
+// 离线回退。务必保证任何分支都返回一个 Response —— 返回 undefined 会让这次
+// 导航永远卡在 loading（页面白屏打不开）
+async function _offlineFallback(req) {
+  const cache = await caches.open(CACHE);
+  // 带 ?参数 的地址（?from=、?v= 之类）也要能命中缓存，否则离线就打不开
+  let hit = await cache.match(req) || await cache.match(req, { ignoreSearch: true });
+  if (hit) return hit;
+
+  let sub = false;
+  try { sub = /\/(thai|cards)\//.test(new URL(req.url).pathname); } catch (_) {}
+  // 子应用（泰语卡片 / 名片夹）没缓存过就别拿随手记顶包 —— 以前离线点进去
+  // 会在 thai/ 的地址上显示随手记，看着像是跳错了
+  if (sub) return _notCachedPage(req.url);
+
+  if (req.mode === 'navigate') {
+    hit = await cache.match('quick-notes.html');
+    if (hit) return hit;
+    return _notCachedPage(req.url);
+  }
+  return Response.error();
+}
+
+// 离线时打开一个还没缓存过的子应用，给一句人话而不是浏览器的报错页
+function _notCachedPage(url) {
+  const name = /\/thai\//.test(url) ? '泰语卡片' : /\/cards\//.test(url) ? '名片夹' : '这个页面';
+  return new Response(
+    `<!doctype html><meta charset="utf-8">
+     <meta name="viewport" content="width=device-width,initial-scale=1">
+     <title>${name} · 还没离线缓存</title>
+     <style>
+       :root{color-scheme:dark}
+       body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+            background:#0f1720;color:#e7eef6;font:16px/1.7 system-ui,-apple-system,sans-serif;padding:28px}
+       .box{max-width:340px;text-align:center}
+       h1{font-size:19px;margin:0 0 12px}
+       p{color:#9fb0c0;margin:0 0 20px}
+       a{display:inline-block;padding:12px 22px;border-radius:12px;background:#2dd4bf;color:#06231f;
+         font-weight:700;text-decoration:none}
+     </style>
+     <div class="box">
+       <h1>✈️ ${name}还没离线缓存</h1>
+       <p>这台手机还没在联网状态下打开过${name}，所以现在离线打不开它。<br><br>
+          联网时打开一次，之后飞行模式也能用。</p>
+       <a href="../quick-notes.html">← 返回随手记</a>
+     </div>`,
+    { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
