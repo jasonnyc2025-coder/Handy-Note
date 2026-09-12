@@ -53,11 +53,14 @@
     padding:calc(env(safe-area-inset-top) + 14px) 16px 12px;
   }
   .topbar .inner{max-width:600px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px;position:relative}
-  /* absolutely centered so the wider 返回 button on the left can't shift it */
-  .title-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;white-space:nowrap;pointer-events:none}
+  /* 在「返回随手记」和 ⚙ 之间居中。以前是绝对居中到屏幕中线，返回键文字一长
+     就会压到标题上（窄屏最多重叠 59px） */
+  .title-center{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;
+    gap:10px;white-space:nowrap;pointer-events:none;overflow:hidden}
   /* labeled back button with its own background, reads as one solid control */
-  .app-back{display:flex;align-items:center;gap:6px;height:46px;padding:0 22px;border-radius:13px;
-    background:var(--teal);border:none;color:#04201c;font-size:16px;font-weight:800;
+  /* 文字加长成「返回随手记」后收窄内边距，免得跟居中的标题挤在一起 */
+  .app-back{display:flex;align-items:center;gap:5px;height:46px;padding:0 13px;border-radius:13px;
+    background:var(--teal);border:none;color:#04201c;font-size:15px;font-weight:800;white-space:nowrap;
     text-decoration:none;flex:0 0 auto;box-shadow:0 4px 14px rgba(45,212,191,.35)}
   .app-back:active{filter:brightness(.92)}
   .logo{
@@ -67,6 +70,18 @@
   .logo .thai{line-height:1}
   .title{font-size:18px;font-weight:700;letter-spacing:-.01em}
   .title small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  /* 窄屏放不下就先收掉装饰性的图标方块，保住标题和版本号不被裁。
+     必须放在 .app-back / .title 之后，否则会被后面同等权重的规则盖掉 */
+  @media (max-width:380px){
+    .app-back{padding:0 10px;font-size:14px;gap:4px}
+    .title-center .logo{display:none}
+    .title{font-size:16px}
+    .title small{font-size:10px;letter-spacing:.06em}
+  }
+  @media (max-width:340px){
+    .title{font-size:15px}
+    .title small{font-size:9px;letter-spacing:.02em}
+  }
   .topbar .spacer{flex:1}
   .icon-btn{
     width:46px;height:46px;border-radius:13px;background:var(--surface);border:1px solid var(--line);
@@ -473,7 +488,7 @@
 <!-- top bar -->
 <div class="topbar">
   <div class="inner">
-    <a class="app-back" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记">← 返回</a>
+    <a class="app-back" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记">← 返回随手记</a>
     <div class="title-center">
       <div class="title" style="text-align:center">泰语卡片<small>Thai Flashcards · <span id="appVer"></span></small></div>
     </div>
@@ -713,7 +728,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v70";   // shown in the top bar; bump with each release
+const APP_VER = "v71";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
