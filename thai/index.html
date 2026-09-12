@@ -634,6 +634,10 @@
     <div class="sync-detail" id="syncDetail"></div>
     <button class="ghost" id="syncNowBtn" style="margin-top:10px">🔄 立即同步并检查</button>
   </div>
+  <div class="sync-box" id="offlineBox">
+    <div class="sync-head"><span>✈️ 飞行模式可用性</span><span class="sync-pill off" id="offPill">检查中…</span></div>
+    <div class="sync-detail" id="offDetail"></div>
+  </div>
   <div class="opt-row">
     <button class="ghost" id="exportBtn">⬇ 导出备份</button>
     <button class="ghost" id="importBtn">⬆ 导入备份</button>
@@ -709,7 +713,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v68";   // shown in the top bar; bump with each release
+const APP_VER = "v69";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -766,9 +770,14 @@ function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth
 
 /* ---------------- speech ---------------- */
 let thaiVoice = null;
+function thaiVoices(){
+  if(!("speechSynthesis" in window)) return [];
+  return speechSynthesis.getVoices().filter(v=> /^th([-_]|$)/i.test(v.lang) || /thai/i.test(v.name));
+}
 function pickVoice(){
-  const vs = speechSynthesis.getVoices();
-  thaiVoice = vs.find(v=>/th(-|_)?/i.test(v.lang)) || vs.find(v=>/thai/i.test(v.name)) || null;
+  const vs = thaiVoices();
+  // 优先挑「本地（离线）」语音 —— 网络语音一进飞行模式就哑了
+  thaiVoice = vs.find(v=> v.localService) || vs[0] || null;
 }
 if("speechSynthesis" in window){
   pickVoice();
@@ -1270,7 +1279,7 @@ $("#sheetBg").onclick = ()=>openSheet(false);
 function openSheet(show){
   $("#sheet").classList.toggle("show",show);
   $("#sheetBg").classList.toggle("show",show);
-  if(show) renderSyncBox();
+  if(show){ renderSyncBox(); renderOfflineBox(); }
 }
 // 手动同步：跑完一整轮 pull→push，然后再读一次服务器核对，确认真的写进去了
 $("#syncNowBtn").onclick = async ()=>{
@@ -1441,6 +1450,30 @@ function renderSyncBox(){
     `本机卡片：<b>${mine}</b> 张` +
     (syncInfo.serverCount!=null ? ` ｜ 服务器：<b>${syncInfo.serverCount}</b> 张` : "") + `<br>` +
     `服务器：${esc(cloud.url)}`;
+}
+
+/* 飞行模式下到底能做什么：卡片在本机 localStorage，App 外壳由 Service Worker
+   缓存，这两样一定能离线；发音走系统语音，只有「本地语音」离线才出声。 */
+function renderOfflineBox(){
+  const pill = document.getElementById("offPill"), det = document.getElementById("offDetail");
+  if(!pill || !det) return;
+  const n = cards.length;
+  const ex = cards.reduce((s,c)=> s + ((c.examples||[]).length), 0);
+  const shellCached = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+  const vs = thaiVoices();
+  const localV = vs.filter(v=> v.localService);
+  let voiceLine, voiceOk;
+  if(!("speechSynthesis" in window)){ voiceOk=false; voiceLine = "这个浏览器不支持朗读"; }
+  else if(localV.length){ voiceOk=true;  voiceLine = `本地语音「${esc(localV[0].name)}」→ <b>飞行模式能听</b>`; }
+  else if(vs.length){     voiceOk=false; voiceLine = `只找到网络语音「${esc(vs[0].name)}」→ <b>飞行模式不能听</b>，需在系统里下载泰语离线语音`; }
+  else {                  voiceOk=false; voiceLine = "系统里<b>没有泰语语音</b>，需要先安装"; }
+
+  pill.className = "sync-pill " + (shellCached && voiceOk ? "ok" : "off");
+  pill.textContent = shellCached && voiceOk ? "都能用" : (shellCached ? "能看不能听" : "检查中");
+  det.innerHTML =
+    `卡片：<b>${n}</b> 张（含 ${ex} 条例句）全部存在这台手机上 → <b>飞行模式能看</b><br>` +
+    `App 本体：${shellCached ? "已缓存 → <b>断网也能打开</b>" : "还没缓存完，联网状态下再打开一次即可"}<br>` +
+    `朗读：${voiceLine}`;
 }
 
 let _pushTimer = null;
