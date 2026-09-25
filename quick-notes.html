@@ -2158,7 +2158,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v196</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v197</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -3034,6 +3034,7 @@ function renderItem(n) {
           <button class="edit-btn" data-act="edit">${t('edit')}</button>
           <button class="edit-btn" data-act="tts">🔊 朗读</button>
           ${!n.remindAt ? `<button class="remind-btn" data-act="setremind">${t('plusReminder')}</button>` : `<button class="remind-btn" data-act="setremind">⏰ ${t('setReminder')}</button>`}
+          <button class="edit-btn" data-act="movein">↪ 移到笔记下</button>
           <button class="edit-btn del-btn" data-act="del">× 删除</button>
           <button class="edit-btn" data-act="pin">${n.pinned ? t('unpin') : t('pin')}</button>
         </div>
@@ -3769,6 +3770,8 @@ document.addEventListener('click', async e => {
     if (n) startAddSub(item, n);
   } else if (act === 'setcat') {
     if (n) chooseCat(n);
+  } else if (act === 'movein') {
+    if (n) moveIntoNote(n);
   } else if (act === 'subtoggle') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
@@ -5295,6 +5298,97 @@ function catManageDialog(c) {
 }
 
 // 给一条记录选择/更改类别（漂亮列表弹窗）
+// 把整条笔记（连同它自己的子项、附件、提醒）挂到另一条笔记下面当子项
+function moveNoteUnder(n, target) {
+  const sub = {
+    id: n.id, text: n.text, rich: !!n.rich, done: !!n.done,
+    ts: n.ts || Date.now(),
+    atts: (n.atts || []).slice(),
+    subs: (n.subs || []).slice()
+  };
+  if (n.remindAt) { sub.remindAt = n.remindAt; if (n.repeat) sub.repeat = n.repeat; if (n.remindFired) sub.remindFired = n.remindFired; }
+  // 万一 id 撞车（几乎不可能），换一个，免得两条子项互相覆盖
+  if ((target.subs || []).some(s => s.id === sub.id)) {
+    sub.id = Date.now() + '' + Math.random().toString(36).slice(2, 6);
+  }
+  target.subs = target.subs || [];
+  target.subs.push(sub);
+  target.modified = Date.now();
+  notes = notes.filter(x => x.id !== n.id);
+  // 展开目标笔记，并把它的子项列表也打开（子项默认是收起的），
+  // 否则移过去之后看不见东西落在哪儿
+  try { if (typeof setNoteExpanded === 'function') setNoteExpanded(target.id, true); } catch (_) {}
+  try {
+    collapsedSubs[target.id] = false;
+    localStorage.setItem(SUBCOLLAPSE_KEY, JSON.stringify(collapsedSubs));
+  } catch (_) {}
+  save(); render();
+  // 层级变了，把提醒清单重新报给推送服务器
+  try { if (typeof uploadPush === 'function') uploadPush(); } catch (_) {}
+  showToast('已移到「' + firstLine(target).slice(0, 12) + '」下面');
+}
+
+function moveIntoNote(n) {
+  const others = notes.filter(x => x.id !== n.id && !x._deleted);
+  if (!others.length) { showToast('还没有别的笔记可以移进去'); return; }
+  const modal = document.getElementById('catpick-modal');
+  document.querySelector('#catpick-modal .modal-title').textContent = '移到哪条笔记下';
+  const subEl = document.getElementById('catpick-sub');
+  subEl.innerHTML = `把「${esc(firstLine(n).slice(0, 16))}」变成下面这条笔记的子项：
+    <input id="movein-q" placeholder="🔍 搜索笔记" autocomplete="off"
+      style="width:100%;margin-top:8px;padding:9px 12px;border:1px solid var(--line);
+             border-radius:10px;background:var(--paper);color:var(--ink);font-size:0.95rem">`;
+  const list = document.getElementById('catpick-list');
+  const draw = (kw) => {
+    const q = (kw || '').trim().toLowerCase();
+    const hit = q ? others.filter(x =>
+      (plainOf(x.text) || '').toLowerCase().includes(q) ||
+      firstLine(x).toLowerCase().includes(q) ||
+      (x.cat && catById(x.cat) ? catById(x.cat).name.toLowerCase().includes(q) : false)) : others;
+    list.innerHTML = hit.length ? hit.map(x => {
+      const cat = x.cat && catById(x.cat) ? `📁 ${esc(catById(x.cat).name)} · ` : '';
+      const cnt = x.subs && x.subs.length ? ` · ${x.subs.length} 个子项` : '';
+      return `<button class="catpick-item" data-note="${esc(String(x.id))}" style="text-align:left">
+        ${esc(firstLine(x).slice(0, 38))}
+        <span style="display:block;font-size:0.72rem;color:var(--ink-soft);margin-top:3px;font-weight:400">
+          ${cat}${fullDate(x.ts)}${cnt}</span></button>`;
+    }).join('') : `<div style="padding:20px;text-align:center;color:var(--ink-soft)">没有匹配的笔记</div>`;
+  };
+  draw('');
+  document.getElementById('catpick-new').style.display = 'none';
+  modal.classList.add('show');
+
+  const cancelBtn = document.getElementById('catpick-cancel');
+  const qEl = document.getElementById('movein-q');
+  const onType = () => draw(qEl.value);
+  const finish = () => {
+    modal.classList.remove('show');
+    list.removeEventListener('click', pick);
+    cancelBtn.removeEventListener('click', finish);
+    modal.removeEventListener('click', onBg);
+    if (qEl) qEl.removeEventListener('input', onType);
+    document.getElementById('catpick-new').style.display = '';
+    subEl.textContent = '';
+  };
+  const pick = async (e) => {
+    const b = e.target.closest('[data-note]');
+    if (!b) return;
+    const target = notes.find(x => String(x.id) === b.dataset.note);
+    if (!target || target.id === n.id) return;
+    finish();
+    const extra = (n.subs && n.subs.length) ? `\n它自己的 ${n.subs.length} 个子项会一起带过去。` : '';
+    if (await confirmDialog(
+      `把「${firstLine(n).slice(0, 20)}」移到「${firstLine(target).slice(0, 20)}」下面作为子项？${extra}`)) {
+      moveNoteUnder(n, target);
+    }
+  };
+  const onBg = (e) => { if (e.target === modal) finish(); };
+  list.addEventListener('click', pick);
+  cancelBtn.addEventListener('click', finish);
+  modal.addEventListener('click', onBg);
+  if (qEl) qEl.addEventListener('input', onType);
+}
+
 function chooseCat(n) {
   const modal = document.getElementById('catpick-modal');
   document.querySelector('#catpick-modal .modal-title').textContent = '选择类别';
@@ -5741,7 +5835,10 @@ function gatherPushReminders() {
     if (o.remindFired && !repeating) return;
     out.push({ id: String(o.id), text: (plainOf(o.text) || '提醒').slice(0, 120), at: o.remindAt, repeat: o.repeat || 'none' });
   };
-  notes.forEach(n => { if (n._deleted) return; add(n); (n.subs || []).forEach(add); });
+  // 递归到每一层：以前只收顶层和第一层子项，更深的子项设了提醒也不会响
+  // （把一条带子项的笔记整条移到别的笔记下面之后，层级就会变深）
+  const walk = o => { add(o); (o.subs || []).forEach(walk); };
+  notes.forEach(n => { if (n._deleted) return; walk(n); });
   return out;
 }
 let _pushSub = null;
