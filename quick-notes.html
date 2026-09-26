@@ -2158,7 +2158,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v197</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v198</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2451,9 +2451,10 @@ function confirmDialog(message, opts = {}) {
   <div class="modal-card">
     <div class="modal-title" data-i18n="addAttach">添加附件</div>
     <div class="attach-picker-opts">
-      <button class="ap-opt" data-pick="camera"><span class="ap-ic">📷</span><span data-i18n="camera">拍照</span></button>
-      <button class="ap-opt" data-pick="image"><span class="ap-ic">🖼️</span><span data-i18n="album">从相册选</span></button>
-      <button class="ap-opt" data-pick="pdf"><span class="ap-ic">📄</span><span data-i18n="pdf">选 PDF</span></button>
+      <!-- 图标由 i18n 文案自带（'📷 拍照'），这里不要再放一个，否则会显示两个 -->
+      <button class="ap-opt" data-pick="camera"><span data-i18n="camera">📷 拍照</span></button>
+      <button class="ap-opt" data-pick="image"><span data-i18n="album">🖼️ 从相册选</span></button>
+      <button class="ap-opt" data-pick="pdf"><span data-i18n="pdf">📄 选 PDF</span></button>
     </div>
     <div class="modal-actions">
       <span style="flex:1"></span>
@@ -2471,35 +2472,92 @@ function attachPicker() {
     document.getElementById('attach-picker-modal').classList.add('show');
   });
 }
+// 打开「添加附件」弹框，直接返回选好的附件数组（取消则是空数组）。
+// 关键：系统文件选择器是在「用户点某个选项」那个点击事件里同步唤起的。
+// iOS Safari 要求 input.click() 必须发生在用户手势的同一个任务内，以前是
+// 先 await attachPicker() 拿 kind、再 await pickFilesByKind()，手势已经过期，
+// 于是点了拍照/相册什么都不会发生。
+let _apFiles = null;
+function pickAttachments() {
+  return new Promise(resolve => {
+    _apFiles = resolve;
+    document.getElementById('attach-picker-modal').classList.add('show');
+  });
+}
+
 (function setupAttachPicker() {
   const modal = document.getElementById('attach-picker-modal');
   const finish = (kind) => {
     modal.classList.remove('show');
+    if (_apFiles) { const done = _apFiles; _apFiles = null; done([]); }
     if (_apResolve) { _apResolve(kind); _apResolve = null; }
   };
   modal.querySelectorAll('.ap-opt').forEach(b => {
-    b.addEventListener('click', () => finish(b.dataset.pick));
+    b.addEventListener('click', () => {
+      const kind = b.dataset.pick;
+      if (_apFiles) {
+        const done = _apFiles; _apFiles = null;
+        modal.classList.remove('show');
+        // 不要 await —— 必须在这个点击事件里同步走到 picker.click()
+        pickFilesByKind(kind).then(done, () => done([]));
+        return;
+      }
+      finish(kind);
+    });
   });
   document.getElementById('attach-picker-cancel').addEventListener('click', () => finish(null));
   modal.addEventListener('click', e => { if (e.target === modal) finish(null); });
 })();
 
 // 根据选择的种类，弹出系统文件选择并读取，返回附件数组
+// 取页面里那三个真实存在的 file input（#file-camera / #file-image / #file-pdf）。
+// 以前是现场 createElement 一个再 .click()，但 iOS Safari 对「没插进 DOM 的
+// file input」不会弹出选择器 —— 于是 iPhone 上点了拍照/相册什么都不会发生。
+function fileInputFor(kind) {
+  const id = kind === 'camera' ? 'file-camera' : kind === 'image' ? 'file-image' : 'file-pdf';
+  let el = document.getElementById(id);
+  if (!el) {                      // 兜底：真没有就建一个，但必须插进 DOM
+    el = document.createElement('input');
+    el.type = 'file'; el.id = id; el.style.display = 'none';
+    if (kind === 'camera') { el.accept = 'image/*'; el.capture = 'environment'; }
+    else if (kind === 'image') { el.accept = 'image/*'; el.multiple = true; }
+    else { el.accept = 'application/pdf'; el.multiple = true; }
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 function pickFilesByKind(kind) {
   return new Promise(resolve => {
     if (!kind) return resolve([]);
-    const picker = document.createElement('input');
-    picker.type = 'file';
-    if (kind === 'camera') { picker.accept = 'image/*'; picker.capture = 'environment'; }
-    else if (kind === 'image') { picker.accept = 'image/*'; picker.multiple = true; }
-    else { picker.accept = 'application/pdf'; picker.multiple = true; }
+    const picker = fileInputFor(kind);
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; cleanup(); resolve(v); } };
+    const onCancel = () => done([]);          // 用户在系统选择器里点了取消
+    const onFocus = () => setTimeout(() => {  // 部分浏览器不发 cancel，用回焦兜底
+      if (!picker.files || !picker.files.length) done([]);
+    }, 1200);
+    function cleanup() {
+      picker.onchange = null;
+      picker.removeEventListener('cancel', onCancel);
+      window.removeEventListener('focus', onFocus);
+    }
+    picker.addEventListener('cancel', onCancel);
+    window.addEventListener('focus', onFocus);
+    // 清空，否则连续选同一个文件不会触发 change
+    try { picker.value = ''; } catch (_) {}
     picker.onchange = async ev => {
       const out = [];
-      for (const file of Array.from(ev.target.files || [])) {
-        const att = await readFile(file);
-        if (att) out.push(att);
+      const chosen = Array.from(ev.target.files || []);
+      for (const file of chosen) {
+        try { const att = await readFile(file); if (att) out.push(att); } catch (_) {}
       }
-      resolve(out);
+      try { picker.value = ''; } catch (_) {}
+      // 选了文件却一个都没读出来，要说一声，否则用户只会觉得「点了没反应」
+      if (chosen.length && !out.length) {
+        alert('没能读取所选文件，请换一个再试（支持常见图片和 PDF）。');
+      }
+      done(out);
     };
     picker.click();
   });
@@ -4099,9 +4157,7 @@ function startAddSub(item, n) {
   attBtn.addEventListener('mousedown', e => e.preventDefault());
   attBtn.addEventListener('click', async () => {
     pickingAtt = true;
-    const kind = await attachPicker();
-    if (!kind) { pickingAtt = false; rich.focus(); return; }
-    const got = await pickFilesByKind(kind);
+    const got = await pickAttachments();
     if (got.length) { subAtts.push(...got); renderAttList(); }
     pickingAtt = false; rich.focus();
   });
@@ -4113,21 +4169,12 @@ function startAddSub(item, n) {
 }
 
 // 为子项选择文件（拍照/相册/PDF）
-function pickSubFile(kind, subAtts, attBtn, inp) {
-  const picker = document.createElement('input');
-  picker.type = 'file';
-  if (kind === 'camera') { picker.accept = 'image/*'; picker.capture = 'environment'; }
-  else if (kind === 'image') { picker.accept = 'image/*'; picker.multiple = true; }
-  else { picker.accept = 'application/pdf'; picker.multiple = true; }
-  picker.onchange = async ev => {
-    for (const file of Array.from(ev.target.files || [])) {
-      const att = await readFile(file);
-      if (att) subAtts.push(att);
-    }
-    attBtn.textContent = subAtts.length ? '📎' + subAtts.length : '📎';
-    if (inp) inp.focus();
-  };
-  picker.click();
+async function pickSubFile(kind, subAtts, attBtn, inp) {
+  // 同样走 DOM 里的真实 input（iOS 对游离的 file input 不弹选择器）
+  const got = await pickFilesByKind(kind);
+  if (got.length) subAtts.push(...got);
+  attBtn.textContent = subAtts.length ? '📎' + subAtts.length : '📎';
+  if (inp) inp.focus();
 }
 
 // 编辑某个子项文字
@@ -4204,9 +4251,7 @@ function startEditSub(span, n, s) {
     if (rm) { editAtts.splice(+rm.dataset.i, 1); renderEA(); }
   });
   async function pickEA() {
-    const kind = await attachPicker();
-    if (!kind) return;
-    const got = await pickFilesByKind(kind);
+    const got = await pickAttachments();
     if (got.length) { editAtts.push(...got); renderEA(); }
   }
 
@@ -4317,9 +4362,7 @@ function startAddSubSub(subRow, n, s) {
   attAddBtn.addEventListener('mousedown', e => e.preventDefault());
   attAddBtn.addEventListener('click', async () => {
     picking = true;
-    const kind = await attachPicker();
-    if (!kind) { picking = false; rich.focus(); return; }
-    const got = await pickFilesByKind(kind);
+    const got = await pickAttachments();
     if (got.length) { ssAtts.push(...got); renderAtts(); }
     picking = false; rich.focus();
   });
@@ -4438,9 +4481,7 @@ function startEditSubSub(ssRow, n, s, ss) {
   attAddBtn.addEventListener('mousedown', e => e.preventDefault());
   attAddBtn.addEventListener('click', async () => {
     picking = true;
-    const kind = await attachPicker();
-    if (!kind) { picking = false; rich.focus(); return; }
-    const got = await pickFilesByKind(kind);
+    const got = await pickAttachments();
     if (got.length) { editAtts.push(...got); renderAtts(); }
     picking = false; rich.focus();
   });
@@ -4904,9 +4945,7 @@ function startEdit(item, n) {
   });
   // 添加附件：弹出统一的居中选择弹窗
   async function pickEditAtt() {
-    const kind = await attachPicker();
-    if (!kind) return;
-    const got = await pickFilesByKind(kind);
+    const got = await pickAttachments();
     if (got.length) { editAtts.push(...got); renderEditAtts(); }
   }
 
@@ -5060,36 +5099,15 @@ document.getElementById('lightbox').addEventListener('click', e => {
 const attachMenu = document.getElementById('attach-menu');
 document.getElementById('attach').addEventListener('click', async e => {
   e.stopPropagation();
-  const kind = await attachPicker();
-  if (!kind) return;
-  const got = await pickFilesByKind(kind);
+  const got = await pickAttachments();
   if (got.length) { pending.push(...got); renderPending(); refreshSendState(); }
 });
 
-async function handleFiles(e) {
-  const files = Array.from(e.target.files || []);
-  if (!files.length) return;
-  const attach = document.getElementById('attach');
-  const origText = attach.textContent;
-  attach.textContent = '…';
-  let added = 0;
-  for (const f of files) {
-    try {
-      const att = await readFile(f);
-      if (att) { pending.push(att); added++; }
-    } catch (err) { /* 跳过该文件 */ }
-  }
-  attach.textContent = origText;
-  e.target.value = '';
-  renderPending();
-  refreshSendState();
-  if (added === 0) {
-    alert('没能读取所选文件，请换一个文件再试（支持常见图片和 PDF）。');
-  }
-}
-['file-camera', 'file-image', 'file-pdf'].forEach(id => {
-  document.getElementById(id).addEventListener('change', handleFiles);
-});
+// 注意：这三个 file input 不要再单独挂 change 监听。
+// 它们现在由 pickFilesByKind 统一驱动，谁调用就把文件给谁；以前那个
+// handleFiles 会把文件一律塞进主输入框的 pending，结果是：
+//   · 同一个文件被加两遍（它和 pickFilesByKind 各加一次）
+//   · 给子项加附件时，文件还会莫名其妙跑到「写新笔记」那一栏里
 document.getElementById('pending').addEventListener('click', e => {
   if (e.target.dataset.rm !== undefined) {
     pending.splice(+e.target.dataset.rm, 1);
