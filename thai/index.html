@@ -728,7 +728,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v71";   // shown in the top bar; bump with each release
+const APP_VER = "v72";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -777,8 +777,24 @@ function applyCombinedThai(arr){
   tombs = arr.filter(e=> e && e._deleted && (e._deletedAt||0) > cutoff)
              .map(e=>({ id:e.id, _deletedAt:e._deletedAt||0 }));
 }
+// 稳定序列化（键排序），保证两台设备对同一张卡片算出同一个指纹
+function _stableStr(v){
+  if(Array.isArray(v)) return "["+v.map(_stableStr).join(",")+"]";
+  if(v && typeof v === "object") return "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+_stableStr(v[k])).join(",")+"}";
+  return JSON.stringify(v);
+}
+function _hash32(s){
+  let h = 0x811c9dc5;
+  for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+}
+// 指纹里带上内容哈希。以前只看 modified，于是任何「改了内容却忘了更新
+// modified」的操作（比如高亮）在别的设备上会被当成「本来就一样」而直接跳过，
+// 永远同步不过去。
 function thaiSig(arr){
-  return (arr||[]).map(e=> e.id+":"+(e._deleted?("D"+(e._deletedAt||0)):(e.modified||e.createdAt||0))).sort().join("|");
+  return (arr||[]).map(e=> e.id+":"+(e._deleted
+      ? ("D"+(e._deletedAt||0))
+      : ((e.modified||e.createdAt||0)+"#"+_hash32(_stableStr(e))))).sort().join("|");
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
@@ -1514,7 +1530,9 @@ async function thaiPush(){
     let changed = false;
     if(Array.isArray(cur.thai)){
       const before = thaiSig(out);
-      const merged = mergeThai(out, cur.thai);
+      // 上传前合并：时间戳打平时让本机版本胜出（mergeThai 里后考虑的一方赢），
+      // 免得刚在本机做的改动被服务器上的旧副本盖掉
+      const merged = mergeThai(cur.thai, out);
       if(thaiSig(merged) !== before){
         applyCombinedThai(merged);
         persistThai();
@@ -1813,6 +1831,7 @@ function toggleHighlight(cbEx, text){
   const i = ex.hl.indexOf(text);
   if(i>=0) ex.hl.splice(i,1); else ex.hl.push(text);
   if(!ex.hl.length) delete ex.hl;
+  card.modified = Date.now();   // 高亮也是一次修改，不更新时间戳就同步不到别的设备
   save();
   renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
 }
