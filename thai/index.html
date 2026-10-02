@@ -461,6 +461,30 @@
   /* 加入生词表单可从「读一眼」浮层里唤出，必须盖在浮层(z-89/90)之上 */
   #addWordBg{z-index:96}
   #addWordSheet{z-index:97}
+  /* 翻译浮层：压在「加入生词」之上，免得从翻译里点加入时被挡住 */
+  #trBg{position:fixed;inset:0;z-index:98;background:rgba(0,0,0,.6);display:none;
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+  #trBg.show{display:block}
+  #trSheet{position:fixed;z-index:99;left:50%;transform:translateX(-50%) translateY(14px);
+    bottom:calc(env(safe-area-inset-bottom) + 18px);width:min(460px,calc(100vw - 28px));
+    background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:18px;
+    box-shadow:0 18px 50px rgba(0,0,0,.4);display:none;opacity:0;transition:.18s}
+  #trSheet.show{display:block;opacity:1;transform:translateX(-50%) translateY(0)}
+  #trSheet .tr-top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  #trSheet .tr-src{flex:1;min-width:0;font-size:25px;font-weight:700;color:var(--ink);word-break:break-word;line-height:1.35}
+  #trSheet .tr-spk{width:48px;height:48px;flex:0 0 auto;border-radius:14px;background:var(--surface-2);
+    border:1px solid var(--line);font-size:21px;display:grid;place-items:center}
+  #trSheet .tr-body{min-height:56px;border-top:1px solid var(--line);padding-top:13px;
+    font-size:17px;line-height:1.65;color:var(--ink);word-break:break-word}
+  #trSheet .tr-body .tr-res{font-size:21px;font-weight:700;color:var(--teal)}
+  #trSheet .tr-body .tr-note{display:block;margin-top:9px;font-size:13px;color:var(--muted);line-height:1.6}
+  #trSheet .tr-body .tr-bad{font-size:14.5px;color:var(--muted);line-height:1.7}
+  #trSheet .tr-body .tr-bad b{color:var(--ink)}
+  #trSheet .tr-acts{display:flex;gap:10px;margin-top:16px}
+  #trSheet .tr-acts button{flex:1;min-height:48px;border-radius:14px;font-size:15.5px;font-weight:700}
+  #trSheet .tr-add{background:var(--teal);color:#fff;border:none}
+  #trSheet .tr-add:disabled{opacity:.4}
+  #trSheet .tr-close{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
   .sheet h3{font-size:17px;font-weight:700;margin-bottom:4px}
   .sheet .sub{font-size:13px;color:var(--muted);margin-bottom:16px}
   .sheet .opt-row{display:flex;gap:10px}
@@ -671,9 +695,24 @@
 <div id="selPop">
   <button id="selPeek" style="display:none">📖 查看该词</button>
   <button id="selAdd">➕ 加入生词</button>
+  <button id="selTrans">🌐 翻译</button>
   <button id="selHl">🖍 高亮</button>
   <button id="selCopy">📋 复制</button>
   <button id="selSpeak" aria-label="朗读">🔊</button>
+</div>
+
+<!-- 翻译结果浮层（用浏览器内置的设备端翻译，不联网、不上传） -->
+<div id="trBg"></div>
+<div id="trSheet" role="dialog" aria-modal="true" aria-label="翻译">
+  <div class="tr-top">
+    <div class="tr-src thai" id="trSrc"></div>
+    <button class="tr-spk" id="trSpeak" aria-label="朗读">🔊</button>
+  </div>
+  <div class="tr-body" id="trBody"></div>
+  <div class="tr-acts">
+    <button class="tr-add" id="trAdd">➕ 加入生词</button>
+    <button class="tr-close" id="trClose">关闭</button>
+  </div>
 </div>
 
 <!-- read-only "peek" at an existing vocab card referenced inside an example;
@@ -728,7 +767,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v73";   // shown in the top bar; bump with each release
+const APP_VER = "v74";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1914,6 +1953,126 @@ function openAddWord(thai){
   setTimeout(()=>$("#awMean").focus(), 120);
 }
 function closeAddWord(){ $("#addWordBg").classList.remove("show"); $("#addWordSheet").classList.remove("show"); }
+
+/* ---------------- 翻译：用浏览器内置的设备端翻译 ----------------
+   Chrome 138+ 提供全局 Translator（更早的试用版放在 self.translation）。
+   模型跑在本机，不联网、不把文字发给任何服务器；语言包下载过一次之后
+   飞行模式也能用。iOS 的 Safari 目前没有这个能力，会明确提示。          */
+const TR_CACHE_KEY = "thaicards.tr.v1";
+let _trCache = {};
+try{ _trCache = JSON.parse(localStorage.getItem(TR_CACHE_KEY)) || {}; }catch(e){ _trCache = {}; }
+function trCacheSet(k, v){
+  _trCache[k] = v;
+  const keys = Object.keys(_trCache);
+  if(keys.length > 600) delete _trCache[keys[0]];     // 粗暴限长，够用
+  try{ localStorage.setItem(TR_CACHE_KEY, JSON.stringify(_trCache)); }catch(e){}
+}
+function _translatorAPI(){
+  if(typeof Translator !== "undefined" && Translator && typeof Translator.create === "function") return Translator;
+  const legacy = (typeof self !== "undefined" && self.translation) || (window.ai && window.ai.translator);
+  if(legacy && (legacy.createTranslator || legacy.create)){
+    return {
+      create: o => (legacy.createTranslator ? legacy.createTranslator(o) : legacy.create(o)),
+      availability: async o => {
+        if(!legacy.canTranslate) return "available";
+        const r = await legacy.canTranslate(o);
+        return r === "readily" ? "available" : r === "after-download" ? "downloadable" : "unavailable";
+      }
+    };
+  }
+  return null;
+}
+let _trInst = null, _trTarget = "";
+async function getTranslator(onProgress){
+  const API = _translatorAPI();
+  if(!API) return { err:"nosupport" };
+  if(_trInst) return { tr:_trInst };
+  for(const target of ["zh-Hans", "zh"]){
+    const opt = { sourceLanguage:"th", targetLanguage:target };
+    try{
+      let avail = "available";
+      if(API.availability) avail = await API.availability(opt);
+      if(avail === "unavailable") continue;
+      if(avail !== "available" && onProgress) onProgress(0);
+      const tr = await API.create(Object.assign({}, opt, {
+        monitor(m){ try{ m.addEventListener("downloadprogress", e=>{
+          if(onProgress) onProgress(e.loaded != null ? e.loaded : 0);
+        }); }catch(_){ } }
+      }));
+      _trInst = tr; _trTarget = target;
+      return { tr };
+    }catch(e){ /* 换下一个目标语言代码再试 */ }
+  }
+  return { err:"nopair" };
+}
+async function translateThai(text, onProgress){
+  const t = (text || "").trim();
+  if(!t) return { err:"empty" };
+  if(_trCache[t]) return { out:_trCache[t], cached:true };
+  const got = await getTranslator(onProgress);
+  if(got.err) return { err:got.err };
+  try{
+    const out = String(await got.tr.translate(t) || "").trim();
+    if(!out) return { err:"empty-result" };
+    trCacheSet(t, out);
+    return { out };
+  }catch(e){ return { err:"failed", detail:(e && e.message) || String(e) }; }
+}
+
+let _trText = "";
+function openTrSheet(text){
+  _trText = (text || "").trim();
+  $("#trSrc").textContent = _trText;
+  $("#trAdd").disabled = true;
+  $("#trBody").innerHTML = `<span class="tr-bad">正在翻译…</span>`;
+  $("#trBg").classList.add("show");
+  $("#trSheet").classList.add("show");
+  runTranslate();
+}
+function closeTrSheet(){
+  $("#trBg").classList.remove("show");
+  $("#trSheet").classList.remove("show");
+  speechSynthesis.cancel();
+}
+async function runTranslate(){
+  const body = $("#trBody");
+  const res = await translateThai(_trText, pct=>{
+    body.innerHTML = `<span class="tr-bad">首次使用要先下载「泰语→中文」语言包…
+      ${pct ? Math.round(pct*100)+"%" : ""}<span class="tr-note">只下载这一次，之后离线也能翻译。</span></span>`;
+  });
+  if(res.out){
+    body.innerHTML = `<span class="tr-res">${esc(res.out)}</span>` +
+      `<span class="tr-note">${res.cached ? "（本机缓存）" : "浏览器内置翻译 · 设备端完成"}</span>`;
+    $("#trAdd").disabled = false;
+    return;
+  }
+  const msg = {
+    nosupport: `这台设备的浏览器<b>没有内置翻译</b>。<br>iPhone / iPad 上的 Safari 目前不支持；
+      安卓或电脑上用 <b>Chrome 138 以上</b>打开就能用。`,
+    nopair: `浏览器内置翻译在这台设备上<b>没有「泰语 → 中文」的语言包</b>。<br>
+      可以到 Chrome 设置里的「语言」看看能不能下载泰语。`,
+    "empty-result": `没有翻译出内容，换个词再试试。`,
+    failed: `翻译失败：${esc(res.detail || "")}`
+  }[res.err] || "翻译没能完成。";
+  body.innerHTML = `<span class="tr-bad">${msg}</span>`;
+  $("#trAdd").disabled = true;
+}
+$("#selTrans").onclick = ()=>{
+  const t = selCtx && selCtx.text;
+  hideSelPop();
+  const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
+  if(t) openTrSheet(t);
+};
+$("#trClose").onclick = closeTrSheet;
+$("#trBg").onclick = closeTrSheet;
+$("#trSpeak").onclick = ()=> speak(_trText);
+$("#trAdd").onclick = ()=>{
+  const mean = ($("#trBody .tr-res") || {}).textContent || "";
+  const thai = _trText;
+  closeTrSheet();
+  openAddWord(thai);
+  $("#awMean").value = mean;      // 把翻译结果预填进去，改一下就能存
+};
 $("#awCancel").onclick = closeAddWord;
 $("#addWordBg").onclick = closeAddWord;
 $("#awAddEx").onclick = ()=> addExRow("", "", $("#awExList"));
