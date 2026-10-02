@@ -728,7 +728,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v72";   // shown in the top bar; bump with each release
+const APP_VER = "v73";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1797,25 +1797,64 @@ function _caretAtPoint(x, y){
   else if(document.caretPositionFromPoint){ const p=document.caretPositionFromPoint(x,y); if(p){ node=p.offsetNode; off=p.offset; } }
   return node ? { node, off } : null;
 }
+// 系统分词器常把一个复合词拆碎（ความเสียหาย → ความ|เสีย|หาย），
+// 点一下只能选到半个词。所以先看生词本里有没有「正好盖住点击位置」的词条，
+// 有就整条选中（取最长的那条）；没有才退回分词器的结果。
+function _headwordAt(text, off){
+  let best = null;
+  for(const c of cards){
+    const w = (c.thai || "").trim();
+    if(w.length < 2) continue;
+    let i = text.indexOf(w);
+    while(i !== -1){
+      if(off >= i && off <= i + w.length && (!best || w.length > best.len)) best = { index:i, len:w.length };
+      i = text.indexOf(w, i + 1);
+    }
+  }
+  return best;
+}
 function selectWordInNode(textNode, offset){
   if(!textNode || textNode.nodeType!==3) return false;
-  if(typeof Intl==="undefined" || !Intl.Segmenter) return false;
   const text = textNode.nodeValue || ""; if(!text.trim()) return false;
   const off = Math.max(0, Math.min(offset, text.length));
-  let segs;
-  try{ segs = [...new Intl.Segmenter("th", { granularity:"word" }).segment(text)]; }catch(e){ return false; }
-  let seg = segs.find(s => off >= s.index && off < s.index + s.segment.length)
-         || segs.find(s => off > s.index && off <= s.index + s.segment.length);
-  if(!seg || !seg.segment.trim()) return false;
+  let start = -1, end = -1;
+  const hw = _headwordAt(text, off);
+  if(hw){ start = hw.index; end = hw.index + hw.len; }
+  else{
+    if(typeof Intl==="undefined" || !Intl.Segmenter) return false;
+    let segs;
+    try{ segs = [...new Intl.Segmenter("th", { granularity:"word" }).segment(text)]; }catch(e){ return false; }
+    const seg = segs.find(s => off >= s.index && off < s.index + s.segment.length)
+             || segs.find(s => off > s.index && off <= s.index + s.segment.length);
+    if(!seg || !seg.segment.trim()) return false;
+    start = seg.index; end = seg.index + seg.segment.length;
+  }
   const r = document.createRange();
-  r.setStart(textNode, seg.index); r.setEnd(textNode, seg.index + seg.segment.length);
+  r.setStart(textNode, start); r.setEnd(textNode, end);
   const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
   onSelChange();
   return true;
 }
+// 记录按下的位置：拖动过就说明用户在自己划选范围，这时绝不能抢。
+// （电脑上用鼠标拖选，松开时同样会触发 click，以前会把划好的选区
+//  直接换成分词器切出的那一个词 —— 想选「ความเสียหาย」只能得到「ความเสีย」。）
+let _downPt = null;
+document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; }, true);
+document.addEventListener("mousedown", e=>{ if(!_downPt) _downPt = { x:e.clientX, y:e.clientY }; }, true);
+function _draggedSince(e){
+  if(!_downPt) return false;
+  const dx = e.clientX - _downPt.x, dy = e.clientY - _downPt.y;
+  return (dx*dx + dy*dy) > 25;      // 超过 5px 就算拖动，不算点击
+}
 document.addEventListener("click", e=>{
   const exThai = e.target.closest ? e.target.closest(".ex-thai") : null;
+  const dragged = _draggedSince(e);
+  _downPt = null;
   if(!exThai || e.target.closest("button")) return;
+  if(dragged) return;                              // 用户在拖选，保留他自己选的范围
+  const sel = window.getSelection();
+  // 已经有跨多个词的选区（双击/拖选/Shift+点击得来的），也不要再缩回一个词
+  if(sel && !sel.isCollapsed && sel.toString().length > 1 && e.detail > 1) return;
   const c = _caretAtPoint(e.clientX, e.clientY);
   let tn = c && c.node;
   if(tn && tn.nodeType!==3) tn = [...(tn.childNodes||[])].find(n=>n.nodeType===3);
