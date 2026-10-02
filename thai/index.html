@@ -767,7 +767,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v74";   // shown in the top bar; bump with each release
+const APP_VER = "v75";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1038,6 +1038,20 @@ function collectExamples(listEl){
   });
   return out;
 }
+// 编辑保存时，表单只会重建 {thai, meaning}，例句上的高亮（hl）会被丢掉。
+// 这里把旧的高亮带回去：先按例句原文匹配，原文改过了就按位置兜底；
+// 并且只保留在新文字里仍然找得到的词，免得留下对不上的残留高亮。
+function carryHighlights(oldEx, newEx){
+  const olds = oldEx || [];
+  const byText = new Map();
+  olds.forEach(e=>{ if(e && e.thai && e.hl && e.hl.length && !byText.has(e.thai)) byText.set(e.thai, e.hl); });
+  return (newEx || []).map((e, i)=>{
+    const src = byText.get(e.thai) || (olds[i] && olds[i].hl) || null;
+    if(!src || !src.length) return e;
+    const kept = src.filter(w => w && (e.thai || "").indexOf(w) !== -1);
+    return kept.length ? Object.assign({}, e, { hl: kept.slice() }) : e;
+  });
+}
 function setExamples(list, listEl){
   listEl = listEl || $("#exList");
   listEl.innerHTML = "";
@@ -1108,6 +1122,7 @@ $("#saveCard").onclick = ()=>{
   };
   if(editingId){
     const c=cards.find(x=>x.id===editingId);
+    data.examples = carryHighlights(c.examples, data.examples);   // 别把高亮编掉了
     Object.assign(c,data); c.modified=Date.now(); save();
     toast("已更新");
     if(returnToReviewIfNeeded()) return;
@@ -2018,7 +2033,6 @@ async function translateThai(text, onProgress){
     return { out };
   }catch(e){ return { err:"failed", detail:(e && e.message) || String(e) }; }
 }
-
 let _trText = "";
 function openTrSheet(text){
   _trText = (text || "").trim();
