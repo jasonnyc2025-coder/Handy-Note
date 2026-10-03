@@ -779,7 +779,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v76";   // shown in the top bar; bump with each release
+const APP_VER = "v77";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -898,8 +898,8 @@ let _seqToken = 0;
 function stopSeq(){ _seqToken++; try{ speechSynthesis.cancel(); }catch(e){} updateReadBtn(); }
 function _utter(text, lang){
   const u = new SpeechSynthesisUtterance(text);
-  if(lang === "zh"){ u.lang = "zh-CN"; if(zhVoice) u.voice = zhVoice; u.rate = 1; }
-  else { u.lang = "th-TH"; if(thaiVoice) u.voice = thaiVoice; u.rate = 0.85; }
+  if(lang === "zh"){ u.lang = "zh-CN"; if(zhVoice) u.voice = zhVoice; u.rate = 0.95; }
+  else { u.lang = "th-TH"; if(thaiVoice) u.voice = thaiVoice; u.rate = 0.72; }
   return u;
 }
 // parts: [{t:"文字", l:"th"|"zh", gap:毫秒}]
@@ -929,21 +929,38 @@ function speakSeq(parts){
 function isSpeaking(){
   try{ return speechSynthesis.speaking || speechSynthesis.pending; }catch(e){ return false; }
 }
+/* 朗读节奏，集中放这里方便调：
+   泰语每句念两遍（中间留出跟读的空档），段与段之间留长一点的停顿。 */
+const READ = {
+  thaiRepeat: 2,      // 泰语念几遍
+  gapRepeat: 1100,    // 同一句泰语两遍之间
+  gapAfterThai: 1000, // 泰语念完 → 下一段
+  gapAfterMean: 1300, // 中文翻译念完 → 下一条例句
+  gapAfterNo: 600     // 报完「例句 N」→ 泰语
+};
+// 把一句泰语按设定重复若干遍，最后一遍用 tailGap
+function _thaiParts(text, tailGap){
+  const out = [];
+  for(let i = 0; i < READ.thaiRepeat; i++){
+    out.push({ t:text, l:"th", gap: i === READ.thaiRepeat - 1 ? tailGap : READ.gapRepeat });
+  }
+  return out;
+}
 // 卡片正面：只读泰语词（答案还盖着，别剧透）
 function cardFrontParts(c){
-  return c ? [{ t:c.thai, l:"th", gap:600 }] : [];
+  return c ? _thaiParts(c.thai, READ.gapAfterThai) : [];
 }
 // 翻开答案后：释义 → 逐条例句，并报出「例句 N」
 function cardBackParts(c){
   if(!c) return [];
   const parts = [];
-  if(c.meaning) parts.push({ t:c.meaning, l:"zh", gap:600 });
+  if(c.meaning) parts.push({ t:c.meaning, l:"zh", gap:READ.gapAfterMean });
   const ex = c.examples || [];
   ex.forEach((e, i)=>{
     if(!e || !e.thai) return;
-    parts.push({ t:`例句 ${i+1}`, l:"zh", gap:380 });
-    parts.push({ t:e.thai, l:"th", gap:520 });
-    if(e.meaning) parts.push({ t:e.meaning, l:"zh", gap:700 });
+    parts.push({ t:`例句 ${i+1}`, l:"zh", gap:READ.gapAfterNo });
+    parts.push(..._thaiParts(e.thai, e.meaning ? READ.gapAfterThai : READ.gapAfterMean));
+    if(e.meaning) parts.push({ t:e.meaning, l:"zh", gap:READ.gapAfterMean });
   });
   return parts;
 }
