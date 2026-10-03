@@ -269,6 +269,17 @@
   /* footer row: exit stays centered, edit sits in the bottom-right corner */
   .rv-footer{flex:0 0 auto;position:relative;display:flex;align-items:center;justify-content:center;margin-top:14px}
   .rv-footer .rv-exit{margin-top:0}
+  /* 自动朗读开关，放在底排左侧，和右侧的 ✎ 对称 */
+  .rv-read{
+    position:absolute;left:0;top:50%;transform:translateY(-50%);
+    min-height:48px;padding:0 14px;border-radius:99px;white-space:nowrap;
+    background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);
+    color:var(--muted);font-size:13.5px;font-weight:700;
+    display:flex;align-items:center;gap:5px;
+  }
+  .rv-read.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .rv-read:active{transform:translateY(-50%) scale(.95)}
+  @media (max-width:380px){ .rv-read{padding:0 10px;font-size:12px} }
   .rv-edit{
     position:absolute;right:0;top:50%;transform:translateY(-50%);
     width:48px;height:48px;border-radius:50%;
@@ -634,6 +645,7 @@
       <button class="rate easy" data-k="easy">Easy<small>本次移除</small></button>
     </div>
     <div class="rv-footer">
+      <button class="rv-read" id="rvRead" aria-label="自动朗读">🔇 自动朗读</button>
       <button class="rv-exit" id="rvClose" aria-label="退出复习"><span class="ic">✕</span>退出复习</button>
       <button class="rv-edit" id="rvEdit" aria-label="编辑当前卡片" title="编辑（例如加例句）">✎</button>
     </div>
@@ -767,7 +779,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v75";   // shown in the top bar; bump with each release
+const APP_VER = "v76";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -844,10 +856,17 @@ function thaiVoices(){
   if(!("speechSynthesis" in window)) return [];
   return speechSynthesis.getVoices().filter(v=> /^th([-_]|$)/i.test(v.lang) || /thai/i.test(v.name));
 }
+let zhVoice = null;
+function zhVoices(){
+  if(!("speechSynthesis" in window)) return [];
+  return speechSynthesis.getVoices().filter(v=> /^(zh|cmn)([-_]|$)/i.test(v.lang) || /chinese|中文|普通话/i.test(v.name));
+}
 function pickVoice(){
   const vs = thaiVoices();
   // 优先挑「本地（离线）」语音 —— 网络语音一进飞行模式就哑了
   thaiVoice = vs.find(v=> v.localService) || vs[0] || null;
+  const zs = zhVoices();
+  zhVoice = zs.find(v=> v.localService) || zs[0] || null;
 }
 if("speechSynthesis" in window){
   pickVoice();
@@ -856,7 +875,7 @@ if("speechSynthesis" in window){
 function speak(text){
   if(!text) return;
   if(!("speechSynthesis" in window)){ toast("此浏览器不支持语音"); return; }
-  speechSynthesis.cancel();
+  stopSeq();   // 手动点喇叭，先把正在跑的连续朗读掐掉（只 cancel 不够，序列还会接着往下走）
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "th-TH";
   if(thaiVoice) u.voice = thaiVoice;
@@ -867,6 +886,84 @@ function speak(text){
     // hint once — device may lack a Thai voice
     if(!speak._warned){ toast("未检测到泰语语音，请在系统里安装"); speak._warned=true; }
   }
+}
+
+/* ---------------- 连续朗读（复习时自动读当前卡片） ----------------
+   中泰混读必须一段一个 utterance 换声音：泰语嗓子念中文基本是乱念。
+   用 onend 串起来，并带一个 token，任何打断（翻页/打分/退出/手动点喇叭）
+   都让旧序列直接作废。                                               */
+const AUTOREAD_KEY = "thaicards.autoread";
+let autoRead = localStorage.getItem(AUTOREAD_KEY) === "1";
+let _seqToken = 0;
+function stopSeq(){ _seqToken++; try{ speechSynthesis.cancel(); }catch(e){} updateReadBtn(); }
+function _utter(text, lang){
+  const u = new SpeechSynthesisUtterance(text);
+  if(lang === "zh"){ u.lang = "zh-CN"; if(zhVoice) u.voice = zhVoice; u.rate = 1; }
+  else { u.lang = "th-TH"; if(thaiVoice) u.voice = thaiVoice; u.rate = 0.85; }
+  return u;
+}
+// parts: [{t:"文字", l:"th"|"zh", gap:毫秒}]
+function speakSeq(parts){
+  if(!("speechSynthesis" in window)) return;
+  stopSeq();
+  const my = ++_seqToken;
+  const list = (parts || []).filter(p => p && p.t && String(p.t).trim());
+  if(!list.length) return;
+  updateReadBtn();
+  let i = 0;
+  const step = ()=>{
+    if(my !== _seqToken) return;            // 已被打断
+    if(i >= list.length){ updateReadBtn(); return; }
+    const p = list[i++];
+    const u = _utter(String(p.t).trim(), p.l);
+    const after = ()=>{
+      if(my !== _seqToken) return;
+      setTimeout(step, p.gap != null ? p.gap : 320);
+    };
+    u.onend = after;
+    u.onerror = after;                       // 某段念不出来也要继续走
+    try{ speechSynthesis.speak(u); }catch(e){ after(); }
+  };
+  step();
+}
+function isSpeaking(){
+  try{ return speechSynthesis.speaking || speechSynthesis.pending; }catch(e){ return false; }
+}
+// 卡片正面：只读泰语词（答案还盖着，别剧透）
+function cardFrontParts(c){
+  return c ? [{ t:c.thai, l:"th", gap:600 }] : [];
+}
+// 翻开答案后：释义 → 逐条例句，并报出「例句 N」
+function cardBackParts(c){
+  if(!c) return [];
+  const parts = [];
+  if(c.meaning) parts.push({ t:c.meaning, l:"zh", gap:600 });
+  const ex = c.examples || [];
+  ex.forEach((e, i)=>{
+    if(!e || !e.thai) return;
+    parts.push({ t:`例句 ${i+1}`, l:"zh", gap:380 });
+    parts.push({ t:e.thai, l:"th", gap:520 });
+    if(e.meaning) parts.push({ t:e.meaning, l:"zh", gap:700 });
+  });
+  return parts;
+}
+function updateReadBtn(){
+  const b = document.getElementById("rvRead");
+  if(!b) return;
+  b.classList.toggle("on", autoRead);
+  b.textContent = autoRead ? "🔈 自动朗读" : "🔇 自动朗读";
+}
+function setAutoRead(on){
+  autoRead = !!on;
+  try{ localStorage.setItem(AUTOREAD_KEY, autoRead ? "1" : "0"); }catch(e){}
+  if(!autoRead) stopSeq();
+  updateReadBtn();
+}
+// 复习中朗读当前卡片的某一面
+function autoReadSide(side){
+  if(!autoRead) return;
+  const c = queue && queue[0]; if(!c) return;
+  speakSeq(side === "back" ? cardBackParts(c) : cardFrontParts(c));
 }
 
 /* ---------------- toast ---------------- */
@@ -1224,6 +1321,7 @@ function renderReviewCard(){
   $("#rvActions").classList.remove("show");
   updateProgress();
   updateNavButtons();
+  autoReadSide("front");          // 正面只读泰语词
 }
 function revealCard(){
   if(revealed) return;
@@ -1232,6 +1330,7 @@ function revealCard(){
   $("#tapHint").style.display="none";
   $("#revealBtn").classList.add("hide");
   $("#rvActions").classList.add("show");
+  autoReadSide("back");           // 翻开后读释义和例句
 }
 // wrap any highlighted sub-strings of an example in <mark>, then alternate two
 // colors by their order in the sentence so two adjacent highlights (common in
@@ -1332,7 +1431,11 @@ function closeReview(){
 }
 $("#startReview").onclick = startReview;
 $("#continueReview").onclick = continueReview;
-$("#rvClose").onclick = closeReview;
+$("#rvClose").onclick = ()=>{ stopSeq(); closeReview(); };
+$("#rvRead").onclick = ()=>{
+  setAutoRead(!autoRead);
+  if(autoRead) autoReadSide(revealed ? "back" : "front");   // 打开就立刻念当前这一面
+};
 // edit the card currently under review (e.g. to add an example), then come back
 $("#rvEdit").onclick = ()=>{
   const c = queue[0]; if(!c) return;
@@ -1345,9 +1448,9 @@ $("#doneClose").onclick = closeReview;
 $("#reviewCard").onclick = e=>{ if(e.target.closest("button")) return; if(!revealed) revealCard(); };
 $("#revealBtn").onclick = revealCard;
 $("#cardSpk").onclick = e=>{ e.stopPropagation(); speak(queue[0]?.thai); };
-$("#rvActions").querySelectorAll(".rate").forEach(b=> b.onclick=()=>rate(b.dataset.k));
-$("#prevBtn").onclick = prevCard;
-$("#nextBtn").onclick = nextCard;
+$("#rvActions").querySelectorAll(".rate").forEach(b=> b.onclick=()=>{ stopSeq(); rate(b.dataset.k); });
+$("#prevBtn").onclick = ()=>{ stopSeq(); prevCard(); };
+$("#nextBtn").onclick = ()=>{ stopSeq(); nextCard(); };
 // keyboard shortcuts (desktop)
 document.addEventListener("keydown", e=>{
   if(!$("#reviewScreen").classList.contains("active")) return;
