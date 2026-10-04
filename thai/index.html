@@ -364,7 +364,7 @@
   /* 这个高亮词在生词本里有卡片 —— 加条横线提示「点一下能查看该词」。
      泰语有不少在字母下方的元音/声调符号，所以用 border-bottom 画在整个
      行盒底部，不会和那些符号打架（text-decoration 会压上去）。 */
-  mark.hl-card{border-bottom:2px solid currentColor;padding-bottom:1px;border-bottom-left-radius:0;border-bottom-right-radius:0}
+  .hl-card{border-bottom:2px solid currentColor;padding-bottom:1px}
   mark.hl-a{background:#ffe08a;color:#5a4200}
   mark.hl-b{background:#e0d4fb;color:#4a2a86}
   @media(prefers-color-scheme:dark){
@@ -808,7 +808,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v80";   // shown in the top bar; bump with each release
+const APP_VER = "v81";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1391,21 +1391,62 @@ function revealCard(){
 // wrap any highlighted sub-strings of an example in <mark>, then alternate two
 // colors by their order in the sentence so two adjacent highlights (common in
 // spaceless Thai) don't merge into one blob
+// 生词本词条按首字分桶、桶内长的排前面，便于在一段文字里做「最长优先」匹配
+function _knownWordIndex(ownId){
+  const idx = new Map();
+  for(const c of cards){
+    if(!c || c.id === ownId) continue;
+    const w = (c.thai || "").trim();
+    if(w.length < 2) continue;
+    const k = w[0];
+    if(!idx.has(k)) idx.set(k, []);
+    idx.get(k).push(w);
+  }
+  idx.forEach(arr => arr.sort((a, b) => b.length - a.length));
+  return idx;
+}
+// 在一段（已高亮的）文字里，把属于生词本的词包上下划线。
+// 高亮的是整句时，里面只要有词条就单独划那一段 —— 不再要求整条高亮正好等于某张卡。
+function underlineKnown(seg, idx){
+  let out = "", i = 0;
+  while(i < seg.length){
+    let hit = "";
+    const bucket = idx.get(seg[i]);
+    if(bucket){
+      for(const w of bucket){ if(seg.startsWith(w, i)){ hit = w; break; } }   // 桶内已按长度降序
+    }
+    if(hit){ out += '<span class="hl-card">' + esc(hit) + '</span>'; i += hit.length; }
+    else { out += esc(seg[i]); i++; }
+  }
+  return out;
+}
 function hlThai(thai, hlList, ownId){
-  let html = esc(thai);
-  (hlList||[]).forEach(w=>{
+  const text = thai || "";
+  // 1) 收集高亮区间；重叠的并成一段，避免嵌套出错
+  const spans = [];
+  (hlList || []).forEach(w=>{
     if(!w) return;
-    const e = esc(w);
-    // 这个高亮词本身也是生词本里的一张卡片吗？判断和「查看该词」按钮一致
-    // （排除当前这张卡自己）。是的话加条下划线，一眼看出点进去有东西。
-    const card = findCardByThai(w);
-    const cls = (card && card.id !== ownId) ? 'hl hl-card' : 'hl';
-    html = html.split(e).join('<mark class="'+cls+'">'+e+'</mark>');
+    let i = text.indexOf(w);
+    while(i !== -1){ spans.push({ s:i, e:i + w.length }); i = text.indexOf(w, i + 1); }
   });
-  let i = 0;
-  html = html.replace(/<mark class="hl([^"]*)">/g,
-    (m, extra) => '<mark class="hl' + extra + ' ' + (i++ % 2 ? 'hl-b' : 'hl-a') + '">');
-  return html;
+  spans.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
+  const merged = [];
+  spans.forEach(sp=>{
+    const last = merged[merged.length - 1];
+    if(last && sp.s < last.e){ if(sp.e > last.e) last.e = sp.e; }
+    else merged.push({ s:sp.s, e:sp.e });
+  });
+  // 2) 拼 HTML：高亮段内部再给生词本里的词加下划线
+  const idx = _knownWordIndex(ownId);
+  let out = "", pos = 0, n = 0;
+  merged.forEach(sp=>{
+    out += esc(text.slice(pos, sp.s));
+    out += '<mark class="hl ' + (n++ % 2 ? 'hl-b' : 'hl-a') + '">' +
+           underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
+    pos = sp.e;
+  });
+  out += esc(text.slice(pos));
+  return out;
 }
 // show the 备注 block only when the card has a note
 function renderNote(box, note){
