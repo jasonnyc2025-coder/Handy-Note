@@ -338,11 +338,13 @@
   .cb-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;width:100%}
   .cb-exlist{width:100%}
   .cb-mean{font-size:24px;font-weight:700;line-height:1.4;color:var(--teal-ink)}
-  .cb-read{font-size:15px;color:var(--muted);margin-top:6px}
+  /* 读音：原来 15px 浅灰细体，太淡看不清 —— 调大、加粗、颜色加深 */
+  .cb-read{font-size:18px;font-weight:600;color:var(--ink);margin-top:8px;line-height:1.55;
+    word-break:break-word}
   /* 备注 block: a soft amber note card, shown only when there's a note */
   .cb-note{display:none;margin-top:18px;background:var(--note-bg);border:1px solid var(--note-line);
     border-left:3px solid var(--amber);border-radius:14px;padding:12px 14px;text-align:left;
-    font-size:15px;line-height:1.6;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+    font-size:18px;font-weight:600;line-height:1.65;color:var(--ink);white-space:pre-wrap;word-break:break-word}
   .cb-note::before{content:"备注";display:block;font-size:11px;font-weight:700;letter-spacing:.14em;
     color:var(--amber-ink);margin-bottom:6px;text-transform:uppercase}
   .cb-exlist::before{content:"例句";display:block;font-size:11px;font-weight:700;letter-spacing:.14em;
@@ -806,7 +808,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v79";   // shown in the top bar; bump with each release
+const APP_VER = "v80";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
