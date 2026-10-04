@@ -359,6 +359,10 @@
      hl-a = amber, hl-b = soft violet — kept away from the app's teal/green
      theme so a highlight never blends into the accent color */
   mark.hl{border-radius:5px;padding:0 3px}
+  /* 这个高亮词在生词本里有卡片 —— 加条横线提示「点一下能查看该词」。
+     泰语有不少在字母下方的元音/声调符号，所以用 border-bottom 画在整个
+     行盒底部，不会和那些符号打架（text-decoration 会压上去）。 */
+  mark.hl-card{border-bottom:2px solid currentColor;padding-bottom:1px;border-bottom-left-radius:0;border-bottom-right-radius:0}
   mark.hl-a{background:#ffe08a;color:#5a4200}
   mark.hl-b{background:#e0d4fb;color:#4a2a86}
   @media(prefers-color-scheme:dark){
@@ -802,7 +806,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v78";   // shown in the top bar; bump with each release
+const APP_VER = "v79";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1385,15 +1389,20 @@ function revealCard(){
 // wrap any highlighted sub-strings of an example in <mark>, then alternate two
 // colors by their order in the sentence so two adjacent highlights (common in
 // spaceless Thai) don't merge into one blob
-function hlThai(thai, hlList){
+function hlThai(thai, hlList, ownId){
   let html = esc(thai);
   (hlList||[]).forEach(w=>{
     if(!w) return;
     const e = esc(w);
-    html = html.split(e).join('<mark class="hl">'+e+'</mark>');
+    // 这个高亮词本身也是生词本里的一张卡片吗？判断和「查看该词」按钮一致
+    // （排除当前这张卡自己）。是的话加条下划线，一眼看出点进去有东西。
+    const card = findCardByThai(w);
+    const cls = (card && card.id !== ownId) ? 'hl hl-card' : 'hl';
+    html = html.split(e).join('<mark class="'+cls+'">'+e+'</mark>');
   });
   let i = 0;
-  html = html.replace(/<mark class="hl">/g, () => '<mark class="hl ' + (i++ % 2 ? 'hl-b' : 'hl-a') + '">');
+  html = html.replace(/<mark class="hl([^"]*)">/g,
+    (m, extra) => '<mark class="hl' + extra + ' ' + (i++ % 2 ? 'hl-b' : 'hl-a') + '">');
   return html;
 }
 // show the 备注 block only when the card has a note
@@ -1415,7 +1424,7 @@ function renderCardExamples(box, list, cardId){
     el.className = "cb-ex";
     if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
     el.innerHTML = `<div class="ex-no">${no} / ${total}</div>` +
-      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
+      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
       (e.meaning ? `<div class="ex-mean">${esc(e.meaning)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
