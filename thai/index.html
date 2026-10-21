@@ -287,6 +287,12 @@
     display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--teal-ink);
   }
   .rv-edit:active{transform:translateY(-50%) scale(.92)}
+  /* 浮层里的编辑按钮：放卡片右上角，不去挤已经排满的底栏 */
+  .peek-edit{position:absolute;right:12px;top:12px;z-index:2;
+    width:44px;height:44px;border-radius:50%;
+    background:var(--surface-2);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--teal-ink);cursor:pointer}
+  .peek-edit:active{transform:scale(.92);filter:brightness(.95)}
   .rv-progress{flex:1}
   .rv-count{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
   .rv-count b{color:var(--ink);font-weight:700}
@@ -757,6 +763,7 @@
 <div id="peekBg"></div>
 <div id="peekPanel" role="dialog" aria-modal="true" aria-label="查看生词">
   <div class="card peek-card">
+    <button class="peek-edit" id="peekEdit" aria-label="编辑这张卡片" title="编辑">✎</button>
     <div class="card-thai thai" id="peekThai">—</div>
     <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
     <div class="peek-body">
@@ -808,7 +815,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v81";   // shown in the top bar; bump with each release
+const APP_VER = "v82";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1040,7 +1047,7 @@ function showTab(tab){
   if(tab==="add" && !editingId) resetForm();
   window.scrollTo(0,0);
 }
-$$(".nav button").forEach(b=> b.onclick=()=>{ editReturnToReview=false; showTab(b.dataset.tab); });
+$$(".nav button").forEach(b=> b.onclick=()=>{ editReturnToReview=false; _editFromPeek=null; showTab(b.dataset.tab); });
 
 /* ---------------- home ---------------- */
 let homeCardId = null, homeRevealed = false, homeUserPicked = false;
@@ -1248,7 +1255,34 @@ function returnToReviewIfNeeded(){
   if(_reviewWasRevealed) revealCard();   // restore the answer view they were on
   return true;
 }
-$("#cancelEdit").onclick = ()=>{ if(returnToReviewIfNeeded()) return; resetForm(); showTab("list"); };
+// 从「读一眼」浮层点 ✎ 进来的，保存/取消后要回到那张浮层（浮层可能本来就压在复习之上）
+let _editFromPeek = null;        // { id, wasReview }
+function returnToPeekIfNeeded(){
+  if(!_editFromPeek) return false;
+  const { id, wasReview } = _editFromPeek;
+  _editFromPeek = null;
+  resetForm();
+  if(wasReview) $("#reviewScreen").classList.add("active");
+  const c = cards.find(x=>x.id===id);
+  if(!c){ showTab("list"); return true; }      // 卡片没了就退回列表
+  _peekStack = [];
+  openPeek(c);
+  _peekReturnId = id;
+  updatePeekBack();
+  return true;
+}
+$("#peekEdit").onclick = e=>{
+  e.stopPropagation();
+  const id = _peekCardId; if(!id) return;
+  stopSeq();
+  _editFromPeek = { id, wasReview: $("#reviewScreen").classList.contains("active") };
+  closePeek();
+  // 复习界面是 position:fixed 全屏盖住的，不让开的话编辑表单根本看不见
+  $("#reviewScreen").classList.remove("active");
+  editReturnToReview = false;                  // 由 returnToPeekIfNeeded 统一接管
+  startEdit(id);
+};
+$("#cancelEdit").onclick = ()=>{ if(returnToPeekIfNeeded()) return; if(returnToReviewIfNeeded()) return; resetForm(); showTab("list"); };
 $("#saveCard").onclick = ()=>{
   const thai=$("#fThai").value.trim();
   const meaning=$("#fMean").value.trim();
@@ -1278,6 +1312,7 @@ $("#saveCard").onclick = ()=>{
     data.examples = carryHighlights(c.examples, data.examples);   // 别把高亮编掉了
     Object.assign(c,data); c.modified=Date.now(); save();
     toast("已更新");
+    if(returnToPeekIfNeeded()) return;
     if(returnToReviewIfNeeded()) return;
     resetForm(); showTab("list");
   }else{
