@@ -716,6 +716,10 @@
     <div class="sync-detail" id="syncDetail"></div>
     <button class="ghost" id="syncNowBtn" style="margin-top:10px">🔄 立即同步并检查</button>
   </div>
+  <div class="sync-box" id="storeBox">
+    <div class="sync-head"><span>💾 存储</span><span class="sync-pill off" id="storePill">检查中…</span></div>
+    <div class="sync-detail" id="storeDetail"></div>
+  </div>
   <div class="sync-box" id="offlineBox">
     <div class="sync-head"><span>✈️ 飞行模式可用性</span><span class="sync-pill off" id="offPill">检查中…</span></div>
     <div class="sync-detail" id="offDetail"></div>
@@ -815,7 +819,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v82";   // shown in the top bar; bump with each release
+const APP_VER = "v83";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -836,9 +840,93 @@ function load(){
   });
   if(migrated) save();
 }
+/* 存储：以前只写 localStorage，而且 catch 掉了所有错误 —— 一旦 5MB 写满
+   （三个 App 共用同一个域名的额度），保存就永远静默失败，重开 App 才发现
+   新加的卡片没了。现在以 IndexedDB 为主（没有 5MB 限制），localStorage 仅
+   作次要副本；任何一边失败都记录下来，IndexedDB 也失败才是真有风险，必须出声。 */
+const IDB_NAME = "thaicards", IDB_STORE = "kv";
+let _db = null;
+function idbOpen(){
+  return new Promise((res, rej)=>{
+    if(_db) return res(_db);
+    if(!self.indexedDB) return rej(new Error("no indexedDB"));
+    const r = indexedDB.open(IDB_NAME, 1);
+    r.onupgradeneeded = ()=>{ const db = r.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE); };
+    r.onsuccess = ()=>{ _db = r.result; res(_db); };
+    r.onerror = ()=> rej(r.error);
+  });
+}
+function idbSet(k, v){
+  return idbOpen().then(db => new Promise((res, rej)=>{
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(v, k);
+    tx.oncomplete = ()=> res(true);
+    tx.onerror = ()=> rej(tx.error);
+    tx.onabort = ()=> rej(tx.error);
+  }));
+}
+function idbGet(k){
+  return idbOpen().then(db => new Promise(res=>{
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const r = tx.objectStore(IDB_STORE).get(k);
+    r.onsuccess = ()=> res(r.result);
+    r.onerror = ()=> res(null);
+  })).catch(()=> null);
+}
+let storageState = { ls:"-", idb:"-", at:0, bytes:0, err:"" };
+let _warnedStorage = false;
+function warnStorageOnce(msg){
+  if(_warnedStorage) return;
+  _warnedStorage = true;
+  try{ toast(msg); }catch(e){}
+}
 function persistThai(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(cards)); }catch(e){}
-  try{ localStorage.setItem(TOMB_KEY, JSON.stringify(tombs)); }catch(e){}
+  let cardsJson = "", tombsJson = "";
+  try{ cardsJson = JSON.stringify(cards); tombsJson = JSON.stringify(tombs); }
+  catch(e){ storageState.err = "序列化失败"; return; }
+  storageState.bytes = cardsJson.length + tombsJson.length;
+  storageState.at = Date.now();
+  // 主：IndexedDB
+  idbSet(STORE_KEY, cards)
+    .then(()=>{ storageState.idb = "ok"; })
+    .catch(e=>{
+      storageState.idb = "fail";
+      storageState.err = String((e && (e.name || e.message)) || e);
+      warnStorageOnce("⚠️ 保存失败，请在设置里导出备份");
+    });
+  idbSet(TOMB_KEY, tombs).catch(()=>{});
+  // 辅：localStorage（写满了不致命，但要记录下来给设置页显示）
+  try{
+    localStorage.setItem(STORE_KEY, cardsJson);
+    localStorage.setItem(TOMB_KEY, tombsJson);
+    storageState.ls = "ok";
+  }catch(e){
+    storageState.ls = "full";
+    if(storageState.idb === "fail"){
+      storageState.err = String((e && (e.name || e.message)) || e);
+      warnStorageOnce("⚠️ 存储已满，保存不了，请先导出备份");
+    }
+  }
+}
+// 启动时 localStorage 先同步读（界面立刻能画），再异步读 IndexedDB 并按 id 合并，
+// 哪边有更新/更多就采用哪边 —— 之前因写满而丢掉的卡片会从这里自动找回来
+async function loadFromIDB(){
+  try{
+    const c = await idbGet(STORE_KEY);
+    if(!Array.isArray(c)){ if(cards.length) persistThai(); return; }   // 首次迁移
+    const t = await idbGet(TOMB_KEY);
+    const localC = combinedThai();
+    const idbC = c.concat((Array.isArray(t) ? t : [])
+      .map(x => ({ id:x.id, _deleted:true, _deletedAt:x._deletedAt||0 })));
+    const merged = mergeThai(localC, idbC);
+    if(thaiSig(merged) !== thaiSig(localC)){
+      applyCombinedThai(merged);
+      persistThai();
+      renderHome();
+      if(document.querySelector("#view-list.active")) renderList();
+    }
+  }catch(e){}
 }
 function save(){ persistThai(); bumpThaiRev(); scheduleThaiPush(); }
 
@@ -1604,7 +1692,7 @@ $("#sheetBg").onclick = ()=>openSheet(false);
 function openSheet(show){
   $("#sheet").classList.toggle("show",show);
   $("#sheetBg").classList.toggle("show",show);
-  if(show){ renderSyncBox(); renderOfflineBox(); }
+  if(show){ renderSyncBox(); renderOfflineBox(); renderStoreBox(); }
 }
 // 手动同步：跑完一整轮 pull→push，然后再读一次服务器核对，确认真的写进去了
 $("#syncNowBtn").onclick = async ()=>{
@@ -1779,6 +1867,27 @@ function renderSyncBox(){
 
 /* 飞行模式下到底能做什么：卡片在本机 localStorage，App 外壳由 Service Worker
    缓存，这两样一定能离线；发音走系统语音，只有「本地语音」离线才出声。 */
+function fmtKB(n){ return n < 1024 ? n + " B" : (n/1024).toFixed(1) + " KB"; }
+function renderStoreBox(){
+  const pill = document.getElementById("storePill"), det = document.getElementById("storeDetail");
+  if(!pill || !det) return;
+  const exCount = cards.reduce((s,c)=> s + ((c.examples||[]).length), 0);
+  let lsBytes = 0;
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i);
+        lsBytes += k.length + (localStorage.getItem(k)||"").length; } }catch(e){}
+  const idbOk = storageState.idb === "ok";
+  const lsFull = storageState.ls === "full";
+  pill.className = "sync-pill " + (idbOk ? (lsFull ? "off" : "ok") : (storageState.idb==="fail" ? "bad" : "off"));
+  pill.textContent = idbOk ? (lsFull ? "正常（备用已满）" : "正常") : (storageState.idb==="fail" ? "有风险" : "未知");
+  det.innerHTML =
+    `卡片：<b>${cards.length}</b> 张（含 ${exCount} 条例句），约 <b>${fmtKB(storageState.bytes)}</b><br>` +
+    `主存储 IndexedDB：<b>${idbOk ? "正常" : storageState.idb==="fail" ? "失败！" : "尚未写入"}</b><br>` +
+    `备用 localStorage：<b>${lsFull ? "已写满（不影响，主存储仍在工作）" : storageState.ls==="ok" ? "正常" : "尚未写入"}</b>` +
+    `　本域名已用约 ${fmtKB(lsBytes)} / 上限约 5 MB<br>` +
+    `最近一次保存：<b>${storageState.at ? fmtWhen(storageState.at) : "本次还没保存过"}</b>` +
+    (storageState.err ? `<br><span style="color:#f87171">错误：${esc(storageState.err)}</span>` : "") +
+    (idbOk ? "" : `<br>⚠️ 建议先用下面的「导出备份」存一份。`);
+}
 function renderOfflineBox(){
   const pill = document.getElementById("offPill"), det = document.getElementById("offDetail");
   if(!pill || !det) return;
@@ -2351,6 +2460,7 @@ $("#awSave").onclick = ()=>{
 const _av = document.getElementById("appVer"); if(_av) _av.textContent = APP_VER;
 load();
 renderHome();
+loadFromIDB();        // 再从 IndexedDB 补一次，找回 localStorage 写满时丢掉的卡片
 thaiSync();
 setInterval(thaiPull, 20000);   // keep in step with the notes app's 20s cadence
 /* ---------------- auto-update ----------------
