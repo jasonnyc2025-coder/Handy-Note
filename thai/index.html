@@ -441,7 +441,8 @@
   }
   /* the example text inside the peek is selectable (rest of the panel is not), so
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
-  #peekExList .ex-thai, #peekExList .ex-thai *{
+  #peekExList .ex-thai, #peekExList .ex-thai *,
+  #peekExList .ex-mean, #peekExList .ex-mean *{
     -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;cursor:text}
   .peek-card .peek-body{width:100%;display:flex;flex-direction:column;flex:1;min-height:0;
     border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
@@ -819,7 +820,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v83";   // shown in the top bar; bump with each release
+const APP_VER = "v84";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1292,12 +1293,25 @@ function collectExamples(listEl){
 function carryHighlights(oldEx, newEx){
   const olds = oldEx || [];
   const byText = new Map();
-  olds.forEach(e=>{ if(e && e.thai && e.hl && e.hl.length && !byText.has(e.thai)) byText.set(e.thai, e.hl); });
+  const byMean = new Map();
+  olds.forEach(e=>{
+    if(!e) return;
+    if(e.thai && e.hl && e.hl.length && !byText.has(e.thai)) byText.set(e.thai, e.hl);
+    if(e.meaning && e.hlm && e.hlm.length && !byMean.has(e.meaning)) byMean.set(e.meaning, e.hlm);
+  });
   return (newEx || []).map((e, i)=>{
+    const out = Object.assign({}, e);
     const src = byText.get(e.thai) || (olds[i] && olds[i].hl) || null;
-    if(!src || !src.length) return e;
-    const kept = src.filter(w => w && (e.thai || "").indexOf(w) !== -1);
-    return kept.length ? Object.assign({}, e, { hl: kept.slice() }) : e;
+    if(src && src.length){
+      const kept = src.filter(w => w && (e.thai || "").indexOf(w) !== -1);
+      if(kept.length) out.hl = kept.slice();
+    }
+    const srcM = byMean.get(e.meaning) || (olds[i] && olds[i].hlm) || null;
+    if(srcM && srcM.length){
+      const keptM = srcM.filter(w => w && (e.meaning || "").indexOf(w) !== -1);
+      if(keptM.length) out.hlm = keptM.slice();
+    }
+    return out;
   });
 }
 function setExamples(list, listEl){
@@ -1591,7 +1605,7 @@ function renderCardExamples(box, list, cardId){
     if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
     el.innerHTML = `<div class="ex-no">${no} / ${total}</div>` +
       `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
-      (e.meaning ? `<div class="ex-mean">${esc(e.meaning)}</div>` : "");
+      (e.meaning ? `<div class="ex-mean">${hlThai(e.meaning, e.hlm, cardId)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
   });
@@ -2007,11 +2021,13 @@ async function thaiSync(){
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
 let selCtx = null;   // { text, cbEx }
 function hideSelPop(){ $("#selPop").classList.remove("show"); selCtx=null; }
-function exThaiOf(node){
+// 例句的两行都能选：泰文行和它下面的中文翻译行（翻译里常常混着泰文）
+function exLineOf(node){
   if(!node) return null;
   if(node.nodeType===3) node = node.parentElement;
-  return node && node.closest ? node.closest(".ex-thai") : null;
+  return node && node.closest ? node.closest(".ex-thai, .ex-mean") : null;
 }
+function exThaiOf(node){ return exLineOf(node); }   // 旧名字还有别处在用
 function onSelChange(){
   const sel = window.getSelection();
   if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
@@ -2029,7 +2045,7 @@ function onSelChange(){
   const text = sel.toString().trim();
   if(!text){ hideSelPop(); return; }
   const cbEx = exThai.closest(".cb-ex");
-  selCtx = { text, cbEx };
+  selCtx = { text, cbEx, field: exThai.classList.contains("ex-mean") ? "mean" : "thai" };
   // if the selected word is itself a headword in the vocab book (and not the
   // very card that owns this example), offer a "peek at that word" button
   const ownId = cbEx ? cbEx.dataset.card : null;
@@ -2257,11 +2273,12 @@ function _draggedSince(e){
   const dx = e.clientX - _downPt.x, dy = e.clientY - _downPt.y;
   return (dx*dx + dy*dy) > 25;      // 超过 5px 就算拖动，不算点击
 }
+const _THAI_CH = /[\u0E00-\u0E7F]/;
 document.addEventListener("click", e=>{
-  const exThai = e.target.closest ? e.target.closest(".ex-thai") : null;
+  const line = e.target.closest ? e.target.closest(".ex-thai, .ex-mean") : null;
   const dragged = _draggedSince(e);
   _downPt = null;
-  if(!exThai || e.target.closest("button")) return;
+  if(!line || e.target.closest("button")) return;
   if(dragged) return;                              // 用户在拖选，保留他自己选的范围
   const sel = window.getSelection();
   // 已经有跨多个词的选区（双击/拖选/Shift+点击得来的），也不要再缩回一个词
@@ -2269,24 +2286,32 @@ document.addEventListener("click", e=>{
   const c = _caretAtPoint(e.clientX, e.clientY);
   let tn = c && c.node;
   if(tn && tn.nodeType!==3) tn = [...(tn.childNodes||[])].find(n=>n.nodeType===3);
-  if(tn && exThai.contains(tn)) selectWordInNode(tn, c ? c.off : 0);
+  if(!tn || !line.contains(tn)) return;
+  // 翻译行多半是中文，用泰语分词器去切会切错 —— 只有点在泰文字符上才自动选词，
+  // 其余交给浏览器自己的双击/拖选
+  if(line.classList.contains("ex-mean")){
+    const t = tn.nodeValue || "", off = Math.max(0, Math.min(c ? c.off : 0, t.length - 1));
+    if(!_THAI_CH.test(t[off] || "")) return;
+  }
+  selectWordInNode(tn, c ? c.off : 0);
 }, false);
-function toggleHighlight(cbEx, text){
+function toggleHighlight(cbEx, text, field){
   if(!cbEx) return;
   const card = cards.find(c=>c.id===cbEx.dataset.card);
   const idx = parseInt(cbEx.dataset.ex, 10);
   if(!card || !card.examples || !card.examples[idx]) return;
   const ex = card.examples[idx];
-  ex.hl = ex.hl || [];
-  const i = ex.hl.indexOf(text);
-  if(i>=0) ex.hl.splice(i,1); else ex.hl.push(text);
-  if(!ex.hl.length) delete ex.hl;
+  const key = field === "mean" ? "hlm" : "hl";   // 翻译行的高亮单独存，互不干扰
+  ex[key] = ex[key] || [];
+  const i = ex[key].indexOf(text);
+  if(i>=0) ex[key].splice(i,1); else ex[key].push(text);
+  if(!ex[key].length) delete ex[key];
   card.modified = Date.now();   // 高亮也是一次修改，不更新时间戳就同步不到别的设备
   save();
   renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
 }
 $("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
-$("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
+$("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
 $("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); };
 function copyText(t){
   if(!t) return;
