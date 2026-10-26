@@ -849,7 +849,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v88";   // shown in the top bar; bump with each release
+const APP_VER = "v89";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1800,9 +1800,11 @@ function openSheet(show){
 $("#syncNowBtn").onclick = async ()=>{
   const btn = $("#syncNowBtn"), cloud = getCloud();
   if(!cloud){ renderSyncBox(); alert("这台设备还没登录。\n请先打开「随手记」登录 Google 账号，泰语卡片会用同一个登录。"); return; }
-  btn.disabled = true; btn.textContent = "同步中…";
+  // 探主机最长要等 24 秒，不说在干嘛的话看着像卡死了
+  btn.disabled = true; btn.textContent = "① 正在检测服务器…";
   // 先不带登录信息探一下主机，这样能分清「服务器根本连不上」和「登录被拒」
   const host = await probeHost(cloud.url);
+  if(host.ok) btn.textContent = "② 正在同步卡片…";
   if(!host.ok){
     noteSync(false, host.detail);
     btn.disabled = false; btn.textContent = "🔄 立即同步并检查";
@@ -1929,12 +1931,33 @@ async function probeHost(url){
 /* 同步状态 —— 以前 push/pull 出任何错都被 catch 静默吞掉，设备之间对不上时
    完全没法判断是没登录、登录过期、还是服务器没通。现在全部记录下来并显示。 */
 const SYNCINFO_KEY = "thaicards.syncinfo";
-let syncInfo = { at:0, ok:null, msg:"从未同步", serverCount:null, serverRev:0 };
-try{ const s = JSON.parse(localStorage.getItem(SYNCINFO_KEY)); if(s) syncInfo = s; }catch(e){}
+let syncInfo = { at:0, ok:null, msg:"从未同步", serverCount:null, serverRev:0,
+                 okAt:0, okCount:null, log:[] };
+try{ const s = JSON.parse(localStorage.getItem(SYNCINFO_KEY)); if(s) syncInfo = Object.assign({ okAt:0, okCount:null, log:[] }, s); }catch(e){}
 function noteSync(ok, msg, extra){
-  syncInfo = Object.assign({ at:Date.now(), ok, msg, serverCount:null, serverRev:0 }, extra||{});
+  // 上一次「成功」的时间要留着 —— 失败一次就把它冲掉的话，
+  // 「刚才明明还是正常的」就再也查不到了
+  const okAt    = ok ? Date.now() : (syncInfo.okAt || 0);
+  const okCount = ok ? ((extra && extra.serverCount != null) ? extra.serverCount : syncInfo.okCount) : syncInfo.okCount;
+  const log = (syncInfo.log || []).slice(-7);
+  log.push({ t: Date.now(), ok: !!ok, m: msg });
+  syncInfo = Object.assign({ at:Date.now(), ok, msg, serverCount:null, serverRev:0 },
+                           extra||{}, { okAt, okCount, log });
   try{ localStorage.setItem(SYNCINFO_KEY, JSON.stringify(syncInfo)); }catch(e){}
   renderSyncBox();
+}
+/* 自动同步失败时，netReason() 只能给一句笼统的「打不开服务器地址」——
+   域名没解析、证书坏了、后端没跑，三件完全不同的事长得一模一样。
+   失败后补探一次 /health，把它换成说得清的那一句。每次打开只补探一次。 */
+let _explained = false;
+async function explainSyncFailure(){
+  if(_explained || syncInfo.ok !== false) return;
+  if(navigator.onLine === false) return;          // 离线就别白等 24 秒
+  const cloud = getCloud(); if(!cloud) return;
+  _explained = true;
+  const host = await probeHost(cloud.url);
+  if(host.ok || syncInfo.ok === true) return;     // 期间自己好了，别再写回失败
+  noteSync(false, host.detail, { serverCount: syncInfo.serverCount });
 }
 function fmtWhen(t){
   if(!t) return "从未";
@@ -1959,12 +1982,24 @@ function renderSyncBox(){
   const okState = syncInfo.ok === true;
   pill.className = "sync-pill " + (syncInfo.ok===null ? "off" : okState ? "ok" : "bad");
   pill.textContent = syncInfo.ok===null ? "未同步" : okState ? "正常" : "有问题";
+  // 失败时把「上次成功是什么时候」单独列出来 —— 这一条能看出
+  // 到底是一直连不上，还是服务器时好时坏
+  const okLine = (!okState && syncInfo.okAt)
+    ? `上次成功：<b>${fmtWhen(syncInfo.okAt)}</b>` +
+      (syncInfo.okCount!=null ? `（服务器 ${syncInfo.okCount} 张）` : "") + `<br>`
+    : "";
+  const log = (syncInfo.log||[]).slice(-5).reverse();
+  const logLine = log.length > 1
+    ? `<details style="margin-top:6px"><summary style="cursor:pointer;opacity:.75">最近 ${log.length} 次尝试</summary>` +
+      log.map(r=>`<div style="opacity:.8">${r.ok?"✅":"❌"} ${fmtWhen(r.t)} — ${esc(r.m||"")}</div>`).join("") +
+      `</details>`
+    : "";
   det.innerHTML =
     `状态：<b>${esc(syncInfo.msg||"")}</b><br>` +
-    `最近一次：<b>${fmtWhen(syncInfo.at)}</b><br>` +
+    `最近一次：<b>${fmtWhen(syncInfo.at)}</b><br>` + okLine +
     `本机卡片：<b>${mine}</b> 张` +
     (syncInfo.serverCount!=null ? ` ｜ 服务器：<b>${syncInfo.serverCount}</b> 张` : "") + `<br>` +
-    `服务器：${esc(cloud.url)}`;
+    `服务器：${esc(cloud.url)}` + logLine;
 }
 
 /* 飞行模式下到底能做什么：卡片在本机 localStorage，App 外壳由 Service Worker
@@ -2121,7 +2156,8 @@ async function thaiPull(){
 async function thaiSync(){
   if(!getCloud()) return;
   await thaiPull();   // adopt server if it's newer
-  thaiPush();         // converge (server rev-gates, so a stale push is a no-op)
+  await thaiPush();   // converge (server rev-gates, so a stale push is a no-op)
+  explainSyncFailure();   // 失败了就去问清楚到底卡在哪一步（不阻塞）
 }
 
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
