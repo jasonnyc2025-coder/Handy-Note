@@ -849,7 +849,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v89";   // shown in the top bar; bump with each release
+const APP_VER = "v90";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1817,10 +1817,11 @@ $("#syncNowBtn").onclick = async ()=>{
         : `请在手机浏览器里打开：\n${cloud.url}/health\n看到 {"ok":true} 才说明服务器是通的。`));
     return;
   }
-  await thaiPull();
-  await thaiPush();
-  let verdict = syncInfo.ok ? "" : "❌ " + syncInfo.msg;
-  if(syncInfo.ok){
+  // 用这一轮自己的结果判断。以前读的是全局 syncInfo，另一路并发的同步会在
+  // 中间把它改掉 —— 面板显示「正常」而弹窗说「❌ 超时」就是这么来的
+  const okRound = await thaiSync();
+  let verdict = okRound ? "" : "❌ " + syncInfo.msg;
+  if(okRound){
     try{
       const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
       const d = g.ok ? await g.json() : null;
@@ -2065,25 +2066,35 @@ function renderOfflineBox(){
     `朗读：${voiceLine}`;
 }
 
+// 所有上传/下载排成一队，一次只跑一个。手机上行窄，并发只会互相拖超时。
+let _syncQ = Promise.resolve();
+function serialSync(fn){
+  const p = _syncQ.then(()=>fn(), ()=>fn());   // 前一个失败也要继续排下去
+  _syncQ = p.then(()=>{}, ()=>{});
+  return p;
+}
 let _pushTimer = null;
 function scheduleThaiPush(){
   if(!getCloud()) return;
   clearTimeout(_pushTimer);
-  _pushTimer = setTimeout(thaiPush, 800);   // debounce rapid edits
+  _pushTimer = setTimeout(()=>serialSync(()=>thaiPush()), 800);   // debounce rapid edits
 }
-async function thaiPush(){
+// cur0：调用方刚读到的服务器快照，传进来就省掉一次 GET
+async function thaiPush(cur0){
   const cloud = getCloud();
-  if(!cloud){ noteSync(false, "未登录，无法同步"); return; }
+  if(!cloud){ noteSync(false, "未登录，无法同步"); return false; }
   try{
     // Read the server first: merge our set with theirs (so a concurrent add on
-    // another device is never wiped), and echo notes/cats back untouched.
-    let cur = {}, getFailed = "";
-    try{
-      const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-      if(g.ok) cur = await g.json();
-      else getFailed = (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`;
-    }catch(e){ getFailed = netReason(e); }
-    if(getFailed){ noteSync(false, getFailed); return; }   // 读不到就别推，否则会用旧数据覆盖服务器
+    // another device is never wiped).
+    let cur = cur0 || {}, getFailed = "";
+    if(!cur0){
+      try{
+        const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
+        if(g.ok) cur = await g.json();
+        else getFailed = (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`;
+      }catch(e){ getFailed = netReason(e); }
+    }
+    if(getFailed){ noteSync(false, getFailed); return false; }   // 读不到就别推，否则会用旧数据覆盖服务器
     let out = combinedThai();
     let changed = false;
     if(Array.isArray(cur.thai)){
@@ -2101,14 +2112,17 @@ async function thaiPush(){
     // rev must beat the stored one so the server (which rev-gates) always accepts it
     const pushRev = Math.max(getThaiRev(), (Number(cur.thaiRev)||0) + 1);
     localStorage.setItem(REV_KEY, String(pushRev));
+    // 只传 thai —— 服务器是「传了哪一段就只写哪一段」，notes/cats 不传就原样留着。
+    // 以前把读回来的 notes 又原样传上去，等于每改一张卡片就把随手记的全部笔记
+    // （含内嵌的 PDF / 照片）重新上传一遍 —— 这正是「请求超时」的原因；
+    // 而且中间别处改过笔记的话，还会被这份旧副本盖回去。
     const body = { thai: out, thaiRev: pushRev };
-    if(Array.isArray(cur.notes)) body.notes = cur.notes;
-    if(Array.isArray(cur.cats))  body.cats  = cur.cats;
+    // 上传比下载慢得多（手机上行窄），给它更长的时限
     const put = await fetchT(`${cloud.url}/api/sync`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
       body: JSON.stringify(body)
-    });
+    }, 40000);
     if(!put.ok){
       noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
     }else{
@@ -2120,25 +2134,28 @@ async function thaiPush(){
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
     }
-  }catch(e){ noteSync(false, netReason(e)); }
+    return put.ok;
+  }catch(e){ noteSync(false, netReason(e)); return false; }
 }
+// 返回 { ok, data, needPush } —— 自己不再去推，由调用方决定，
+// 否则「拉完顺手推一把」会和调用方的推并发跑，同一份大数据传两遍
 async function thaiPull(){
   const cloud = getCloud();
-  if(!cloud){ noteSync(false, "未登录，无法同步"); return; }
+  if(!cloud){ noteSync(false, "未登录，无法同步"); return { ok:false }; }
   try{
     const res = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
     if(!res.ok){
       noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
-      return;
+      return { ok:false };
     }
     const data = await res.json();
-    if(!Array.isArray(data.thai)){ noteSync(false, "服务器返回的数据格式不对"); return; }
+    if(!Array.isArray(data.thai)){ noteSync(false, "服务器返回的数据格式不对"); return { ok:false }; }
     const srvCount = data.thai.filter(x=>!x._deleted).length;
     noteSync(true, "已同步", { serverCount: srvCount, serverRev: Number(data.thaiRev)||0 });
     const local = combinedThai();
     const merged = mergeThai(local, data.thai);
     const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
-    if(mergedSig === localSig && mergedSig === remoteSig) return;   // already in sync
+    if(mergedSig === localSig && mergedSig === remoteSig) return { ok:true, data, needPush:false };
     if(mergedSig !== localSig){
       // remote had something new for us — adopt the merged result
       applyCombinedThai(merged);
@@ -2147,17 +2164,25 @@ async function thaiPull(){
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
     }
-    if(mergedSig !== remoteSig){
-      // we have something the server lacks — push the union up
-      thaiPush();
-    }
-  }catch(e){ noteSync(false, netReason(e)); }
+    // 本机有服务器没有的东西，才需要推
+    return { ok:true, data, needPush: mergedSig !== remoteSig };
+  }catch(e){ noteSync(false, netReason(e)); return { ok:false }; }
 }
-async function thaiSync(){
-  if(!getCloud()) return;
-  await thaiPull();   // adopt server if it's newer
-  await thaiPush();   // converge (server rev-gates, so a stale push is a no-op)
-  explainSyncFailure();   // 失败了就去问清楚到底卡在哪一步（不阻塞）
+// 同一时间只允许一轮同步。以前开 App 时的自动同步、编辑后的自动推送、
+// 手动按钮可以三路并发，每一路都是一次 GET + 一次整包 PUT，
+// 手机上行根本扛不住，结果就是互相把对方拖超时。
+let _syncRun = null;
+function thaiSync(){
+  if(!getCloud()) return Promise.resolve(false);
+  if(_syncRun) return _syncRun;            // 已经有一轮在跑，就搭它的车
+  _syncRun = serialSync(async ()=>{
+    const r = await thaiPull();            // adopt server if it's newer
+    // 拉下来的快照直接给推用，省掉第二次 GET
+    if(r.ok && r.needPush) await thaiPush(r.data);
+    return !!r.ok;
+  }).finally(()=>{ _syncRun = null; });
+  _syncRun.then(()=> explainSyncFailure());   // 失败了就去问清楚卡在哪一步（不阻塞）
+  return _syncRun;
 }
 
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */

@@ -2158,7 +2158,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v198</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v199</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -6430,9 +6430,6 @@ async function republishCats() {
 // rev (last-write-wins) rather than per-item merge.
 const THAI_KEY = 'thaicards.v1';
 const THAI_REV_KEY = 'thaicards.rev';
-function getLocalThai() {
-  try { return JSON.parse(localStorage.getItem(THAI_KEY)) || []; } catch { return []; }
-}
 function getLocalThaiRev() { return parseInt(localStorage.getItem(THAI_REV_KEY), 10) || 0; }
 function applyRemoteThai(remoteThai, remoteRev) {
   if (!Array.isArray(remoteThai)) return;
@@ -6465,7 +6462,10 @@ async function cloudPush() {
     await fetch(`${cloud.url}/api/sync`, {
       method: 'PUT',
       headers: { 'Authorization': 'Bearer ' + cloud.token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: payload, cats, thai: getLocalThai(), thaiRev: getLocalThaiRev() })
+      // 只传自己这一段。服务器是「传了哪一段就只写哪一段」，泰语卡片那段由
+      // 泰语卡片自己负责 —— 这里能看到的只有 localStorage 里那份备份，
+      // 而备份在写满时会悄悄停在旧数据上，推上去就会把别的设备的新卡片顶掉
+      body: JSON.stringify({ notes: payload, cats })
     });
   } catch {}
   cloudSyncing = false;
