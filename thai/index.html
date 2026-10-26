@@ -217,6 +217,11 @@
     padding:14px 14px;font-size:16px;color:var(--ink);
   }
   .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
+  #fieldTools{display:flex;gap:8px;margin:8px 0 2px;flex-wrap:wrap}
+  #fieldTools[hidden]{display:none}
+  #fieldTools button{min-height:40px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;
+    background:var(--surface-2);color:var(--teal-ink);border:1px solid var(--line);cursor:pointer}
+  #fieldTools button:active{filter:brightness(.9)}
   .field textarea{min-height:70px;resize:vertical;line-height:1.5}
   .field .with-spk{position:relative}
   .field .with-spk .mini{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
@@ -601,6 +606,13 @@
   </section>
 
   <!-- ===== ADD ===== -->
+  <!-- 跟随焦点的小工具条：iOS 上系统的「粘贴/全选」菜单会被顶到屏幕最顶端够不着，
+       这里给一排自己的按钮，就在输入框正下方 -->
+  <div id="fieldTools" hidden>
+    <button type="button" data-a="paste">📋 粘贴</button>
+    <button type="button" data-a="all">全选</button>
+    <button type="button" data-a="clear">清空</button>
+  </div>
   <section class="view" id="view-add">
     <div class="section-h" id="addTitle">添加生词</div>
     <div class="field">
@@ -820,7 +832,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v84";   // shown in the top bar; bump with each release
+const APP_VER = "v85";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1134,6 +1146,7 @@ function showTab(tab){
   if(tab==="home") renderHome();
   if(tab==="list") renderList();
   if(tab==="add" && !editingId) resetForm();
+  if(tab!=="add"){ const ft=document.getElementById("fieldTools"); if(ft) ft.hidden=true; }
   window.scrollTo(0,0);
 }
 $$(".nav button").forEach(b=> b.onclick=()=>{ editReturnToReview=false; _editFromPeek=null; showTab(b.dataset.tab); });
@@ -1320,6 +1333,51 @@ function setExamples(list, listEl){
   if(list && list.length){ list.forEach(e=>addExRow(e.thai||"", e.meaning||"", listEl)); }
   else { addExRow("", "", listEl); }   // start with one empty row
 }
+
+/* 跟随焦点的输入工具条 —— iOS 上系统的选择/粘贴菜单会被顶到屏幕最顶端够不着
+   （body 是 position:fixed 的固定外壳 + 内部滚动，WebKit 在这种布局下算选区
+   坐标会出错）。这里提供一排自己的按钮，插在当前输入框的正下方。 */
+(function setupFieldTools(){
+  const bar = document.getElementById("fieldTools");
+  if(!bar) return;
+  let cur = null;
+  const isField = el => el && (el.tagName === "TEXTAREA" ||
+    (el.tagName === "INPUT" && !["button","checkbox","radio","file"].includes((el.type||"text").toLowerCase())));
+  function attach(el){
+    cur = el;
+    if(el.parentNode) el.parentNode.insertBefore(bar, el.nextSibling);
+    bar.hidden = false;
+    // 插在最后一个字段下面时可能正好在可视区之外，滚一下让它露出来
+    setTimeout(()=>{ try{ bar.scrollIntoView({ block:"nearest" }); }catch(_){ } }, 60);
+  }
+  document.addEventListener("focusin", e=>{
+    const el = e.target;
+    if(isField(el) && el.closest("#view-add")) attach(el);
+    else if(!bar.contains(el)){ bar.hidden = true; cur = null; }
+  });
+  // 按下工具条按钮时别让输入框失焦，否则插入位置就丢了
+  bar.addEventListener("mousedown", e=> e.preventDefault());
+  bar.addEventListener("touchstart", e=> e.preventDefault(), { passive:false });
+  bar.addEventListener("click", async e=>{
+    const b = e.target.closest("button"); if(!b || !cur) return;
+    const act = b.dataset.a;
+    if(act === "all"){ cur.focus(); cur.select(); return; }
+    if(act === "clear"){ cur.value = ""; cur.focus(); cur.dispatchEvent(new Event("input",{bubbles:true})); return; }
+    if(act === "paste"){
+      let txt = "";
+      try{ txt = await navigator.clipboard.readText(); }
+      catch(err){ toast("读不到剪贴板，请长按输入框用系统粘贴"); return; }
+      if(!txt) { toast("剪贴板是空的"); return; }
+      const s0 = cur.selectionStart != null ? cur.selectionStart : cur.value.length;
+      const e0 = cur.selectionEnd   != null ? cur.selectionEnd   : cur.value.length;
+      cur.value = cur.value.slice(0, s0) + txt + cur.value.slice(e0);
+      const pos = s0 + txt.length;
+      cur.focus();
+      try{ cur.setSelectionRange(pos, pos); }catch(_){}
+      cur.dispatchEvent(new Event("input",{bubbles:true}));
+    }
+  });
+})();
 $("#addExBtn").onclick = ()=> addExRow();
 
 function resetForm(){
