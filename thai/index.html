@@ -292,12 +292,8 @@
     display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--teal-ink);
   }
   .rv-edit:active{transform:translateY(-50%) scale(.92)}
-  /* 浮层里的编辑按钮：放卡片右上角，不去挤已经排满的底栏 */
-  .peek-edit{position:absolute;right:12px;top:12px;z-index:2;
-    width:44px;height:44px;border-radius:50%;
-    background:var(--surface-2);border:1px solid var(--line);
-    display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--teal-ink);cursor:pointer}
-  .peek-edit:active{transform:scale(.92);filter:brightness(.95)}
+  /* 编辑按钮跟 A−/A+/🔈 一起放在底栏左组 —— 原来在卡片右上角贴着刘海，够不着 */
+  #peekEdit{color:var(--teal-ink)}
   .rv-progress{flex:1}
   .rv-count{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px}
   .rv-count b{color:var(--ink);font-weight:700}
@@ -397,9 +393,12 @@
     -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
   /* read-only peek: no text selection inside (it was eating the first tap on 关闭,
      and starting a selection popup over the overlay) */
-  #peekPanel{position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
+  /* --peekBarH：底栏现在是两行（工具键一行 + 关闭键一行），卡片要让出这么多高度，
+     否则小屏上卡片底部会被底栏压住 */
+  #peekPanel{--peekBarH:150px;
+    position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
     align-items:center;justify-content:center;gap:12px;
-    padding:16px 16px calc(env(safe-area-inset-bottom) + 84px);
+    padding:16px 16px calc(env(safe-area-inset-bottom) + var(--peekBarH));
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
   #peekBg.show,#peekPanel.show{display:flex}
   /* close button pinned to the bottom of the screen — easy thumb reach */
@@ -410,12 +409,15 @@
     padding-right:calc(env(safe-area-inset-right) + 14px);
     pointer-events:none}                      /* 空白处仍可点穿关闭浮层 */
   #peekBar > *{pointer-events:auto}
-  #peekClose{flex:0 1 auto;min-width:0;white-space:nowrap;
+  #peekBar{flex-wrap:wrap}
+  /* 四个工具键 + ‹ › 一行已经放不下关闭键了，让它换到下面单独一行 */
+  #peekClose{order:3;flex:0 0 100%;max-width:300px;margin:10px auto 0;white-space:nowrap;
     background:var(--teal);color:#04201c;cursor:pointer;
     border:none;border-radius:99px;padding:16px 34px;font-size:16px;font-weight:800;
     box-shadow:0 8px 26px rgba(45,212,191,.45)}
   #peekClose:active{transform:translateY(1px);filter:brightness(.92)}
-  .peek-card{cursor:default;align-self:center;max-height:74vh;zoom:var(--peekZoom,1)}
+  .peek-card{cursor:default;align-self:center;zoom:var(--peekZoom,1);
+    max-height:min(74vh, calc(100vh - var(--peekBarH,150px) - 40px))}
   /* search-term highlight inside the opened card */
   mark.s-hit{background:#ffd54a;color:#3a2c00;border-radius:4px;padding:0 2px;font-weight:800}
   /* A− / A+ 字号控制，方便看清浮层里的文字 */
@@ -437,12 +439,14 @@
     #peekZoomCtl button,#peekNav button{width:46px;height:46px}
     #peekZoomCtl{gap:6px} #peekNav{gap:6px} #peekBar{gap:8px}
     #peekClose{padding:15px 22px}
+    #peekPanel{--peekBarH:142px}
   }
   @media (max-width:380px){
     #peekZoomCtl button,#peekNav button{width:42px;height:42px;font-size:16px}
     #peekNav button{font-size:22px}
     #peekClose{padding:14px 16px}
     #peekClose .pc-t{display:none}
+    #peekPanel{--peekBarH:136px}
   }
   /* the example text inside the peek is selectable (rest of the panel is not), so
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
@@ -793,7 +797,6 @@
 <div id="peekBg"></div>
 <div id="peekPanel" role="dialog" aria-modal="true" aria-label="查看生词">
   <div class="card peek-card">
-    <button class="peek-edit" id="peekEdit" aria-label="编辑这张卡片" title="编辑">✎</button>
     <div class="card-thai thai" id="peekThai">—</div>
     <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
     <div class="peek-body">
@@ -811,6 +814,7 @@
       <button id="peekZoomOut" aria-label="字号减小">A−</button>
       <button id="peekZoomIn" aria-label="字号增大">A+</button>
       <button id="peekAutoRead" aria-label="自动朗读">🔇</button>
+      <button id="peekEdit" aria-label="编辑这张卡片" title="编辑">✎</button>
     </div>
     <button id="peekClose"><span class="pc-x">✕</span><span class="pc-t"> 关闭</span></button>
     <div id="peekNav">
@@ -845,7 +849,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v87";   // shown in the top bar; bump with each release
+const APP_VER = "v88";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
