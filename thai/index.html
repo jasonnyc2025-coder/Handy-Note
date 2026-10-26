@@ -506,6 +506,15 @@
     max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   }
   .sheet.show{transform:none}
+  /* 面板内容变长后几乎占满屏幕，背景点不到了 —— 顶部放一个常驻的关闭按钮 */
+  .sheet-head{position:sticky;top:-20px;z-index:3;background:var(--surface);
+    margin:-20px -20px 0;padding:20px 20px 8px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .sheet-head h3{margin:0}
+  .sheet-x{width:40px;height:40px;flex:0 0 auto;border-radius:50%;
+    background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+    font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .sheet-x:active{filter:brightness(.9)}
   /* 加入生词表单可从「读一眼」浮层里唤出，必须盖在浮层(z-89/90)之上 */
   #addWordBg{z-index:96}
   #addWordSheet{z-index:97}
@@ -722,7 +731,10 @@
 <!-- settings sheet -->
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
-  <h3>设置与备份</h3>
+  <div class="sheet-head">
+    <h3>设置与备份</h3>
+    <button class="sheet-x" id="sheetClose" aria-label="关闭">✕</button>
+  </div>
   <p class="sub">卡片存在这台设备上，登录后会自动和其它设备同步。</p>
   <div class="sync-box" id="syncBox">
     <div class="sync-head"><span>☁️ 云同步</span><span class="sync-pill off" id="syncPill">检查中…</span></div>
@@ -743,6 +755,7 @@
   </div>
   <button class="ghost" id="voiceBtn">🔊 测试泰语发音</button>
   <input type="file" id="importFile" accept="application/json" style="display:none">
+  <button class="ghost" id="sheetCloseBottom" style="margin-top:14px">✕ 关闭</button>
   <div class="about">
     泰语卡片 · 离线优先 PWA · 登录后卡片才会在多台设备之间同步<br>
     发音使用系统内置泰语语音（th-TH）
@@ -832,7 +845,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v86";   // shown in the top bar; bump with each release
+const APP_VER = "v87";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1772,10 +1785,12 @@ document.addEventListener("keydown", e=>{
 /* ---------------- settings / backup ---------------- */
 $("#btnSettings").onclick = ()=>openSheet(true);
 $("#sheetBg").onclick = ()=>openSheet(false);
+$("#sheetClose").onclick = ()=>openSheet(false);
+$("#sheetCloseBottom").onclick = ()=>openSheet(false);
 function openSheet(show){
   $("#sheet").classList.toggle("show",show);
   $("#sheetBg").classList.toggle("show",show);
-  if(show){ renderSyncBox(); renderOfflineBox(); renderStoreBox(); }
+  if(show){ renderSyncBox(); renderOfflineBox(); renderStoreBox(); probeStorage(); }
 }
 // 手动同步：跑完一整轮 pull→push，然后再读一次服务器核对，确认真的写进去了
 $("#syncNowBtn").onclick = async ()=>{
@@ -1951,6 +1966,24 @@ function renderSyncBox(){
 /* 飞行模式下到底能做什么：卡片在本机 localStorage，App 外壳由 Service Worker
    缓存，这两样一定能离线；发音走系统语音，只有「本地语音」离线才出声。 */
 function fmtKB(n){ return n < 1024 ? n + " B" : (n/1024).toFixed(1) + " KB"; }
+// 打开设置时实际去读一次两边的存储，而不是等本次会话发生过保存才有状态
+// （否则刚进来会显示「尚未写入 / 0 B / ⚠️」，看着像出事了，其实好好的）
+async function probeStorage(){
+  // 只补「还不知道」的状态：读到旧值不代表现在写得进去，
+  // 本次会话已经记录过失败的话，绝不能被探测结果盖成「正常」
+  try{
+    const v = await idbGet(STORE_KEY);
+    if(storageState.idb === "-" && Array.isArray(v)) storageState.idb = "ok";
+  }catch(e){}
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(storageState.ls === "-" && raw != null) storageState.ls = "ok";
+  }catch(e){}
+  if(!storageState.bytes){
+    try{ storageState.bytes = JSON.stringify(cards).length + JSON.stringify(tombs).length; }catch(e){}
+  }
+  renderStoreBox();
+}
 function renderStoreBox(){
   const pill = document.getElementById("storePill"), det = document.getElementById("storeDetail");
   if(!pill || !det) return;
@@ -1967,7 +2000,7 @@ function renderStoreBox(){
     `主存储 IndexedDB：<b>${idbOk ? "正常" : storageState.idb==="fail" ? "失败！" : "尚未写入"}</b><br>` +
     `备用 localStorage：<b>${lsFull ? "已写满（不影响，主存储仍在工作）" : storageState.ls==="ok" ? "正常" : "尚未写入"}</b>` +
     `　本域名已用约 ${fmtKB(lsBytes)} / 上限约 5 MB<br>` +
-    `最近一次保存：<b>${storageState.at ? fmtWhen(storageState.at) : "本次还没保存过"}</b>` +
+    `最近一次保存：<b>${storageState.at ? fmtWhen(storageState.at) : "本次打开后还没改动过"}</b>` +
     (storageState.err ? `<br><span style="color:#f87171">错误：${esc(storageState.err)}</span>` : "") +
     (idbOk ? "" : `<br>⚠️ 建议先用下面的「导出备份」存一份。`);
 }
