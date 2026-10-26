@@ -832,7 +832,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v85";   // shown in the top bar; bump with each release
+const APP_VER = "v86";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1340,13 +1340,21 @@ function setExamples(list, listEl){
 (function setupFieldTools(){
   const bar = document.getElementById("fieldTools");
   if(!bar) return;
-  let cur = null;
+  let cur = null, selS = 0, selE = 0;
+  // 触摸设备上按钮一按，输入框就会失焦、选区也没了 —— 所以随时把光标/选区记下来
+  function remember(){
+    if(!cur) return;
+    selS = cur.selectionStart != null ? cur.selectionStart : cur.value.length;
+    selE = cur.selectionEnd   != null ? cur.selectionEnd   : cur.value.length;
+  }
+  document.addEventListener("selectionchange", ()=>{ if(cur && document.activeElement === cur) remember(); });
   const isField = el => el && (el.tagName === "TEXTAREA" ||
     (el.tagName === "INPUT" && !["button","checkbox","radio","file"].includes((el.type||"text").toLowerCase())));
   function attach(el){
     cur = el;
     if(el.parentNode) el.parentNode.insertBefore(bar, el.nextSibling);
     bar.hidden = false;
+    remember();
     // 插在最后一个字段下面时可能正好在可视区之外，滚一下让它露出来
     setTimeout(()=>{ try{ bar.scrollIntoView({ block:"nearest" }); }catch(_){ } }, 60);
   }
@@ -1355,25 +1363,28 @@ function setExamples(list, listEl){
     if(isField(el) && el.closest("#view-add")) attach(el);
     else if(!bar.contains(el)){ bar.hidden = true; cur = null; }
   });
-  // 按下工具条按钮时别让输入框失焦，否则插入位置就丢了
-  bar.addEventListener("mousedown", e=> e.preventDefault());
-  bar.addEventListener("touchstart", e=> e.preventDefault(), { passive:false });
+  // 鼠标按下时阻止失焦即可；触摸上绝不能 preventDefault —— iOS 会把随后的
+  // click 一并取消，按钮就彻底没反应了（选区改用上面记下来的 selS/selE 恢复）
+  bar.addEventListener("pointerdown", e=>{ if(e.pointerType === "mouse") e.preventDefault(); });
   bar.addEventListener("click", async e=>{
     const b = e.target.closest("button"); if(!b || !cur) return;
     const act = b.dataset.a;
-    if(act === "all"){ cur.focus(); cur.select(); return; }
-    if(act === "clear"){ cur.value = ""; cur.focus(); cur.dispatchEvent(new Event("input",{bubbles:true})); return; }
+    if(act === "all"){ cur.focus(); cur.select(); remember(); return; }
+    if(act === "clear"){ cur.value = ""; cur.focus(); remember();
+      cur.dispatchEvent(new Event("input",{bubbles:true})); return; }
     if(act === "paste"){
       let txt = "";
       try{ txt = await navigator.clipboard.readText(); }
       catch(err){ toast("读不到剪贴板，请长按输入框用系统粘贴"); return; }
       if(!txt) { toast("剪贴板是空的"); return; }
-      const s0 = cur.selectionStart != null ? cur.selectionStart : cur.value.length;
-      const e0 = cur.selectionEnd   != null ? cur.selectionEnd   : cur.value.length;
+      // 用记下来的选区：触摸点按钮时输入框已经失焦，现读是拿不到的
+      const len = cur.value.length;
+      const s0 = Math.min(selS, len), e0 = Math.min(Math.max(selE, s0), len);
       cur.value = cur.value.slice(0, s0) + txt + cur.value.slice(e0);
       const pos = s0 + txt.length;
       cur.focus();
       try{ cur.setSelectionRange(pos, pos); }catch(_){}
+      remember();
       cur.dispatchEvent(new Event("input",{bubbles:true}));
     }
   });
