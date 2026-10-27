@@ -515,8 +515,10 @@
     text-decoration: line-through;
     text-decoration-color: var(--done);
   }
+  /* 一条记录里的各个部件都跟着 --note-font 走，S/M/L/XL 一调整条都变大，
+     而不是只有正文变 */
   .meta {
-    font-size: 0.72rem;
+    font-size: calc(var(--note-font, 0.97rem) * 0.80);
     color: var(--ink-soft);
     margin-top: 7px;
     display: flex;
@@ -540,7 +542,7 @@
   .alarm-flag.sub-alarm { width: 20px; height: 20px; font-size: 11px; margin-top: 1px; }
   /* 类别小标签（常显，只读） */
   .cat-tag {
-    font-size: 0.66rem;
+    font-size: calc(var(--note-font, 0.97rem) * 0.74);
     padding: 5px 12px;
     border-radius: 20px;
     background: var(--bg);
@@ -577,10 +579,10 @@
   .item.item-collapsed { padding: 9px 12px; align-items: center; }
   .item-collapsed .idea-bar { width: 3px; align-self: stretch; background: var(--accent); border-radius: 4px; flex-shrink: 0; opacity: 0.4; min-height: 20px; }
   .collapsed-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; cursor: pointer; }
-  .collapsed-row .c-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink); }
+  .collapsed-row .c-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--ink); font-size: var(--note-font, 0.97rem); }
   .item-collapsed.done .c-text { text-decoration: line-through; opacity: 0.55; }
   .collapsed-row .c-ic { flex-shrink: 0; font-size: 0.85em; opacity: 0.85; }
-  .collapsed-row .c-sub { flex-shrink: 0; font-size: 0.72rem; font-weight: 700; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 8px; }
+  .collapsed-row .c-sub { flex-shrink: 0; font-size: calc(var(--note-font, 0.97rem) * 0.78); font-weight: 700; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 8px; }
   .collapsed-row .c-chev { flex-shrink: 0; color: var(--ink-soft); font-size: 1.2rem; line-height: 1; font-weight: 600; }
   /* 操作按钮行：默认收起 */
   .meta-actions {
@@ -622,7 +624,7 @@
     box-shadow: 0 0 0 2px var(--accent)33, 0 4px 16px var(--shadow);
   }
   .badge {
-    font-size: 0.66rem;
+    font-size: calc(var(--note-font, 0.97rem) * 0.74);
     padding: 2px 8px;
     border-radius: 20px;
     font-weight: 500;
@@ -677,7 +679,7 @@
     border: 1px solid var(--line);
     background: var(--bg);
     font-family: inherit;
-    font-size: 0.74rem;
+    font-size: calc(var(--note-font, 0.97rem) * 0.80);
     font-weight: 600;
     color: var(--ink);
     cursor: pointer;
@@ -686,7 +688,7 @@
   }
   .subs-toggle:hover { border-color: var(--accent); }
   .subs-toggle * { pointer-events: none; }
-  .subs-toggle .st-arrow { font-size: 0.7rem; color: var(--accent); transition: transform 0.2s; }
+  .subs-toggle .st-arrow { font-size: calc(var(--note-font, 0.97rem) * 0.74); color: var(--accent); transition: transform 0.2s; }
   .subs-toggle.collapsed .st-arrow { transform: rotate(-90deg); }
   .st-label { font-weight: 600; }
   .subs {
@@ -976,7 +978,7 @@
   }
   .sub-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
   .sub-count {
-    font-size: 0.66rem;
+    font-size: calc(var(--note-font, 0.97rem) * 0.74);
     padding: 2px 8px;
     border-radius: 20px;
     background: #e0e8df;
@@ -2158,7 +2160,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v199</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v200</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2889,7 +2891,8 @@ function openBgModal() {
 
 // ===== 字体大小 =====
 const FONT_KEY = 'quicknotes.fontsize';
-const FONT_SIZES = { small: '0.88rem', normal: '0.97rem', large: '1.12rem', xlarge: '1.28rem' };
+// 整体调大一档（旧值 0.88 / 0.97 / 1.12 / 1.28）
+const FONT_SIZES = { small: '0.94rem', normal: '1.06rem', large: '1.22rem', xlarge: '1.40rem' };
 let fontSize = 'normal';
 function applyFontSize(fs) {
   const v = FONT_SIZES[fs] || FONT_SIZES.normal;
