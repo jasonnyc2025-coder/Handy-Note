@@ -410,10 +410,11 @@
     pointer-events:none}                      /* 空白处仍可点穿关闭浮层 */
   #peekBar > *{pointer-events:auto}
   #peekBar{flex-wrap:wrap}
-  /* 四个工具键 + ‹ › 一行已经放不下关闭键了，让它换到下面单独一行 */
-  #peekClose{order:3;flex:0 0 100%;max-width:300px;margin:10px auto 0;white-space:nowrap;
+  /* 宽屏（平板）放得下就排在同一行，按内容宽度即可 —— 以前写死 300px，
+     结果比旁边的 ‹ › 大了一大截。窄屏下面的媒体查询会让它换到单独一行。 */
+  #peekClose{order:3;flex:0 0 auto;white-space:nowrap;
     background:var(--teal);color:#04201c;cursor:pointer;
-    border:none;border-radius:99px;padding:16px 34px;font-size:16px;font-weight:800;
+    border:none;border-radius:99px;padding:15px 30px;font-size:16px;font-weight:800;
     box-shadow:0 8px 26px rgba(45,212,191,.45)}
   #peekClose:active{transform:translateY(1px);filter:brightness(.92)}
   .peek-card{cursor:default;align-self:center;zoom:var(--peekZoom,1);
@@ -429,24 +430,27 @@
   /* 窄屏三个按钮会和右边的 ‹ › 挤在一起，收窄一点 */
 
   /* ‹ › 上一张 / 下一张，浏览时连续翻卡 */
+  /* ‹ › 上一张 / 下一张，浏览时连续翻卡 —— 翻卡是最常按的动作，给它最大的键 */
   #peekNav{display:flex;gap:8px;flex:0 0 auto}
-  #peekNav button{width:52px;height:52px;border-radius:14px;background:var(--surface);color:var(--ink);
-    border:1px solid var(--line);font-size:26px;font-weight:800;line-height:1;cursor:pointer}
+  #peekNav button{width:64px;height:64px;border-radius:16px;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);font-size:30px;font-weight:800;line-height:1;cursor:pointer}
   #peekNav button:active{filter:brightness(.88)}
   #peekNav button:disabled{opacity:.32}
-  /* 窄屏：按钮收小，关闭键只留 ✕，保证一行放得下 */
+  /* 窄屏：工具键收小把地方让给 ‹ ›，关闭键换到下面单独一行 */
   @media (max-width:430px){
-    #peekZoomCtl button,#peekNav button{width:46px;height:46px}
+    #peekZoomCtl button{width:46px;height:46px}
+    #peekNav button{width:58px;height:58px;font-size:28px}
     #peekZoomCtl{gap:6px} #peekNav{gap:6px} #peekBar{gap:8px}
-    #peekClose{padding:15px 22px}
-    #peekPanel{--peekBarH:142px}
+    #peekClose{flex:0 0 100%;max-width:260px;margin:10px auto 0;padding:15px 22px}
+    #peekPanel{--peekBarH:154px}
   }
   @media (max-width:380px){
-    #peekZoomCtl button,#peekNav button{width:42px;height:42px;font-size:16px}
-    #peekNav button{font-size:22px}
-    #peekClose{padding:14px 16px}
-    #peekClose .pc-t{display:none}
-    #peekPanel{--peekBarH:136px}
+    /* 最窄的屏上靠缩小间距腾地方，工具键本身不再往下缩（已经是 42px 底线了） */
+    #peekZoomCtl{gap:4px} #peekNav{gap:4px} #peekBar{gap:6px}
+    #peekZoomCtl button{width:42px;height:42px;font-size:16px}
+    #peekNav button{width:48px;height:48px;font-size:24px}
+    #peekClose{max-width:230px;padding:14px 20px}
+    #peekPanel{--peekBarH:144px}
   }
   /* the example text inside the peek is selectable (rest of the panel is not), so
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
@@ -849,7 +853,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v90";   // shown in the top bar; bump with each release
+const APP_VER = "v91";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
