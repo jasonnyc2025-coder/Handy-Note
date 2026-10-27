@@ -150,7 +150,7 @@
   }
 
   header {
-    padding: calc(env(safe-area-inset-top, 0px) + 16px) 0 14px;
+    padding: max(calc(env(safe-area-inset-top, 0px) + 16px), 28px) 0 14px;
     position: sticky;
     top: 0;
     background: linear-gradient(var(--bg) 80%, transparent);
@@ -1983,7 +1983,8 @@
       height: 100vh;
       overflow: hidden;
     }
-    .wrap header { flex-shrink: 0; padding: 0 10px; }
+    .wrap header { flex-shrink: 0;
+      padding: max(calc(env(safe-area-inset-top, 0px) + 16px), 28px) 10px 10px; }
     #list { flex: 1; overflow-y: auto; padding: 0 10px 20px; }
     .fab { display: none !important; }
     .header-add-btn { display: none !important; }
@@ -2033,8 +2034,14 @@
       min-height: 300px;
     }
     .desktop-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+    /* 侧栏只有 380px，标题和「＋ 新建」都会被挤到换行（「随手/记」「＋ 新/建」），
+       标题字号收一点、都不许折行，刚好排得下 */
+    .wrap .title { font-size: 1.72rem; white-space: nowrap; }
+    .wrap .title-col { flex-shrink: 0; }
+    .wrap .titlebar { gap: 6px; padding-left: 14px; }
     .desktop-new-btn {
       display: inline-flex !important;
+      white-space: nowrap;
       align-items: center;
       gap: 4px;
       background: var(--accent);
@@ -2127,6 +2134,13 @@
     box-shadow: 0 8px 34px rgba(0,0,0,0.5);
   }
   #sel-speak-btn:active { background: #000; }
+  /* 装成 App（PWA）跑时，系统把状态栏或窗口控件画在页面上方 —— iPad 窗口
+     模式下左上角那排圆点正好压住标题，所以留出更多顶部空间。普通浏览器
+     标签页里浏览器自己有工具栏，不需要这么多。 */
+  @media (display-mode: standalone), (display-mode: fullscreen) {
+    header, .wrap header { padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), 56px); }
+  }
+
 </style>
 </head>
 <body>
@@ -2160,7 +2174,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v200</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v201</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
