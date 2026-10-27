@@ -561,6 +561,8 @@
   }
   /* 拖动过程中别让别的条目做「浮现」动画，会一跳一跳的 */
   #list.reordering .item { animation: none; transition: transform 0.14s ease; }
+  /* 整条标题栏都能点着收起，和折叠态「点整条展开」对称 */
+  .note-head[data-act="headtap"] { cursor: pointer; }
   .note-head { display: flex; align-items: flex-start; gap: 6px; border-radius: 9px; padding: 7px 8px; margin-bottom: 6px; }
   .item.idea .note-head { background: var(--accent-soft); }
   .item.todo .note-head { background: var(--todo-soft); }
@@ -2209,7 +2211,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v202</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v203</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -3128,7 +3130,7 @@ function renderItem(n, idx) {
     <div class="item ${n.type} ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:3px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;opacity:0.35;"></div>`}
       <div class="body">
-        <div class="note-head">
+        <div class="note-head"${searchQuery ? '' : ' data-act="headtap"'}>
           ${idx != null ? `<span class="n-idx" style="margin-top:2px">${idx + 1}</span>` : ''}
           ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
           ${alarmFlag}
@@ -3902,6 +3904,17 @@ document.addEventListener('click', async e => {
   }
   if (act === 'expand') { setNoteExpanded(id, true); render(); return; }
   if (act === 'collapse') { setNoteExpanded(id, false); render(); return; }
+  if (act === 'headtap') {
+    // 正在选文字的时候别收起来，否则刚选好松手就没了
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && item.contains(sel.anchorNode)) return;
+    // 宽屏左栏点一条是「在右边打开」，别改掉
+    if (window.innerWidth >= 900) {
+      if (typeof selectDesktopNote === 'function') selectDesktopNote(id);
+      return;
+    }
+    setNoteExpanded(id, false); render(); return;
+  }
   if (act === 'more') {
     const box = item.querySelector('.meta-actions');
     if (box) box.classList.toggle('show');
