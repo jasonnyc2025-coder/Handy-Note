@@ -526,6 +526,41 @@
     gap: 7px;
     flex-wrap: wrap;
   }
+  /* 每条前面的序号 + 右边的拖动手柄 */
+  .n-idx {
+    flex-shrink: 0;
+    min-width: 1.6em;
+    text-align: right;
+    font-size: calc(var(--note-font, 0.97rem) * 0.82);
+    font-weight: 700;
+    color: var(--ink-soft);
+    opacity: 0.75;
+    font-variant-numeric: tabular-nums;
+  }
+  .drag-h {
+    flex-shrink: 0;
+    align-self: center;
+    width: 38px;
+    padding: 11px 0;          /* 手指得抓得住 */
+    margin-right: -4px;
+    text-align: center;
+    color: var(--ink-soft);
+    opacity: 0.6;
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;            /* 手柄上按住就是拖动，不要跟着页面滚 */
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  .drag-h:active { cursor: grabbing; opacity: 0.9; }
+  .item.dragging {
+    opacity: 0.92;
+    transform: scale(1.015);
+    box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+    position: relative; z-index: 5;
+  }
+  /* 拖动过程中别让别的条目做「浮现」动画，会一跳一跳的 */
+  #list.reordering .item { animation: none; transition: transform 0.14s ease; }
   .note-head { display: flex; align-items: flex-start; gap: 6px; border-radius: 9px; padding: 7px 8px; margin-bottom: 6px; }
   .item.idea .note-head { background: var(--accent-soft); }
   .item.todo .note-head { background: var(--todo-soft); }
@@ -2174,7 +2209,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v201</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v202</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -2197,6 +2232,7 @@
       <button class="menu-feature" data-menu="thai" data-i18n="menuThai">🇹🇭 泰语卡片</button>
       <button class="menu-feature" data-menu="cards" data-i18n="menuCards">📇 名片夹</button>
       <div class="gear-sep"></div>
+      <button data-menu="resetorder">↕️ 恢复按时间排序</button>
       <button data-menu="bg" data-i18n="menuBg">🎨 背景主题</button>
       <button data-menu="fontsize" data-i18n="menuFont">🔤 字体大小</button>
       <button data-menu="lang" data-i18n="menuLang">🌐 Language / 语言</button>
@@ -3065,13 +3101,14 @@ function reminderState(n) {
 }
 
 // one-line collapsed row — the whole list reads as a tidy list; tap to expand
-function renderItemCollapsed(n) {
+function renderItemCollapsed(n, idx) {
   const rs = reminderState(n);
   const sub = n.subs && n.subs.length ? (n.type === 'todo' ? `${n.subs.filter(s=>s.done).length}/${n.subs.length}` : `${n.subs.length}`) : '';
   return `
     <div class="item item-collapsed ${n.type} ${n.done?'done':''} ${n.pinned?'pinned':''}" data-id="${n.id}">
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div class="idea-bar"></div>`}
       <div class="collapsed-row" data-act="expand">
+        ${idx != null ? `<span class="n-idx">${idx + 1}</span>` : ''}
         <span class="c-text">${esc(firstLine(n))}</span>
         ${n.pinned ? '<span class="c-ic">📌</span>' : ''}
         ${rs ? '<span class="c-ic">⏰</span>' : ''}
@@ -3079,11 +3116,12 @@ function renderItemCollapsed(n) {
         ${sub ? `<span class="c-sub">${sub}</span>` : ''}
         <span class="c-chev">›</span>
       </div>
+      <span class="drag-h" title="按住上下拖动排序">⠿</span>
     </div>`;
 }
-function renderItem(n) {
+function renderItem(n, idx) {
   // default: collapsed to a single line. Search always shows the full card.
-  if (!searchQuery && !isNoteExpanded(n.id)) return renderItemCollapsed(n);
+  if (!searchQuery && !isNoteExpanded(n.id)) return renderItemCollapsed(n, idx);
   const rs = reminderState(n);
   const alarmFlag = rs ? `<span class="alarm-flag ${rs}" data-act="setremind" title="有提醒">⏰</span>` : '';
   return `
@@ -3091,8 +3129,10 @@ function renderItem(n) {
       ${n.type==='todo' ? `<div class="check ${n.done?'on':''}" data-act="toggle"></div>` : `<div style="width:3px;align-self:stretch;background:var(--accent);border-radius:4px;flex-shrink:0;margin:2px 0;opacity:0.35;"></div>`}
       <div class="body">
         <div class="note-head">
+          ${idx != null ? `<span class="n-idx" style="margin-top:2px">${idx + 1}</span>` : ''}
           ${plainOf(n.text) || (n.atts&&n.atts.length) ? `<div class="text">${highlight(n)}</div>` : `<div class="text empty-text" data-act="edit">（无文字，点此添加）</div>`}
           ${alarmFlag}
+          ${searchQuery ? '' : '<span class="drag-h" title="按住上下拖动排序">⠿</span>'}
           ${searchQuery ? '' : '<button class="collapse-btn" data-act="collapse" title="收起">▾</button>'}
           <button class="more-btn" data-act="more">⋯</button>
         </div>
@@ -3119,8 +3159,16 @@ function renderItem(n) {
 }
 
 function render() {
+  // 正在拖的时候重渲染会把手里那条整片冲掉，拖动当场断掉
+  if (dragging) return;
   const list = document.getElementById('list');
   let items = notes.filter(n => !n._deleted).sort((a,b) => {
+    // 用户手动拖过的，就完全按他摆的来 —— 拖一次会给当时看到的每一条都写上
+    // order，所以这一屏要么全是手动顺序，要么全是默认顺序，不会半混
+    const ao = a.order, bo = b.order;
+    if (Number.isFinite(ao) && Number.isFinite(bo)) return ao - bo;
+    if (Number.isFinite(ao)) return -1;
+    if (Number.isFinite(bo)) return 1;
     if ((a.type==='todo') !== (b.type==='todo')) return a.type==='todo' ? -1 : 1;  // 待办置顶
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.done !== b.done) return a.done ? 1 : -1;
@@ -3169,12 +3217,12 @@ function render() {
             <span class="cg-count">${g.arr.length}</span>
           </button>
           <div class="cat-group-body" ${collapsed?'style="display:none"':''}>
-            ${g.arr.map(renderItem).join('')}
+            ${g.arr.map((n, i) => renderItem(n, i)).join('')}
           </div>
         </div>`;
     }).join('');
   } else {
-    list.innerHTML = items.map(renderItem).join('');
+    list.innerHTML = items.map((n, i) => renderItem(n, i)).join('');
   }
   hydrateImages(list);
   if (typeof renderDesktopPane === 'function' && window.innerWidth >= 900) {
@@ -3755,6 +3803,79 @@ document.addEventListener('click', e => {
   closeAllMorePanels();
 });
 
+/* ===== 按住 ⠿ 上下拖动排序 =====
+   用 Pointer Events 而不是 HTML5 drag-and-drop —— 后者在 iOS Safari 上根本
+   不触发。手柄自己 touch-action:none，所以按住手柄是拖动，按别处照常滚页面。
+   只在同一组内换位（跨组等于改分类，不该是拖一下的副作用）。*/
+let dragging = null;
+
+function noteRowsIn(container) {
+  return [...container.children].filter(el => el.classList && el.classList.contains('item'));
+}
+
+function endDrag(commit) {
+  if (!dragging) return;
+  const { el, container, handle, pid } = dragging;
+  try { handle.releasePointerCapture(pid); } catch (_) {}
+  el.classList.remove('dragging');
+  document.getElementById('list').classList.remove('reordering');
+  document.body.style.overflow = dragging.prevBodyOverflow || '';
+  dragging = null;
+  if (!commit) { render(); return; }
+
+  // 按屏幕上现在的先后，给这一组每一条写上 order
+  const ids = noteRowsIn(container).map(r => r.dataset.id);
+  let changed = false;
+  ids.forEach((id, i) => {
+    const n = notes.find(x => x.id === id);
+    if (!n) return;
+    if (n.order !== i) { n.order = i; n.modified = Date.now(); changed = true; }
+  });
+  if (changed) { save(); if (typeof cloudPush === 'function') cloudPush(); }
+  render();
+}
+
+document.addEventListener('pointerdown', e => {
+  const handle = e.target.closest('.drag-h');
+  if (!handle || !handle.closest('#list')) return;
+  const el = handle.closest('.item');
+  const container = el && el.parentElement;
+  if (!el || !container || noteRowsIn(container).length < 2) return;
+  e.preventDefault();
+  try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+  dragging = { el, container, handle, pid: e.pointerId, prevBodyOverflow: document.body.style.overflow };
+  el.classList.add('dragging');
+  document.getElementById('list').classList.add('reordering');
+}, { passive: false });
+
+document.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  e.preventDefault();
+  const { el, container } = dragging;
+  const y = e.clientY;
+
+  // 拖到屏幕上下边缘时自动滚动，长列表才拖得动
+  const edge = 90, speed = 14;
+  const scroller = container.closest('#list') && getComputedStyle(document.getElementById('list')).overflowY === 'auto'
+    ? document.getElementById('list') : null;
+  if (y < edge)                  (scroller || window).scrollBy(0, -speed);
+  else if (y > innerHeight - edge) (scroller || window).scrollBy(0, speed);
+
+  // 找光标正压在哪一条上，换到它前面或后面
+  for (const other of noteRowsIn(container)) {
+    if (other === el) continue;
+    const r = other.getBoundingClientRect();
+    if (y > r.top && y < r.bottom) {
+      const before = y < r.top + r.height / 2;
+      container.insertBefore(el, before ? other : other.nextSibling);
+      break;
+    }
+  }
+}, { passive: false });
+
+document.addEventListener('pointerup',     () => endDrag(true));
+document.addEventListener('pointercancel', () => endDrag(false));
+
 // events
 document.addEventListener('click', async e => {
   const _inList = !!e.target.closest('#list');
@@ -3770,6 +3891,7 @@ document.addEventListener('click', async e => {
   const item = e.target.closest('.item');
   if (!item) return;
   const id = item.dataset.id;
+  if (e.target.closest('.drag-h')) return;   // 手柄只管拖动
   const actEl = e.target.closest('[data-act]');
   const act = actEl ? actEl.dataset.act : e.target.dataset.act;
   const n = notes.find(n => n.id === id);
@@ -6053,7 +6175,7 @@ document.getElementById('search-clear').addEventListener('click', () => {
   searchInput.value = ''; searchQuery = ''; searchInput.focus(); render();
 });
 
-gearMenu.addEventListener('click', e => {
+gearMenu.addEventListener('click', async e => {
   const m = e.target.dataset.menu;
   if (!m) return;
   if (m === 'thai') { window.location.href = 'thai/'; return; }
@@ -6064,6 +6186,17 @@ gearMenu.addEventListener('click', e => {
   else if (m === 'import') document.getElementById('import-file').click();
   else if (m === 'cloud') { gearMenu.classList.remove('show'); openCloudModal(); }
   else if (m === 'republishCats') { gearMenu.classList.remove('show'); republishCats(); }
+  else if (m === 'resetorder') {
+    gearMenu.classList.remove('show');
+    const n0 = notes.filter(n => !n._deleted && Number.isFinite(n.order)).length;
+    if (!n0) { showToast('现在就是按时间排的'); return; }
+    // 默认的确认框标题/按钮是「确认删除 / 删除」，这里不是删东西，换个说法
+    if (!await confirmDialog(`把手动拖出来的顺序清掉，恢复成按时间排序？\n（有 ${n0} 条是手动排过的）`,
+          { title: '恢复排序', okText: '恢复', danger: false })) return;
+    notes.forEach(n => { if (Number.isFinite(n.order)) { delete n.order; n.modified = Date.now(); } });
+    save(); if (typeof cloudPush === 'function') cloudPush();
+    render(); showToast('已恢复按时间排序');
+  }
   else if (m === 'bg') { gearMenu.classList.remove('show'); openBgModal(); }
   else if (m === 'lang') { gearMenu.classList.remove('show'); document.getElementById('lang-modal').classList.add('show'); }
   else if (m === 'fontsize') { gearMenu.classList.remove('show'); openFontModal(); }
