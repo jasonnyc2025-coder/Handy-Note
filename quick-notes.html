@@ -2211,7 +2211,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v203</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v204</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -6482,7 +6482,6 @@ async function _handleGoogleSignIn(response, serverUrl) {
       await extractInlineAtts(remote.notes);
       mergeNotes(remote.notes);
       mergeCats(remote.cats);
-      applyRemoteThai(remote.thai, remote.thaiRev);
     }
     save(); render(); updateCloudStatus();
     closeCloudModal();
@@ -6587,22 +6586,11 @@ async function republishCats() {
   showToast('✅ 已推送为准确版本，其它设备约 20 秒后自动更正');
 }
 
-// ── Thai flashcards ride along in the same sync payload ─────────────────────
-// The Thai sub-app stores its cards in localStorage. We carry them in the same
-// {notes,cats,thai} blob so both apps sync as one whole. Thai uses a monotonic
-// rev (last-write-wins) rather than per-item merge.
-const THAI_KEY = 'thaicards.v1';
-const THAI_REV_KEY = 'thaicards.rev';
-function getLocalThaiRev() { return parseInt(localStorage.getItem(THAI_REV_KEY), 10) || 0; }
-function applyRemoteThai(remoteThai, remoteRev) {
-  if (!Array.isArray(remoteThai)) return;
-  if ((remoteRev || 0) > getLocalThaiRev()) {
-    try {
-      localStorage.setItem(THAI_KEY, JSON.stringify(remoteThai));
-      localStorage.setItem(THAI_REV_KEY, String(remoteRev || 0));
-    } catch {}
-  }
-}
+// ── Thai flashcards ──────────────────────────────────────────────────────────
+// 泰语卡片的数据由泰语卡片自己同步（独立接口 /api/sync/thai、按 id 合并、
+// 乐观锁）。以前这里会把服务器那份原样写进它的 localStorage，不走合并，还把
+// 删除墓碑一起塞进去 —— 既可能盖掉它本机没推完的改动，又会显示成空白卡。
+// 现在随手记只管 notes / cats，不再碰泰语的数据。
 
 // ── Sync API (JWT Bearer) ──────────────────────────────────────────────────
 
@@ -6656,7 +6644,6 @@ async function cloudPull() {
   mergeNotes(remote.notes);
   const catsBefore = JSON.stringify(cats);
   mergeCats(remote.cats);
-  applyRemoteThai(remote.thai, remote.thaiRev);   // 泰语卡片一起同步（版本较新则采用）
   const notesChanged = before !== JSON.stringify(notes);
   const catsChanged = catsBefore !== JSON.stringify(cats);
   if (notesChanged || catsChanged) {

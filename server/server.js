@@ -203,7 +203,7 @@ app.get('/api/sync/:section', requireAuth, async (req, res) => {
 app.put('/api/sync', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { notes, cats, thai, thaiRev, thaiBase, cards, cardsRev } = req.body;
+    const { notes, cats, thai, thaiRev, thaiBase, cards, cardsRev, cardsBase } = req.body;
 
     // Ensure a row exists (defaults fill the columns we don't touch)
     await pool.query(
@@ -228,7 +228,7 @@ app.put('/api/sync', requireAuth, async (req, res) => {
     // was dropped by the WHERE clause yet still answered { ok: true }, so the
     // client believed it had synced while the server never got its changes.
     //
-    // Two gates for `thai`:
+    // Two gates for `thai` (and likewise `cards` with `cardsBase`):
     //  · With `thaiBase` (the rev the client read before merging): the write is
     //    accepted only if the stored rev is still exactly that — a compare-and-
     //    swap. Two devices pushing in the same second otherwise both pass the
@@ -265,19 +265,36 @@ app.put('/api/sync', requireAuth, async (req, res) => {
       }
     }
     if (cards !== undefined) {
-      const r = await pool.query(
-        `UPDATE user_data
-           SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
-         WHERE user_id = $1 AND $3 >= COALESCE(cards_rev, 0)`,
-        [userId, JSON.stringify(cards), Number(cardsRev) || 0]
-      );
+      let r;
+      if (cardsBase !== undefined) {
+        const base = Number(cardsBase) || 0;
+        const newRev = Math.max(Number(cardsRev) || 0, base + 1);
+        r = await pool.query(
+          `UPDATE user_data
+             SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
+           WHERE user_id = $1 AND COALESCE(cards_rev, 0) = $4
+           RETURNING cards_rev`,
+          [userId, JSON.stringify(cards), newRev, base]
+        );
+      } else {
+        r = await pool.query(
+          `UPDATE user_data
+             SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
+           WHERE user_id = $1 AND $3 >= COALESCE(cards_rev, 0)
+           RETURNING cards_rev`,
+          [userId, JSON.stringify(cards), Number(cardsRev) || 0]
+        );
+      }
       out.cardsAccepted = r.rowCount > 0;
-      if (out.cardsAccepted) notifyChange(userId, 'cards');
+      if (out.cardsAccepted) {
+        out.cardsRev = Number(r.rows[0].cards_rev) || 0;
+        notifyChange(userId, 'cards');
+      }
     }
     if (thai !== undefined || cards !== undefined) {
       const r = await pool.query('SELECT thai_rev, cards_rev FROM user_data WHERE user_id = $1', [userId]);
       if (out.thaiRev === undefined) out.thaiRev = Number(r.rows[0] && r.rows[0].thai_rev) || 0;
-      out.cardsRev = Number(r.rows[0] && r.rows[0].cards_rev) || 0;
+      if (out.cardsRev === undefined) out.cardsRev = Number(r.rows[0] && r.rows[0].cards_rev) || 0;
     }
     res.json(out);
   } catch (err) {

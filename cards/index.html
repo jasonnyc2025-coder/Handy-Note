@@ -319,7 +319,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v24";
+const APP_VER   = "v25";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -426,9 +426,11 @@ function fetchT(url, opts, ms){
   return fetch(url, Object.assign({ signal: ctl.signal }, opts||{})).finally(()=>clearTimeout(t));
 }
 // 所有上传下载排成一队，一次只跑一个（并发只会互相拖超时）
-let _syncQ = Promise.resolve();
+let _syncQ = Promise.resolve(), _syncBusy = 0;
 function serialSync(fn){
-  const p = _syncQ.then(()=>fn(), ()=>fn());
+  _syncBusy++;
+  const run = ()=> Promise.resolve().then(fn).finally(()=>{ _syncBusy--; });
+  const p = _syncQ.then(run, run);
   _syncQ = p.then(()=>{}, ()=>{});
   return p;
 }
@@ -458,80 +460,173 @@ function cardsSig(list){
   return (list||[]).map(c => [c.id, _rankCard(c), c._deleted?1:0].join(":")).sort().join("|");
 }
 
+function authHdr(cloud){ return { "Authorization":"Bearer "+cloud.token }; }
+function httpMsg(status){
+  return (status===401||status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${status}`;
+}
+/* 只读名片这一段。老的 /api/sync 会把随手记的全部笔记（含内嵌照片 / PDF）一起回传，
+   动辄几 MB，手机上经常超时。新接口 /api/sync/cards 只回 { cards, cardsRev }。
+   服务器还没更新（404）时退回老接口，隔 10 分钟再试新的。 */
+let _liteOk = true, _liteRetryAt = 0;
+function liteAvailable(){ return _liteOk || Date.now() > _liteRetryAt; }
+function markLiteMissing(){ _liteOk = false; _liteRetryAt = Date.now() + 10*60*1000; }
+async function getRemoteCards(cloud){
+  let r = null;
+  if(liteAvailable()){
+    r = await fetchT(`${cloud.url}/api/sync/cards`, { cache:"no-store", headers:authHdr(cloud) });
+    if(r.status === 404){ markLiteMissing(); r = null; } else _liteOk = true;
+  }
+  if(!r) r = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:authHdr(cloud) }, 60000);
+  if(!r.ok) return { ok:false, msg:httpMsg(r.status) };
+  const data = await r.json();
+  if(!data || typeof data !== "object") return { ok:false, msg:"服务器返回的数据格式不对" };
+  return { ok:true, data:{ cards: Array.isArray(data.cards) ? data.cards : null, cardsRev:Number(data.cardsRev)||0 } };
+}
+let _lastSeenRev = 0;
+function sawRev(rev){ rev = Number(rev)||0; if(rev > _lastSeenRev) _lastSeenRev = rev; return rev; }
+
 async function cardsPush(cur0){
   const cloud = getCloud(); if(!cloud){ noteSync(false, "未登录，无法同步"); return false; }
   try{
-    let cur = cur0;
+    let cur = cur0 || null;
     if(!cur){
-      try{
-        const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-        if(!g.ok){ noteSync(false, (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`); return false; }
-        cur = await g.json();
-      }catch(e){ noteSync(false, netReason(e)); return false; }   // 读不到就别推，否则拿旧数据盖掉服务器
+      const g = await getRemoteCards(cloud);
+      if(!g.ok){ noteSync(false, g.msg); return false; }   // 读不到就别推，否则拿旧数据盖掉服务器
+      cur = g.data;
     }
-    let out = cards;
-    if(Array.isArray(cur.cards)){
-      const merged = mergeCards(cur.cards, cards);
-      if(cardsSig(merged) !== cardsSig(cards)){
-        cards = merged; cards.forEach(stashThumb); persistLocal(); render();
+    // 推送带上 cardsBase（合并所依据的服务器版本），服务器只在版本还是它时才接受
+    // （乐观锁）。被拒 = 另一台刚好在这几秒里推过：拿最新的再合并重推，最多三轮。
+    // 以前两台同时推时后到的那台直接盖掉先到那台的新名片，而且两边都显示「已同步」。
+    for(let attempt = 0; attempt < 3; attempt++){
+      let out = cards;
+      if(Array.isArray(cur.cards)){
+        const merged = mergeCards(cur.cards, cards);
+        if(cardsSig(merged) !== cardsSig(cards)){
+          cards = merged; cards.forEach(stashThumb); persistLocal(); render();
+        }
+        out = cards;
       }
-      out = cards;
+      const pushRev = Math.max(getRev(), (Number(cur.cardsRev)||0) + 1);
+      localStorage.setItem(REV_KEY, String(pushRev));
+      // 只传 cards —— 服务器是「传了哪一段就只写哪一段」
+      const put = await fetchT(`${cloud.url}/api/sync`, {
+        method:"PUT",
+        headers:Object.assign({ "Content-Type":"application/json" }, authHdr(cloud)),
+        body: JSON.stringify({ cards: out, cardsRev: pushRev, cardsBase: Number(cur.cardsRev)||0 })
+      }, 40000);
+      if(!put.ok){
+        noteSync(false, (put.status===401||put.status===403) ? httpMsg(put.status) : `上传失败：服务器返回 ${put.status}`);
+        return false;
+      }
+      let resp = {}; try{ resp = await put.json(); }catch(e){}
+      if(resp && resp.cardsAccepted === false){
+        if(attempt < 2){
+          const g = await getRemoteCards(cloud);
+          if(!g.ok){ noteSync(false, g.msg); return false; }
+          cur = g.data;
+          continue;
+        }
+        noteSync(false, "服务器上有更新的版本，稍后会自动重试");
+        return false;
+      }
+      sawRev((resp && resp.cardsRev) || pushRev);
+      noteSync(true, "已同步", { serverCount: out.filter(c=>!c._deleted).length });
+      return true;
     }
-    // rev 要压过服务器那份，服务器才会收（它按 rev 把关）
-    const pushRev = Math.max(getRev(), (Number(cur.cardsRev)||0) + 1);
-    localStorage.setItem(REV_KEY, String(pushRev));
-    // 只传 cards —— 服务器是「传了哪一段就只写哪一段」。以前把读回来的
-    // notes 原样再传上去，等于每改一张名片就把随手记的全部笔记（含内嵌
-    // 的 PDF / 照片）重新上传一遍，又慢又会盖掉别处刚改的笔记。
-    const put = await fetchT(`${cloud.url}/api/sync`, {
-      method:"PUT",
-      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
-      body: JSON.stringify({ cards: out, cardsRev: pushRev })
-    }, 40000);
-    if(!put.ok){
-      noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
-      return false;
-    }
-    noteSync(true, "已同步", { serverCount: out.filter(c=>!c._deleted).length });
-    return true;
+    return false;
   }catch(e){ noteSync(false, netReason(e)); return false; }
 }
-
-async function cardsPull(){
+// 把服务器快照合并进本机，返回「本机是否还有服务器没有的」（要不要推）
+function adoptRemote(data){
+  sawRev(data.cardsRev);
+  if(!Array.isArray(data.cards)){ noteSync(true, "已同步（服务器上还没有名片）", { serverCount: 0 }); return true; }
+  noteSync(true, "已同步", { serverCount: data.cards.filter(c=>!c._deleted).length });
+  const merged = mergeCards(cards, data.cards);
+  const mSig = cardsSig(merged), lSig = cardsSig(cards), rSig = cardsSig(data.cards);
+  if(mSig !== lSig){
+    cards = merged;
+    cards.forEach(stashThumb);
+    persistLocal();
+    localStorage.setItem(REV_KEY, String(Math.max(getRev(), Number(data.cardsRev)||0)));
+    hydrateThumbs();
+    render();
+  }
+  return mSig !== rSig;   // 本地有服务器没有的，才需要推
+}
+async function cardsPull(pre){
   const cloud = getCloud(); if(!cloud){ noteSync(false, "未登录，无法同步"); return { ok:false }; }
   try{
-    const res = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-    if(!res.ok){
-      noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
-      return { ok:false };
+    let data = pre;
+    if(!data){
+      const g = await getRemoteCards(cloud);
+      if(!g.ok){ noteSync(false, g.msg); return { ok:false }; }
+      data = g.data;
     }
-    const data = await res.json();
-    if(!Array.isArray(data.cards)){ noteSync(true, "已同步（服务器上还没有名片）", { serverCount: 0 }); return { ok:true, data, needPush:true }; }
-    noteSync(true, "已同步", { serverCount: data.cards.filter(c=>!c._deleted).length });
-    const merged = mergeCards(cards, data.cards);
-    const mSig = cardsSig(merged), lSig = cardsSig(cards), rSig = cardsSig(data.cards);
-    if(mSig !== lSig){
-      cards = merged;
-      cards.forEach(stashThumb);
-      persistLocal();
-      localStorage.setItem(REV_KEY, String(Math.max(getRev(), Number(data.cardsRev)||0)));
-      hydrateThumbs();
-      render();
-    }
-    return { ok:true, data, needPush: mSig !== rSig };   // 本地有服务器没有的，才需要推
+    return { ok:true, data, needPush: adoptRemote(data) };
   }catch(e){ noteSync(false, netReason(e)); return { ok:false }; }
 }
 
 let _syncRun = null;
-function cardsSync(){
+function cardsSync(pre){
   if(!getCloud()) return Promise.resolve(false);
   if(_syncRun) return _syncRun;                 // 已经有一轮在跑，就搭它的车
   _syncRun = serialSync(async ()=>{
-    const r = await cardsPull();
+    const r = await cardsPull(pre);
     if(r.ok && r.needPush) await cardsPush(r.data);
     return !!r.ok;
   }).finally(()=>{ _syncRun = null; });
   return _syncRun;
+}
+
+/* 长轮询：问服务器「有没有比 _lastSeenRev 更新的」，最多扣住 25 秒，另一台一推上来
+   就立刻放行。页面切到后台就停，回到前台先 cardsSync 再重开。服务器没有这个接口
+   （404）时退回每 20 秒 cardsSync 一次。 */
+let _lpGen = 0, _lpAbort = null;
+const _sleep = ms => new Promise(r=>setTimeout(r, ms));
+function stopLongPoll(){ _lpGen++; if(_lpAbort){ try{ _lpAbort.abort(); }catch(e){} _lpAbort = null; } }
+function startLongPoll(){ stopLongPoll(); longPollLoop(_lpGen); }
+async function longPollLoop(gen){
+  let backoff = 2000;
+  const alive = ()=> gen === _lpGen && document.visibilityState !== "hidden";
+  while(alive()){
+    const cloud = getCloud();
+    if(!cloud || !liteAvailable()){
+      await _sleep(20000);
+      if(alive() && getCloud()) await cardsSync();
+      continue;
+    }
+    try{
+      const ctl = new AbortController(); _lpAbort = ctl;
+      const t = setTimeout(()=>ctl.abort(), 40000);
+      let r;
+      try{
+        r = await fetch(`${cloud.url}/api/sync/cards?since=${_lastSeenRev}&wait=25`,
+                        { cache:"no-store", headers:authHdr(cloud), signal:ctl.signal });
+      }finally{ clearTimeout(t); if(_lpAbort === ctl) _lpAbort = null; }
+      if(!alive()) break;
+      if(r.status === 404){ markLiteMissing(); continue; }
+      if(r.status === 401 || r.status === 403){ noteSync(false, httpMsg(r.status)); await _sleep(60000); continue; }
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const d = await r.json();
+      backoff = 2000;
+      const rev = Number(d && d.cardsRev) || 0;
+      if(d.unchanged || !Array.isArray(d.cards) || rev <= _lastSeenRev){ sawRev(rev); continue; }
+      if(_syncBusy){
+        await _syncQ;
+        if(!alive()) break;
+        if(rev <= _lastSeenRev) continue;
+        await cardsSync();
+      }else{
+        await cardsSync({ cards:d.cards, cardsRev:rev });
+      }
+    }catch(e){
+      if(!alive()) break;
+      if(e && e.name === "AbortError") continue;
+      noteSync(false, netReason(e));
+      await _sleep(backoff);
+      backoff = Math.min(backoff * 2, 60000);
+    }
+  }
 }
 
 // upload a card's full photo to the server (fire-and-forget)
@@ -1130,8 +1225,14 @@ const _av = $("#appVer"); if(_av) _av.textContent = APP_VER;
 load();
 render();
 hydrateThumbs();
-cardsSync();
-setInterval(cardsPull, 20000);
+cardsSync().finally(startLongPoll);
+// 兜底：每 5 分钟完整跑一轮 pull→push（以前的 20 秒轮询只拉不推）
+setInterval(()=>{ if(getCloud()) cardsSync(); }, 5*60*1000);
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "visible"){ if(getCloud()) cardsSync().finally(startLongPoll); }
+  else stopLongPoll();
+});
+window.addEventListener("online", ()=>{ if(getCloud()) cardsSync().finally(startLongPoll); });
 
 /* ---------------- auto-update ----------------
    Two independent paths so an update always lands:
