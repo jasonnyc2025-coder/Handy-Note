@@ -856,7 +856,20 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v94";   // shown in the top bar; bump with each release
+const APP_VER = "v95";
+
+/* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
+   手机上没有控制台，以前出了错只能靠猜。 */
+const ERRLOG_KEY = "thaicards.errlog";
+let _errLog = []; try{ _errLog = JSON.parse(localStorage.getItem(ERRLOG_KEY)) || []; }catch(e){}
+function logErr(where, e){
+  const m = e && (e.stack || e.message) ? String(e.stack || e.message) : String(e);
+  _errLog.push({ t: Date.now(), w: where, m: m.slice(0, 300) });
+  _errLog = _errLog.slice(-8);
+  try{ localStorage.setItem(ERRLOG_KEY, JSON.stringify(_errLog)); }catch(x){}
+}
+window.addEventListener("error", e=> logErr("页面", (e && (e.error || e.message)) || e));
+window.addEventListener("unhandledrejection", e=> logErr("异步", e && e.reason));   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1295,8 +1308,36 @@ function bindWordItems(scope){
     el.querySelector('[data-act="edit"]').onclick = e=>{ e.stopPropagation(); _flashPendingId = id; startEdit(id); };
     el.querySelector('[data-act="del"]').onclick = e=>{ e.stopPropagation(); delCard(id); };
     // tap the row (not its action buttons) -> peek at the full read-only card
-    el.addEventListener("click", e=>{ if(e.target.closest("button")) return; const c=cards.find(x=>x.id===id); if(c){ _peekStack = []; openPeek(c); _peekReturnId = id; updatePeekBack(); } });
+    bindRowTap(el, ()=>{
+      const c = cards.find(x=>x.id===id); if(!c) return;
+      _peekStack = []; openPeek(c); _peekReturnId = id; updatePeekBack();
+    });
   });
+}
+/* 行点击 = click，外加一个触摸兜底：iOS 上出现过「关掉浮层后再点卡片，click 根本不再
+   送达」的情况。手指没滑动、短按、按的不是按钮，而 350ms 内又没等到 click，
+   就按点击处理。正常情况下 click 会先到，兜底不会重复触发。 */
+function bindRowTap(el, fn){
+  let t0 = 0, x0 = 0, y0 = 0, clickedAt = 0;
+  const run = (e)=>{ try{ fn(e); }catch(err){ logErr("点卡片", err); } };
+  el.addEventListener("click", e=>{
+    clickedAt = Date.now();
+    if(e.target.closest && e.target.closest("button")) return;
+    run(e);
+  });
+  el.addEventListener("touchstart", e=>{
+    const t = e.touches && e.touches[0]; if(!t) return;
+    t0 = Date.now(); x0 = t.clientX; y0 = t.clientY;
+  }, { passive:true });
+  el.addEventListener("touchend", e=>{
+    const t = e.changedTouches && e.changedTouches[0]; if(!t || !t0) return;
+    const held = Date.now() - t0, moved = Math.hypot(t.clientX - x0, t.clientY - y0);
+    t0 = 0;
+    if(held > 600 || moved > 10) return;
+    if(e.target && e.target.closest && e.target.closest("button")) return;
+    const stamp = Date.now();
+    setTimeout(()=>{ if(clickedAt < stamp) run(e); }, 350);
+  }, { passive:true });
 }
 // everything searchable on a card: word, meaning, reading, note, and every
 // example's Thai + Chinese — so typing a word from an example or note finds it
@@ -2116,7 +2157,12 @@ function renderStoreBox(){
     `　本域名已用约 ${fmtKB(lsBytes)} / 上限约 5 MB<br>` +
     `最近一次保存：<b>${storageState.at ? fmtWhen(storageState.at) : "本次打开后还没改动过"}</b>` +
     (storageState.err ? `<br><span style="color:#f87171">错误：${esc(storageState.err)}</span>` : "") +
-    (idbOk ? "" : `<br>⚠️ 建议先用下面的「导出备份」存一份。`);
+    (idbOk ? "" : `<br>⚠️ 建议先用下面的「导出备份」存一份。`) +
+    (_errLog.length
+      ? `<details style="margin-top:6px"><summary style="cursor:pointer;opacity:.75">最近 ${_errLog.length} 条报错（出问题时把这里截图给我）</summary>` +
+        _errLog.slice().reverse().map(r=>`<div style="opacity:.85;word-break:break-all">${fmtWhen(r.t)} ${esc(r.w)}：${esc(r.m)}</div>`).join("") +
+        `</details>`
+      : "");
 }
 function renderOfflineBox(){
   const pill = document.getElementById("offPill"), det = document.getElementById("offDetail");
@@ -2421,7 +2467,12 @@ function flashViewed(id, scroll){
   const el = document.querySelector(`#wordList .witem[data-id="${id}"]`)
           || document.querySelector(`#homeRecent .witem[data-id="${id}"]`);
   if(!el) return;
-  if(scroll !== false) el.scrollIntoView({ behavior:"smooth", block:"center" });
+  // 只在卡片不在视野里时才滚过去，而且不用平滑滚动 —— iOS 上程序触发的平滑滚动
+  // 会让后面的触摸一段时间内没反应；刚点过的卡片本来就在眼前，不需要滚
+  if(scroll !== false){
+    const r = el.getBoundingClientRect();
+    if(r.bottom < 0 || r.top > window.innerHeight) el.scrollIntoView({ block:"center" });
+  }
   el.classList.add("just-viewed");
 }
 function openPeek(card){
@@ -2537,8 +2588,9 @@ function closePeek(){
   $("#peekBg").classList.remove("show");
   $("#peekPanel").classList.remove("show");
   hideSelPop();
-  const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
-  speechSynthesis.cancel();
+  // 有真正选中的文字才清，空选区也去 removeAllRanges 在 iOS 上会打断下一次点击
+  try{ const s = window.getSelection && window.getSelection(); if(s && !s.isCollapsed) s.removeAllRanges(); }catch(e){}
+  try{ speechSynthesis.cancel(); }catch(e){}
   if(_peekReturnId){ flashViewed(_peekReturnId); _peekReturnId = null; }
 }
 $("#peekAutoRead").onclick = e=>{
