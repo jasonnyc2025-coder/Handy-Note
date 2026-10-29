@@ -1950,7 +1950,7 @@ function fetchT(url, opts, ms){
 }
 // fetch 抛错时说人话：区分超时 / 域名打不开 / 证书 / 离线
 function netReason(e){
-  if(e && e.name === "AbortError") return "请求超时（15 秒没响应）";
+  if(e && e.name === "AbortError") return "请求超时（服务器长时间没响应）";
   if(navigator.onLine === false)   return "手机当前没有网络";
   return "打不开服务器地址（域名解析失败、证书问题，或服务器没在运行）";
 }
@@ -2166,7 +2166,8 @@ async function getRemoteThai(cloud){
     r = await fetchT(`${cloud.url}/api/sync/thai`, { cache:"no-store", headers:authHdr(cloud) });
     if(r.status === 404){ markLiteMissing(); r = null; } else _liteOk = true;
   }
-  if(!r) r = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:authHdr(cloud) });
+  // 老接口是整包（随手记全部笔记 + 内嵌附件），手机流量下 15 秒常常下不完，放宽到 60 秒
+  if(!r) r = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:authHdr(cloud) }, 60000);
   if(!r.ok) return { ok:false, msg:httpMsg(r.status) };
   const data = await r.json();
   if(!data || !Array.isArray(data.thai)) return { ok:false, msg:"服务器返回的数据格式不对" };
