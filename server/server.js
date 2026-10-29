@@ -24,6 +24,16 @@ if (!GOOGLE_CLIENT_ID || !JWT_SECRET) {
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
+// ── Change notifications for long-polling clients ───────────────────────────
+// A device waiting on GET /api/sync/<section>?since=&wait= is woken the moment
+// another device's PUT lands, instead of finding out on its next 20-second poll.
+// In-process only (one server process); the long-poll also re-reads the row
+// every few seconds as a safety net in case there are ever several processes.
+const EventEmitter = require('events');
+const changes = new EventEmitter();
+changes.setMaxListeners(0);
+function notifyChange(userId, section) { changes.emit('u' + userId, section); }
+
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 
@@ -116,6 +126,75 @@ app.get('/api/sync', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/sync/:section  — one rev-gated section only (thai | cards).
+//
+// The full GET /api/sync carries the notes with their inline photos/PDFs, which
+// is megabytes — far too heavy for a flashcard app to poll every 20 seconds on
+// mobile data (that is where the "请求超时" sync failures came from). This
+// returns just { thai, thaiRev } (or { cards, cardsRev }).
+//
+// Long-poll: with ?since=<rev>&wait=<seconds> the request is held until the
+// section's rev goes past `since` (another device pushed) or the wait expires,
+// so a change on one device reaches the others within about a second. On
+// expiry it answers { thaiRev, unchanged: true } without the data.
+const SECTIONS = {
+  thai:  { col: 'thai',  revCol: 'thai_rev',  revKey: 'thaiRev'  },
+  cards: { col: 'cards', revCol: 'cards_rev', revKey: 'cardsRev' },
+};
+const LONGPOLL_MAX_S = 25;        // under the usual 60 s reverse-proxy read timeout
+const LONGPOLL_RECHECK_MS = 5000; // safety-net DB re-read while waiting
+
+app.get('/api/sync/:section', requireAuth, async (req, res) => {
+  const sec = SECTIONS[req.params.section];
+  if (!sec) return res.status(404).json({ error: 'Unknown section' });
+  const userId = req.user.userId;
+  const since = req.query.since === undefined ? null : (Number(req.query.since) || 0);
+  const waitS = Math.min(Math.max(Number(req.query.wait) || 0, 0), LONGPOLL_MAX_S);
+
+  const readRev = async () => {
+    const r = await pool.query(`SELECT ${sec.revCol} AS rev FROM user_data WHERE user_id = $1`, [userId]);
+    return r.rows.length ? (Number(r.rows[0].rev) || 0) : 0;
+  };
+  const readAll = async () => {
+    const r = await pool.query(`SELECT ${sec.col} AS data, ${sec.revCol} AS rev FROM user_data WHERE user_id = $1`, [userId]);
+    return r.rows.length
+      ? { data: r.rows[0].data || [], rev: Number(r.rows[0].rev) || 0 }
+      : { data: [], rev: 0 };
+  };
+
+  try {
+    let rev = await readRev();
+    if (since !== null && waitS > 0 && rev <= since) {
+      rev = await new Promise((resolve) => {
+        let done = false;
+        const finish = (v) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer); clearInterval(ticker);
+          changes.off('u' + userId, onChange);
+          req.off('close', onClose);
+          resolve(v);
+        };
+        const onChange = (section) => { if (section === req.params.section) readRev().then(finish, () => finish(rev)); };
+        const onClose = () => finish(rev);
+        const timer = setTimeout(() => finish(rev), waitS * 1000);
+        const ticker = setInterval(() => {
+          readRev().then(v => { if (v > since) finish(v); }, () => {});
+        }, LONGPOLL_RECHECK_MS);
+        changes.on('u' + userId, onChange);
+        req.on('close', onClose);
+      });
+      if (res.writableEnded || req.destroyed) return;   // client went away while we waited
+    }
+    if (since !== null && rev <= since) return res.json({ [sec.revKey]: rev, unchanged: true });
+    const cur = await readAll();
+    res.json({ [sec.col]: cur.data, [sec.revKey]: cur.rev });
+  } catch (err) {
+    console.error(`GET sync/${req.params.section} error:`, err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // PUT /api/sync  — partial upsert of notes / cats / Thai flashcards.
 // Only the fields present in the body are written, so the Thai page can push
 // just `thai` without touching notes/cats. The Thai section is guarded by a
@@ -124,7 +203,7 @@ app.get('/api/sync', requireAuth, async (req, res) => {
 app.put('/api/sync', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { notes, cats, thai, thaiRev, cards, cardsRev } = req.body;
+    const { notes, cats, thai, thaiRev, thaiBase, cards, cardsRev } = req.body;
 
     // Ensure a row exists (defaults fill the columns we don't touch)
     await pool.query(
@@ -144,23 +223,63 @@ app.put('/api/sync', requireAuth, async (req, res) => {
         [userId, JSON.stringify(cats)]
       );
     }
+    // The rev-gated sections report whether the write was accepted. Before,
+    // a stale push (another device wrote in between the client's GET and PUT)
+    // was dropped by the WHERE clause yet still answered { ok: true }, so the
+    // client believed it had synced while the server never got its changes.
+    //
+    // Two gates for `thai`:
+    //  · With `thaiBase` (the rev the client read before merging): the write is
+    //    accepted only if the stored rev is still exactly that — a compare-and-
+    //    swap. Two devices pushing in the same second otherwise both pass the
+    //    timestamp check and the second silently wipes the first one's new
+    //    card, with both devices reporting success. The loser gets
+    //    thaiAccepted:false, re-reads, merges and pushes again.
+    //  · Without it (older clients): the original "incoming rev >= stored" rule.
+    const out = { ok: true };
     if (thai !== undefined) {
-      await pool.query(
-        `UPDATE user_data
-           SET thai = $2::jsonb, thai_rev = $3, updated_at = NOW()
-         WHERE user_id = $1 AND $3 >= COALESCE(thai_rev, 0)`,
-        [userId, JSON.stringify(thai), Number(thaiRev) || 0]
-      );
+      let r;
+      if (thaiBase !== undefined) {
+        const base = Number(thaiBase) || 0;
+        const newRev = Math.max(Number(thaiRev) || 0, base + 1);   // the rev must always move forward
+        r = await pool.query(
+          `UPDATE user_data
+             SET thai = $2::jsonb, thai_rev = $3, updated_at = NOW()
+           WHERE user_id = $1 AND COALESCE(thai_rev, 0) = $4
+           RETURNING thai_rev`,
+          [userId, JSON.stringify(thai), newRev, base]
+        );
+      } else {
+        r = await pool.query(
+          `UPDATE user_data
+             SET thai = $2::jsonb, thai_rev = $3, updated_at = NOW()
+           WHERE user_id = $1 AND $3 >= COALESCE(thai_rev, 0)
+           RETURNING thai_rev`,
+          [userId, JSON.stringify(thai), Number(thaiRev) || 0]
+        );
+      }
+      out.thaiAccepted = r.rowCount > 0;
+      if (out.thaiAccepted) {
+        out.thaiRev = Number(r.rows[0].thai_rev) || 0;   // the rev THIS write set, not whatever is stored a moment later
+        notifyChange(userId, 'thai');
+      }
     }
     if (cards !== undefined) {
-      await pool.query(
+      const r = await pool.query(
         `UPDATE user_data
            SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
          WHERE user_id = $1 AND $3 >= COALESCE(cards_rev, 0)`,
         [userId, JSON.stringify(cards), Number(cardsRev) || 0]
       );
+      out.cardsAccepted = r.rowCount > 0;
+      if (out.cardsAccepted) notifyChange(userId, 'cards');
     }
-    res.json({ ok: true });
+    if (thai !== undefined || cards !== undefined) {
+      const r = await pool.query('SELECT thai_rev, cards_rev FROM user_data WHERE user_id = $1', [userId]);
+      if (out.thaiRev === undefined) out.thaiRev = Number(r.rows[0] && r.rows[0].thai_rev) || 0;
+      out.cardsRev = Number(r.rows[0] && r.rows[0].cards_rev) || 0;
+    }
+    res.json(out);
   } catch (err) {
     console.error('PUT sync error:', err.message);
     res.status(500).json({ error: 'Server error' });

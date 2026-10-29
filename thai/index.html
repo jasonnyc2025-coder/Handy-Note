@@ -70,6 +70,9 @@
   .logo .thai{line-height:1}
   .title{font-size:18px;font-weight:700;letter-spacing:-.01em}
   .title small{display:block;font-size:11px;font-weight:500;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+  .sync-badge{letter-spacing:0;text-transform:none}
+  .sync-badge.ok{color:#2dd4bf}
+  .sync-badge.bad{color:#f87171;font-weight:700}
   /* 窄屏放不下就先收掉装饰性的图标方块，保住标题和版本号不被裁。
      必须放在 .app-back / .title 之后，否则会被后面同等权重的规则盖掉 */
   @media (max-width:380px){
@@ -579,7 +582,7 @@
   <div class="inner">
     <a class="app-back" href="../quick-notes.html" aria-label="返回随手记" title="返回随手记">← 返回随手记</a>
     <div class="title-center">
-      <div class="title" style="text-align:center">泰语卡片<small>Thai Flashcards · <span id="appVer"></span></small></div>
+      <div class="title" style="text-align:center">泰语卡片<small>Thai Flashcards · <span id="appVer"></span> · <span id="syncBadge" class="sync-badge"></span></small></div>
     </div>
     <button class="icon-btn" id="btnSettings" aria-label="设置">⚙</button>
   </div>
@@ -853,7 +856,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v92";   // shown in the top bar; bump with each release
+const APP_VER = "v93";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -863,6 +866,13 @@ function load(){
   catch(e){ cards = []; }
   try{ tombs = JSON.parse(localStorage.getItem(TOMB_KEY)) || []; }
   catch(e){ tombs = []; }
+  // 随手记同步时会把服务器那份原样写进这个 key，里面混着删除墓碑
+  // （{id,_deleted:true}）—— 留在 cards 里会显示成一张空白卡，挪回墓碑表
+  cards = cards.filter(c=>{
+    if(!c) return false;
+    if(c._deleted){ tombs.push({ id:c.id, _deletedAt:c._deletedAt||0 }); return false; }
+    return true;
+  });
   // migrate old single-example fields -> examples array
   let migrated = false;
   cards.forEach(c=>{
@@ -970,12 +980,45 @@ function combinedThai(){
   return cards.concat(tombs.map(t=>({ id:t.id, _deleted:true, _deletedAt:t._deletedAt||0 })));
 }
 function _rankThai(e){ return e._deleted ? (e._deletedAt||0) : (e.modified || e.createdAt || 0); }
+// 把 src 例句上的高亮（hl / hlm）搬到 dst 的例句上：按例句原文配对，配不上的
+// （那条例句被改过）保留 dst 自己的。和 carryHighlights 不同，这里 src 没有
+// 高亮就清掉 —— 取消高亮也得能传过去
+function _takeHighlights(srcEx, dstEx){
+  const byText = new Map(), byMean = new Map();
+  (srcEx||[]).forEach(e=>{
+    if(!e) return;
+    if(e.thai && !byText.has(e.thai)) byText.set(e.thai, e.hl || []);
+    if(e.meaning && !byMean.has(e.meaning)) byMean.set(e.meaning, e.hlm || []);
+  });
+  return (dstEx||[]).map(e=>{
+    if(!e) return e;
+    const out = Object.assign({}, e);
+    if(e.thai && byText.has(e.thai)){ const h = byText.get(e.thai); if(h.length) out.hl = h.slice(); else delete out.hl; }
+    if(e.meaning && byMean.has(e.meaning)){ const h = byMean.get(e.meaning); if(h.length) out.hlm = h.slice(); else delete out.hlm; }
+    return out;
+  });
+}
+// 同一张卡在两边都有时怎么合：
+//  · 文字（泰文/释义/读音/备注/例句）看 modified，新的赢；
+//  · 高亮单独看 hlAt，新的赢 —— 以前高亮也去碰 modified，于是 A 机改了释义、
+//    B 机随后只是划了个高亮，B 的整张旧卡就把 A 的释义盖掉了，看起来就是
+//    「改了没同步过去」。现在两边的改动都留下来。
+//  · hlAt 一样（含都没有，老数据）时高亮跟着文字走，和以前一样。
+function _mergeCard(prev, e){
+  if(prev._deleted || e._deleted) return _rankThai(e) >= _rankThai(prev) ? e : prev;
+  const text = _rankThai(e) >= _rankThai(prev) ? e : prev;
+  const ha = e.hlAt || 0, hb = prev.hlAt || 0;
+  if(ha === hb) return text;
+  const hl = ha > hb ? e : prev;
+  if(hl === text) return text;
+  return Object.assign({}, text, { hlAt: hl.hlAt, examples: _takeHighlights(hl.examples, text.examples) });
+}
 function mergeThai(a, b){
   const byId = new Map();
   const consider = e=>{
     if(!e || !e.id) return;
     const prev = byId.get(e.id);
-    if(!prev || _rankThai(e) >= _rankThai(prev)) byId.set(e.id, e);
+    byId.set(e.id, prev ? _mergeCard(prev, e) : e);
   };
   (a||[]).forEach(consider); (b||[]).forEach(consider);
   return [...byId.values()];
@@ -1827,13 +1870,15 @@ $("#syncNowBtn").onclick = async ()=>{
   let verdict = okRound ? "" : "❌ " + syncInfo.msg;
   if(okRound){
     try{
-      const g = await fetch(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-      const d = g.ok ? await g.json() : null;
-      const srv = d && Array.isArray(d.thai) ? d.thai.filter(x=>!x._deleted).length : -1;
-      if(srv < 0)      verdict = `❌ 核对失败：服务器返回 ${g.status}`;
-      else if(srv === cards.length) verdict = `✅ 同步成功\n本机和服务器都是 ${srv} 张卡片`;
+      const g = await getRemoteThai(cloud);
+      const d = g.ok ? g.data : null;
+      const srv = d ? d.thai.filter(x=>!x._deleted).length : -1;
+      const same = d && _hash32(thaiSig(d.thai)) === _hash32(thaiSig(combinedThai()));
+      if(srv < 0)      verdict = `❌ 核对失败：${g.msg}`;
+      else if(same)    verdict = `✅ 同步成功\n本机和服务器内容一致（${srv} 张卡片）`;
+      else if(srv === cards.length) verdict = `⚠️ 张数一样（${srv} 张）但内容还没对齐\n稍等几秒会自动合并；一直这样的话把设置里的「内容指纹」告诉我`;
       else             verdict = `⚠️ 还没对齐\n本机 ${cards.length} 张，服务器 ${srv} 张\n（服务器上有更新的数据没被接受，请把这个数字告诉我）`;
-      noteSync(g.ok, g.ok ? "已同步" : `核对失败 ${g.status}`, { serverCount: srv<0?null:srv, serverRev: d ? Number(d.thaiRev)||0 : 0 });
+      noteSync(g.ok, g.ok ? "已同步" : `核对失败：${g.msg}`, d ? { serverCount: srv, serverRev: sawRev(d.thaiRev), serverSig: _hash32(thaiSig(d.thai)) } : {});
     }catch(e){ verdict = "❌ 核对时连不上服务器"; }
   }
   btn.disabled = false; btn.textContent = "🔄 立即同步并检查";
@@ -1950,6 +1995,16 @@ function noteSync(ok, msg, extra){
                            extra||{}, { okAt, okCount, log });
   try{ localStorage.setItem(SYNCINFO_KEY, JSON.stringify(syncInfo)); }catch(e){}
   renderSyncBox();
+  renderSyncBadge();
+}
+// 顶栏上的一小段同步状态。以前只有设置面板里能看到，同步坏了（登录过期、
+// 服务器没开）列表上毫无征兆，只会觉得「怎么没同步」
+function renderSyncBadge(){
+  const el = document.getElementById("syncBadge"); if(!el) return;
+  if(!getCloud()){ el.className = "sync-badge"; el.textContent = "未登录"; return; }
+  if(syncInfo.ok === null){ el.className = "sync-badge"; el.textContent = "…"; return; }
+  if(syncInfo.ok){ el.className = "sync-badge ok"; el.textContent = "✓"; el.title = "云同步正常"; return; }
+  el.className = "sync-badge bad"; el.textContent = "⚠ 同步失败";
 }
 /* 自动同步失败时，netReason() 只能给一句笼统的「打不开服务器地址」——
    域名没解析、证书坏了、后端没跑，三件完全不同的事长得一模一样。
@@ -2078,9 +2133,11 @@ function renderOfflineBox(){
 }
 
 // 所有上传/下载排成一队，一次只跑一个。手机上行窄，并发只会互相拖超时。
-let _syncQ = Promise.resolve();
+let _syncQ = Promise.resolve(), _syncBusy = 0;   // _syncBusy：队列里还有几轮没跑完
 function serialSync(fn){
-  const p = _syncQ.then(()=>fn(), ()=>fn());   // 前一个失败也要继续排下去
+  _syncBusy++;
+  const run = ()=> Promise.resolve().then(fn).finally(()=>{ _syncBusy--; });
+  const p = _syncQ.then(run, run);   // 前一个失败也要继续排下去
   _syncQ = p.then(()=>{}, ()=>{});
   return p;
 }
@@ -2090,6 +2147,35 @@ function scheduleThaiPush(){
   clearTimeout(_pushTimer);
   _pushTimer = setTimeout(()=>serialSync(()=>thaiPush()), 800);   // debounce rapid edits
 }
+function authHdr(cloud){ return { "Authorization":"Bearer "+cloud.token }; }
+function httpMsg(status){
+  return (status===401||status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${status}`;
+}
+/* 只读泰语这一段。老的 /api/sync 会把随手记的全部笔记（含内嵌的照片 / PDF）
+   一起回传，动辄好几 MB —— 以前每 20 秒拉一次、每次推送前再拉一次，
+   手机流量下经常 15 秒都下不完，报「请求超时」，看起来就是「没同步」。
+   新接口 /api/sync/thai 只回 { thai, thaiRev }，几十 KB。
+   服务器还没更新（404）时自动退回老接口，隔 10 分钟再试一次新的。 */
+let _liteOk = true, _liteRetryAt = 0;
+function liteAvailable(){ return _liteOk || Date.now() > _liteRetryAt; }
+function markLiteMissing(){ _liteOk = false; _liteRetryAt = Date.now() + 10*60*1000; }
+// 返回 { ok, data:{thai,thaiRev}, msg }；网络错误直接抛出，由调用方用 netReason 翻译
+async function getRemoteThai(cloud){
+  let r = null;
+  if(liteAvailable()){
+    r = await fetchT(`${cloud.url}/api/sync/thai`, { cache:"no-store", headers:authHdr(cloud) });
+    if(r.status === 404){ markLiteMissing(); r = null; } else _liteOk = true;
+  }
+  if(!r) r = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:authHdr(cloud) });
+  if(!r.ok) return { ok:false, msg:httpMsg(r.status) };
+  const data = await r.json();
+  if(!data || !Array.isArray(data.thai)) return { ok:false, msg:"服务器返回的数据格式不对" };
+  return { ok:true, data:{ thai:data.thai, thaiRev:Number(data.thaiRev)||0 } };
+}
+// 服务器上我们已经看过的最新版本号：长轮询用它问「有没有比这更新的」
+let _lastSeenRev = 0;   // 开 App 后第一轮 thaiSync 会填上真实值，再开长轮询
+function sawRev(rev){ rev = Number(rev)||0; if(rev > _lastSeenRev) _lastSeenRev = rev; return rev; }
+
 // cur0：调用方刚读到的服务器快照，传进来就省掉一次 GET
 async function thaiPush(cur0){
   const cloud = getCloud();
@@ -2097,106 +2183,181 @@ async function thaiPush(cur0){
   try{
     // Read the server first: merge our set with theirs (so a concurrent add on
     // another device is never wiped).
-    let cur = cur0 || {}, getFailed = "";
-    if(!cur0){
-      try{
-        const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-        if(g.ok) cur = await g.json();
-        else getFailed = (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`;
-      }catch(e){ getFailed = netReason(e); }
+    let cur = cur0 || null;
+    if(!cur){
+      const g = await getRemoteThai(cloud);
+      if(!g.ok){ noteSync(false, g.msg); return false; }   // 读不到就别推，否则会用旧数据覆盖服务器
+      cur = g.data;
     }
-    if(getFailed){ noteSync(false, getFailed); return false; }   // 读不到就别推，否则会用旧数据覆盖服务器
-    let out = combinedThai();
     let changed = false;
-    if(Array.isArray(cur.thai)){
-      const before = thaiSig(out);
-      // 上传前合并：时间戳打平时让本机版本胜出（mergeThai 里后考虑的一方赢），
-      // 免得刚在本机做的改动被服务器上的旧副本盖掉
-      const merged = mergeThai(cur.thai, out);
-      if(thaiSig(merged) !== before){
-        applyCombinedThai(merged);
-        persistThai();
-        out = combinedThai();
-        changed = true;
+    // 推送带上 thaiBase（合并所依据的服务器版本号），服务器只在版本还是它时才
+    // 接受（乐观锁）。被拒 = 另一台刚好在这几秒里推过：拿最新的再合并一次重推，
+    // 最多三轮。以前两台同时推时后到的那台直接盖掉先到那台的新卡，而且两边都
+    // 显示「已同步」—— 这就是「加了卡片别的设备死活不出现」的另一个来源。
+    for(let attempt = 0; attempt < 3; attempt++){
+      let out = combinedThai();
+      if(Array.isArray(cur.thai)){
+        const before = thaiSig(out);
+        // 上传前合并：时间戳打平时让本机版本胜出（mergeThai 里后考虑的一方赢），
+        // 免得刚在本机做的改动被服务器上的旧副本盖掉
+        const merged = mergeThai(cur.thai, out);
+        if(thaiSig(merged) !== before){
+          applyCombinedThai(merged);
+          persistThai();
+          out = combinedThai();
+          changed = true;
+        }
       }
-    }
-    // rev must beat the stored one so the server (which rev-gates) always accepts it
-    const pushRev = Math.max(getThaiRev(), (Number(cur.thaiRev)||0) + 1);
-    localStorage.setItem(REV_KEY, String(pushRev));
-    // 只传 thai —— 服务器是「传了哪一段就只写哪一段」，notes/cats 不传就原样留着。
-    // 以前把读回来的 notes 又原样传上去，等于每改一张卡片就把随手记的全部笔记
-    // （含内嵌的 PDF / 照片）重新上传一遍 —— 这正是「请求超时」的原因；
-    // 而且中间别处改过笔记的话，还会被这份旧副本盖回去。
-    const body = { thai: out, thaiRev: pushRev };
-    // 上传比下载慢得多（手机上行窄），给它更长的时限
-    const put = await fetchT(`${cloud.url}/api/sync`, {
-      method:"PUT",
-      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
-      body: JSON.stringify(body)
-    }, 40000);
-    if(!put.ok){
-      noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
-    }else{
-      noteSync(true, "已同步", { serverCount: out.filter(x=>!x._deleted).length, serverRev: pushRev,
+      // rev must beat the stored one so the server (which rev-gates) always accepts it
+      const pushRev = Math.max(getThaiRev(), (Number(cur.thaiRev)||0) + 1);
+      localStorage.setItem(REV_KEY, String(pushRev));
+      // 只传 thai —— 服务器是「传了哪一段就只写哪一段」，notes/cats 不传就原样留着。
+      const body = { thai: out, thaiRev: pushRev, thaiBase: Number(cur.thaiRev)||0 };
+      // 上传比下载慢得多（手机上行窄），给它更长的时限
+      const put = await fetchT(`${cloud.url}/api/sync`, {
+        method:"PUT",
+        headers:Object.assign({ "Content-Type":"application/json" }, authHdr(cloud)),
+        body: JSON.stringify(body)
+      }, 40000);
+      if(!put.ok){
+        noteSync(false, put.status===401||put.status===403 ? httpMsg(put.status) : `上传失败：服务器返回 ${put.status}`);
+        break;
+      }
+      let resp = {}; try{ resp = await put.json(); }catch(e){}
+      if(resp && resp.thaiAccepted === false){
+        if(attempt < 2){
+          const g = await getRemoteThai(cloud);
+          if(!g.ok){ noteSync(false, g.msg); break; }
+          cur = g.data;
+          continue;
+        }
+        noteSync(false, "服务器上有更新的版本，稍后会自动重试");   // 下一次长轮询 / 5 分钟兜底会再合并
+        break;
+      }
+      const srvRev = sawRev((resp && resp.thaiRev) || pushRev);
+      noteSync(true, "已同步", { serverCount: out.filter(x=>!x._deleted).length, serverRev: srvRev,
                                  serverSig: _hash32(thaiSig(out)) });
+      // only repaint when the merge actually brought something in — repainting on
+      // every push would wipe the「刚看过」高亮并把词表滚回顶部
+      if(changed){
+        renderHome();
+        if(document.querySelector("#view-list.active")) renderList();
+      }
+      return true;
     }
-    // only repaint when the merge actually brought something in — repainting on
-    // every push would wipe the「刚看过」高亮并把词表滚回顶部
     if(changed){
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
     }
-    return put.ok;
+    return false;
   }catch(e){ noteSync(false, netReason(e)); return false; }
+}
+// 把一份服务器快照合并进本机。返回「本机是否还有服务器没有的东西」（要不要推）
+function adoptRemote(data){
+  const srvCount = data.thai.filter(x=>!x._deleted).length;
+  noteSync(true, "已同步", { serverCount: srvCount, serverRev: sawRev(data.thaiRev),
+                             serverSig: _hash32(thaiSig(data.thai)) });
+  const local = combinedThai();
+  const merged = mergeThai(local, data.thai);
+  const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
+  if(mergedSig === localSig && mergedSig === remoteSig) return false;
+  if(mergedSig !== localSig){
+    // remote had something new for us — adopt the merged result
+    applyCombinedThai(merged);
+    persistThai();
+    localStorage.setItem(REV_KEY, String(Math.max(getThaiRev(), Number(data.thaiRev)||0)));
+    renderHome();
+    if(document.querySelector("#view-list.active")) renderList();
+    renderSyncBox();   // 合并完才重画，否则开着的面板上指纹还是合并前的
+  }
+  // 本机有服务器没有的东西，才需要推
+  return mergedSig !== remoteSig;
 }
 // 返回 { ok, data, needPush } —— 自己不再去推，由调用方决定，
 // 否则「拉完顺手推一把」会和调用方的推并发跑，同一份大数据传两遍
-async function thaiPull(){
+async function thaiPull(pre){
   const cloud = getCloud();
   if(!cloud){ noteSync(false, "未登录，无法同步"); return { ok:false }; }
   try{
-    const res = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-    if(!res.ok){
-      noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
-      return { ok:false };
+    let data = pre;
+    if(!data){
+      const g = await getRemoteThai(cloud);
+      if(!g.ok){ noteSync(false, g.msg); return { ok:false }; }
+      data = g.data;
     }
-    const data = await res.json();
-    if(!Array.isArray(data.thai)){ noteSync(false, "服务器返回的数据格式不对"); return { ok:false }; }
-    const srvCount = data.thai.filter(x=>!x._deleted).length;
-    noteSync(true, "已同步", { serverCount: srvCount, serverRev: Number(data.thaiRev)||0,
-                               serverSig: _hash32(thaiSig(data.thai)) });
-    const local = combinedThai();
-    const merged = mergeThai(local, data.thai);
-    const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
-    if(mergedSig === localSig && mergedSig === remoteSig) return { ok:true, data, needPush:false };
-    if(mergedSig !== localSig){
-      // remote had something new for us — adopt the merged result
-      applyCombinedThai(merged);
-      persistThai();
-      localStorage.setItem(REV_KEY, String(Math.max(getThaiRev(), Number(data.thaiRev)||0)));
-      renderHome();
-      if(document.querySelector("#view-list.active")) renderList();
-      renderSyncBox();   // 合并完才重画，否则开着的面板上指纹还是合并前的
-    }
-    // 本机有服务器没有的东西，才需要推
-    return { ok:true, data, needPush: mergedSig !== remoteSig };
+    return { ok:true, data, needPush: adoptRemote(data) };
   }catch(e){ noteSync(false, netReason(e)); return { ok:false }; }
 }
 // 同一时间只允许一轮同步。以前开 App 时的自动同步、编辑后的自动推送、
 // 手动按钮可以三路并发，每一路都是一次 GET + 一次整包 PUT，
 // 手机上行根本扛不住，结果就是互相把对方拖超时。
 let _syncRun = null;
-function thaiSync(){
+function thaiSync(pre){
   if(!getCloud()) return Promise.resolve(false);
   if(_syncRun) return _syncRun;            // 已经有一轮在跑，就搭它的车
   _syncRun = serialSync(async ()=>{
-    const r = await thaiPull();            // adopt server if it's newer
+    const r = await thaiPull(pre);         // adopt server if it's newer
     // 拉下来的快照直接给推用，省掉第二次 GET
     if(r.ok && r.needPush) await thaiPush(r.data);
     return !!r.ok;
   }).finally(()=>{ _syncRun = null; });
   _syncRun.then(()=> explainSyncFailure());   // 失败了就去问清楚卡在哪一步（不阻塞）
   return _syncRun;
+}
+
+/* 长轮询：问服务器「有没有比 _lastSeenRev 更新的」，服务器最多扣住 25 秒，
+   另一台设备一推上来就立刻放行 —— 别的设备上的增删改大约 1 秒就到这里，
+   不用再等 20 秒的定时轮询。页面切到后台就停，回到前台先 thaiSync 再重开。
+   服务器没有这个接口（404）时退回每 20 秒 thaiSync 一次。 */
+let _lpGen = 0, _lpAbort = null;
+const _sleep = ms => new Promise(r=>setTimeout(r, ms));
+function stopLongPoll(){ _lpGen++; if(_lpAbort){ try{ _lpAbort.abort(); }catch(e){} _lpAbort = null; } }
+function startLongPoll(){ stopLongPoll(); longPollLoop(_lpGen); }
+async function longPollLoop(gen){
+  let backoff = 2000;
+  const alive = ()=> gen === _lpGen && document.visibilityState !== "hidden";
+  while(alive()){
+    const cloud = getCloud();
+    if(!cloud || !liteAvailable()){
+      await _sleep(20000);
+      if(alive() && getCloud()) await thaiSync();
+      continue;
+    }
+    try{
+      const ctl = new AbortController(); _lpAbort = ctl;
+      const t = setTimeout(()=>ctl.abort(), 40000);
+      let r;
+      try{
+        r = await fetch(`${cloud.url}/api/sync/thai?since=${_lastSeenRev}&wait=25`,
+                        { cache:"no-store", headers:authHdr(cloud), signal:ctl.signal });
+      }finally{ clearTimeout(t); if(_lpAbort === ctl) _lpAbort = null; }
+      if(!alive()) break;
+      if(r.status === 404){ markLiteMissing(); continue; }
+      if(r.status === 401 || r.status === 403){ noteSync(false, httpMsg(r.status)); await _sleep(60000); continue; }
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const d = await r.json();
+      backoff = 2000;
+      const rev = Number(d && d.thaiRev) || 0;
+      if(d.unchanged || !Array.isArray(d.thai) || rev <= _lastSeenRev){ sawRev(rev); continue; }
+      // 有新东西：走同步队列合并，别和正在进行的推送撞车。正有一轮在跑的话
+      // 先等它跑完 —— 它多半已经把这个版本合并进去了（_lastSeenRev 会跟上），
+      // 没有的话重新拉一份最新的，别拿等待期间已经过时的快照去合并、再多推一遍
+      if(_syncBusy){
+        await _syncQ;
+        if(!alive()) break;
+        if(rev <= _lastSeenRev) continue;
+        await thaiSync();
+      }else{
+        await thaiSync({ thai:d.thai, thaiRev:rev });
+      }
+    }catch(e){
+      if(!alive()) break;
+      if(e && e.name === "AbortError") continue;      // 自己的 40 秒超时，直接再问
+      noteSync(false, netReason(e));
+      await _sleep(backoff);
+      backoff = Math.min(backoff * 2, 60000);
+    }
+  }
 }
 
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
@@ -2487,7 +2648,7 @@ function toggleHighlight(cbEx, text, field){
   const i = ex[key].indexOf(text);
   if(i>=0) ex[key].splice(i,1); else ex[key].push(text);
   if(!ex[key].length) delete ex[key];
-  card.modified = Date.now();   // 高亮也是一次修改，不更新时间戳就同步不到别的设备
+  card.hlAt = Date.now();   // 高亮有自己的时间戳，和文字编辑分开合并（见 _mergeCard）
   save();
   renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
 }
@@ -2666,15 +2827,20 @@ $("#awSave").onclick = ()=>{
 const _av = document.getElementById("appVer"); if(_av) _av.textContent = APP_VER;
 load();
 renderHome();
-loadFromIDB();        // 再从 IndexedDB 补一次，找回 localStorage 写满时丢掉的卡片
-thaiSync();
-// 走队列，别和正在跑的推送撞在一起
-setInterval(()=>{ if(getCloud()) serialSync(()=>thaiPull()); }, 20000);
-// 息屏/切走时 iOS 会把定时器冻住，回来要立刻拉一次，
+renderSyncBadge();
+// 先把 IndexedDB 里的补齐，再去和服务器比 —— 否则第一轮同步可能拿着
+// localStorage 那份不全的数据去合并
+loadFromIDB().finally(()=>{ thaiSync().finally(startLongPoll); });
+// 兜底：长轮询万一断了（代理掐连接、长时间休眠），每 5 分钟也完整跑一轮 pull→push；
+// 以前的 20 秒轮询只拉不推，本机攒着的改动得等下次开 App 才上去
+setInterval(()=>{ if(getCloud()) thaiSync(); }, 5*60*1000);
+// 息屏/切走时 iOS 会把定时器和连接都冻住，回来要立刻同步一次并重开长轮询，
 // 否则在另一台改的东西要等下一次轮询才出现
 document.addEventListener("visibilitychange", ()=>{
-  if(document.visibilityState === "visible" && getCloud()) thaiSync();
+  if(document.visibilityState === "visible"){ if(getCloud()) thaiSync().finally(startLongPoll); }
+  else stopLongPoll();
 });
+window.addEventListener("online", ()=>{ if(getCloud()) thaiSync().finally(startLongPoll); });
 /* ---------------- auto-update ----------------
    Two paths so an update always lands: (1) the service worker's controllerchange,
    and (2) a version poll that fetches the live page (cache-busted) and compares

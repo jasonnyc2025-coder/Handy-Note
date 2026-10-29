@@ -116,8 +116,9 @@ The app expects a server at a configurable URL with these endpoints:
 |--------|------|-------------|
 | GET | `/api/config` | Returns `{ googleClientId }` |
 | POST | `/api/auth/google` | Exchanges Google `id_token` → JWT `{ token, name, email, picture }` |
-| GET | `/api/sync` | Returns `{ notes, cats }` for authenticated user |
-| PUT | `/api/sync` | Saves `{ notes, cats }` for authenticated user |
+| GET | `/api/sync` | Returns `{ notes, cats, thai, thaiRev, cards, cardsRev }` for authenticated user |
+| GET | `/api/sync/thai` (or `/cards`) | Just that section: `{ thai, thaiRev }`. With `?since=<rev>&wait=<s>` it long-polls (up to 25 s) until another device pushes a newer rev, answering `{ thaiRev, unchanged: true }` on timeout |
+| PUT | `/api/sync` | Partial upsert: only the fields present are written. `thai` is accepted only if `thaiBase` equals the stored `thaiRev` (compare-and-swap); the response carries `thaiAccepted` and the resulting `thaiRev` |
 
 Authentication: `Authorization: Bearer <jwt>` header.
 
