@@ -319,7 +319,7 @@ const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
 const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v22";
+const APP_VER   = "v23";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -495,15 +495,17 @@ function matches(c){
   const hay = [c.name,c.company,c.title,c.address,c.website,c.note,(c.phones||[]).join(" "),(c.emails||[]).join(" "),cardTags(c).join(" ")].join(" ").toLowerCase();
   return hay.includes(searchQ.toLowerCase());
 }
-let sortMode = localStorage.getItem("namecards.sort") || "name";   // "name" | "recent"
+// 默认按「最近」排 —— 刚加的名片要出现在最上面。手动选过的仍然按选的来。
+let sortMode = localStorage.getItem("namecards.sort") || "recent";   // "name" | "recent"
 function sortCards(list){
   const arr = list.slice();
   if(sortMode === "name"){
     return arr.sort((a,b)=>{
       const an=(a.name||"").trim(), bn=(b.name||"").trim();
-      if(!an && !bn) return (b.createdAt||0)-(a.createdAt||0);
-      if(!an) return 1;                 // unnamed cards sink to the bottom
-      if(!bn) return -1;
+      // 没名字的几乎都是刚拍进来、还没处理的（识别失败就只剩「(未命名)」），
+      // 放最上面等着补。以前是沉到最底下，刚加的那张反而最难找。
+      if(!an !== !bn) return an ? 1 : -1;
+      if(!an && !bn) return (b.createdAt||0)-(a.createdAt||0);   // 新的在前
       return an.localeCompare(bn, undefined, { sensitivity:"base", numeric:true });
     });
   }
