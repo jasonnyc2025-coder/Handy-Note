@@ -853,7 +853,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v91";   // shown in the top bar; bump with each release
+const APP_VER = "v92";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -1993,6 +1993,12 @@ function renderSyncBox(){
     ? `上次成功：<b>${fmtWhen(syncInfo.okAt)}</b>` +
       (syncInfo.okCount!=null ? `（服务器 ${syncInfo.okCount} 张）` : "") + `<br>`
     : "";
+  // 张数相同但内容不同时，光看张数是看不出问题的；给一个短指纹，
+  // 两台设备各看一眼就知道是没推上去、还是没拉下来
+  const mySig = _hash32(thaiSig(combinedThai()));
+  const sigLine = `内容指纹：本机 <b>${mySig}</b>` +
+    (syncInfo.serverSig ? ` ｜ 服务器 <b>${esc(syncInfo.serverSig)}</b>` +
+      (syncInfo.serverSig === mySig ? "（一致 ✓）" : "（<b>不一致</b>，还没合并完）") : "") + `<br>`;
   const log = (syncInfo.log||[]).slice(-5).reverse();
   const logLine = log.length > 1
     ? `<details style="margin-top:6px"><summary style="cursor:pointer;opacity:.75">最近 ${log.length} 次尝试</summary>` +
@@ -2004,6 +2010,7 @@ function renderSyncBox(){
     `最近一次：<b>${fmtWhen(syncInfo.at)}</b><br>` + okLine +
     `本机卡片：<b>${mine}</b> 张` +
     (syncInfo.serverCount!=null ? ` ｜ 服务器：<b>${syncInfo.serverCount}</b> 张` : "") + `<br>` +
+    sigLine +
     `服务器：${esc(cloud.url)}` + logLine;
 }
 
@@ -2130,7 +2137,8 @@ async function thaiPush(cur0){
     if(!put.ok){
       noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
     }else{
-      noteSync(true, "已同步", { serverCount: out.filter(x=>!x._deleted).length, serverRev: pushRev });
+      noteSync(true, "已同步", { serverCount: out.filter(x=>!x._deleted).length, serverRev: pushRev,
+                                 serverSig: _hash32(thaiSig(out)) });
     }
     // only repaint when the merge actually brought something in — repainting on
     // every push would wipe the「刚看过」高亮并把词表滚回顶部
@@ -2155,7 +2163,8 @@ async function thaiPull(){
     const data = await res.json();
     if(!Array.isArray(data.thai)){ noteSync(false, "服务器返回的数据格式不对"); return { ok:false }; }
     const srvCount = data.thai.filter(x=>!x._deleted).length;
-    noteSync(true, "已同步", { serverCount: srvCount, serverRev: Number(data.thaiRev)||0 });
+    noteSync(true, "已同步", { serverCount: srvCount, serverRev: Number(data.thaiRev)||0,
+                               serverSig: _hash32(thaiSig(data.thai)) });
     const local = combinedThai();
     const merged = mergeThai(local, data.thai);
     const mergedSig = thaiSig(merged), localSig = thaiSig(local), remoteSig = thaiSig(data.thai);
@@ -2167,6 +2176,7 @@ async function thaiPull(){
       localStorage.setItem(REV_KEY, String(Math.max(getThaiRev(), Number(data.thaiRev)||0)));
       renderHome();
       if(document.querySelector("#view-list.active")) renderList();
+      renderSyncBox();   // 合并完才重画，否则开着的面板上指纹还是合并前的
     }
     // 本机有服务器没有的东西，才需要推
     return { ok:true, data, needPush: mergedSig !== remoteSig };
@@ -2658,7 +2668,13 @@ load();
 renderHome();
 loadFromIDB();        // 再从 IndexedDB 补一次，找回 localStorage 写满时丢掉的卡片
 thaiSync();
-setInterval(thaiPull, 20000);   // keep in step with the notes app's 20s cadence
+// 走队列，别和正在跑的推送撞在一起
+setInterval(()=>{ if(getCloud()) serialSync(()=>thaiPull()); }, 20000);
+// 息屏/切走时 iOS 会把定时器冻住，回来要立刻拉一次，
+// 否则在另一台改的东西要等下一次轮询才出现
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "visible" && getCloud()) thaiSync();
+});
 /* ---------------- auto-update ----------------
    Two paths so an update always lands: (1) the service worker's controllerchange,
    and (2) a version poll that fetches the live page (cache-busted) and compares
