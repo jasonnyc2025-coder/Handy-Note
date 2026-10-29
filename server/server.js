@@ -250,6 +250,68 @@ const OCR_API_KEY = process.env.OCR_API_KEY;
 const OCR_BASE_URL = (process.env.OCR_BASE_URL || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
 const OCR_MODEL = process.env.OCR_MODEL || 'qwen3-vl-flash';
 
+// Model ids get retired: qwen3-vl-flash started answering 404 "Model not exist."
+// and the whole feature died with it. Try OCR_MODEL first, then known-good
+// alternatives, and remember whichever one answers. Set OCR_MODEL (comma-separated
+// is fine) in .env to pin a specific one.
+const OCR_MODEL_CANDIDATES = [...new Set(
+  OCR_MODEL.split(',').map(x => x.trim()).filter(Boolean).concat([
+    'qwen3-vl-plus', 'qwen3-vl-flash',
+    'qwen-vl-max-latest', 'qwen-vl-plus-latest',
+    'qwen-vl-max', 'qwen-vl-plus'
+  ])
+)];
+let _ocrModelOk = null;          // 用过一次就记住，别每次都从头试
+
+// does this upstream error mean "that model id isn't a thing here"? (as opposed to
+// a bad key or a rate limit, where trying another model is pointless)
+function isUnknownModel(status, body) {
+  if (status !== 404 && status !== 400) return false;
+  return /model.*(not exist|not found|does not exist|unsupported|invalid)/i.test(body || '');
+}
+
+// Ask the endpoint what it actually serves, so the error can name real options
+// instead of leaving the user guessing. Best-effort — not all providers expose it.
+async function listUpstreamModels() {
+  try {
+    const r = await fetch(`${OCR_BASE_URL}/models`, { headers: { authorization: `Bearer ${OCR_API_KEY}` } });
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j.data || []).map(m => m.id).filter(id => /vl|vision|omni/i.test(id)).slice(0, 12);
+  } catch (e) { return []; }
+}
+
+// POST one chat/completions body, walking the candidate list past dead model ids.
+// Resolves { ok:true, json } or { ok:false, status, detail, tried }.
+async function callVisionModel(makeBody) {
+  const order = _ocrModelOk ? [_ocrModelOk, ...OCR_MODEL_CANDIDATES.filter(m => m !== _ocrModelOk)]
+                            : OCR_MODEL_CANDIDATES;
+  const tried = [];
+  let last = { status: 0, detail: '' };
+  for (const model of order) {
+    tried.push(model);
+    let r;
+    try {
+      r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${OCR_API_KEY}` },
+        body: JSON.stringify(Object.assign({ model }, makeBody()))
+      });
+    } catch (err) {
+      return { ok: false, status: 0, detail: err.message, tried };
+    }
+    if (r.ok) { _ocrModelOk = model; return { ok: true, json: await r.json(), model, tried }; }
+    const t = await r.text().catch(() => '');
+    let detail = '';
+    try { detail = JSON.parse(t).error.message; } catch (e) { detail = (t || '').slice(0, 200); }
+    console.error('vision upstream error:', model, r.status, String(t).slice(0, 200));
+    last = { status: r.status, detail };
+    if (!isUnknownModel(r.status, t)) break;   // 不是「没这个模型」就别再换了（钥匙错 / 限流）
+    if (_ocrModelOk === model) _ocrModelOk = null;
+  }
+  return { ok: false, status: last.status, detail: last.detail, tried };
+}
+
 app.post('/api/cards/ocr', requireAuth, async (req, res) => {
   if (!OCR_API_KEY) {
     return res.status(501).json({ error: 'ocr_unavailable', message: '服务器未配置 OCR_API_KEY，自动识别不可用（可手动填写）' });
@@ -264,35 +326,29 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
     'address(地址), website(网站), other(其它有用信息，如微信/部门等)。' +
     '找不到的字段用空字符串或空数组。电话保留原样（含分机/区号）。';
   try {
-    const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `Bearer ${OCR_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: OCR_MODEL,
-        max_tokens: 1024,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }
-          ]
-        }]
-      })
-    });
-    if (!r.ok) {
-      const t = await r.text().catch(() => '');
-      console.error('OCR upstream error:', r.status, t.slice(0, 300));
-      // surface the model provider's own error message so the client can show
-      // exactly what went wrong (bad model id, invalid key, etc.). The key is
-      // never included in these messages, so this is safe to return.
-      let detail = '';
-      try { detail = JSON.parse(t).error.message; } catch (e) { detail = (t || '').slice(0, 200); }
-      return res.status(502).json({ error: 'ocr_failed', message: `识别模型返回 ${r.status}：${detail || '未知错误'}` });
+    const out = await callVisionModel(() => ({
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }
+        ]
+      }]
+    }));
+    if (!out.ok) {
+      // surface the provider's own message so the client shows exactly what went
+      // wrong (retired model id, invalid key, …). The key never appears in these.
+      let message = `识别模型返回 ${out.status}：${out.detail || '未知错误'}`;
+      if (isUnknownModel(out.status, out.detail)) {
+        const avail = await listUpstreamModels();
+        message = `这些模型在你的账号下都不存在：${out.tried.join('、')}。` +
+          (avail.length ? `可用的有：${avail.join('、')}。` : '') +
+          '请在服务器 .env 里把 OCR_MODEL 改成一个可用的模型名，然后重启服务。';
+      }
+      return res.status(502).json({ error: 'ocr_failed', message });
     }
-    const j = await r.json();
+    const j = out.json;
     const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
     // OpenAI-compatible returns a string; Qwen reasoning models sometimes put the
     // answer in reasoning_content when content is empty.
@@ -315,21 +371,27 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
 // is never lost. Model defaults to OCR_MODEL (override with AI_TEXT_MODEL).
 async function punctuateText(text) {
   if (!OCR_API_KEY || !text || !text.trim()) return text;
-  const model = process.env.AI_TEXT_MODEL || OCR_MODEL;
+  const pinned = process.env.AI_TEXT_MODEL;
   const sys = '你是中文文本整理助手。用户给你一段语音听写的文字，通常没有标点、可能带口语化的重复或语气词。' +
     '请只做三件事：1) 断句并补上正确的标点；2) 去掉明显的口头语气词和重复；3) 保持原意，不增删信息、不解释、不翻译。' +
     '直接输出整理后的文本本身，不要加任何前后缀、引号或代码块。';
   try {
-    const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${OCR_API_KEY}` },
-      body: JSON.stringify({
-        model, max_tokens: 1200,
-        messages: [{ role: 'system', content: sys }, { role: 'user', content: text }]
-      })
-    });
-    if (!r.ok) { console.error('punctuate upstream', r.status); return text; }
-    const j = await r.json();
+    const mk = () => ({ max_tokens: 1200,
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: text }] });
+    let j;
+    if (pinned) {
+      const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${OCR_API_KEY}` },
+        body: JSON.stringify(Object.assign({ model: pinned }, mk()))
+      });
+      if (!r.ok) { console.error('punctuate upstream', r.status); return text; }
+      j = await r.json();
+    } else {
+      const out = await callVisionModel(mk);
+      if (!out.ok) { console.error('punctuate upstream', out.status, out.detail); return text; }
+      j = out.json;
+    }
     const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
     let out = String(msg.content || msg.reasoning_content || '').trim();
     const fence = out.match(/```(?:\w+)?\s*([\s\S]*?)```/);
