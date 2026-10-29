@@ -384,7 +384,10 @@
   /* floating popup shown when text is selected inside an example */
   /* fixed near the bottom (above the action buttons) so it never clashes with
      the OS text-selection menu, which appears next to the selection up top */
+  /* 六个按钮一行排不下手机宽度时，以前左右两头都被裁掉（「查看该词」只露半个字）。
+     现在限宽在屏幕内，放不下就折成两行，仍然居中。 */
   #selPop{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 92px);
+    width:max-content;max-width:calc(100vw - 16px);flex-wrap:wrap;justify-content:center;
     z-index:95;display:none;gap:6px;background:var(--ink);border-radius:13px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.35)}
   #selPop.show{display:flex}
   #selPop button{background:rgba(255,255,255,.14);color:var(--bg);border-radius:9px;padding:9px 13px;font-size:14px;font-weight:600;white-space:nowrap;
@@ -420,8 +423,17 @@
     border:none;border-radius:99px;padding:15px 30px;font-size:16px;font-weight:800;
     box-shadow:0 8px 26px rgba(45,212,191,.45)}
   #peekClose:active{transform:translateY(1px);filter:brightness(.92)}
-  .peek-card{cursor:default;align-self:center;zoom:var(--peekZoom,1);
+  /* A− / A+ 以前用 CSS zoom 实现，iOS Safari 上方向是反的（按 A+ 卡片反而变小），
+     标题还会渲染发虚。改成只缩放字号：卡片本身大小不变，文字按 --peekZoom 放大缩小。 */
+  .peek-card{cursor:default;align-self:center;font-size:calc(16px * var(--peekZoom,1));
     max-height:min(74vh, calc(100vh - var(--peekBarH,150px) - 40px))}
+  .peek-card .card-thai{font-size:3.25em}
+  .peek-card .cb-mean{font-size:1.5em}
+  .peek-card .cb-read{font-size:1.125em}
+  .peek-card .cb-note{font-size:1.125em}
+  .peek-card .cb-ex .ex-no{font-size:.75em}
+  .peek-card .cb-ex .ex-thai{font-size:1.75em}
+  .peek-card .cb-ex .ex-mean{font-size:1.125em}
   /* search-term highlight inside the opened card */
   mark.s-hit{background:#ffd54a;color:#3a2c00;border-radius:4px;padding:0 2px;font-weight:800}
   /* A− / A+ 字号控制，方便看清浮层里的文字 */
@@ -856,7 +868,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v95";
+const APP_VER = "v96";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
