@@ -856,7 +856,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v93";   // shown in the top bar; bump with each release
+const APP_VER = "v94";   // shown in the top bar; bump with each release
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -882,6 +882,7 @@ function load(){
     }
     delete c.example; delete c.exampleMeaning;
   });
+  sortCards(cards);
   if(migrated) save();
 }
 /* 存储：以前只写 localStorage，而且 catch 掉了所有错误 —— 一旦 5MB 写满
@@ -1023,8 +1024,15 @@ function mergeThai(a, b){
   (a||[]).forEach(consider); (b||[]).forEach(consider);
   return [...byId.values()];
 }
+// 列表按 cards 的数组顺序倒着显示（最新在上）。合并进来的卡片以前追加在本机
+// 数组末尾，于是每台设备的顺序取决于「哪张先到这台机器」，两台看着不一样。
+// 统一按创建时间排，同一批卡在每台设备上顺序就一致了。
+function _orderKey(c){ return c.createdAt || c.modified || 0; }
+function sortCards(list){
+  return list.sort((a, b)=> (_orderKey(a) - _orderKey(b)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
 function applyCombinedThai(arr){
-  cards = arr.filter(e=> e && !e._deleted);
+  cards = sortCards(arr.filter(e=> e && !e._deleted));
   const cutoff = Date.now() - 120*864e5;   // drop tombstones older than ~120 days
   tombs = arr.filter(e=> e && e._deleted && (e._deletedAt||0) > cutoff)
              .map(e=>({ id:e.id, _deletedAt:e._deletedAt||0 }));
