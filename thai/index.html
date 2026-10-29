@@ -404,7 +404,7 @@
   #peekPanel{--peekBarH:150px;
     position:fixed;inset:0;z-index:89;display:none;flex-direction:column;
     align-items:center;justify-content:center;gap:12px;
-    padding:16px 16px calc(env(safe-area-inset-bottom) + var(--peekBarH));
+    padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + var(--peekBarH));
     -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;cursor:pointer}
   #peekBg.show,#peekPanel.show{display:flex}
   /* close button pinned to the bottom of the screen — easy thumb reach */
@@ -425,8 +425,14 @@
   #peekClose:active{transform:translateY(1px);filter:brightness(.92)}
   /* A− / A+ 以前用 CSS zoom 实现，iOS Safari 上方向是反的（按 A+ 卡片反而变小），
      标题还会渲染发虚。改成只缩放字号：卡片本身大小不变，文字按 --peekZoom 放大缩小。 */
+  /* 卡片顶部让出刘海 / 灵动岛的高度（safe-area-inset-top），否则标题正好压在
+     摄像头下面，看着发虚。高度上限也把这段算进去，卡片才不会被顶回岛底下。 */
   .peek-card{cursor:default;align-self:center;font-size:calc(16px * var(--peekZoom,1));
-    max-height:min(74vh, calc(100vh - var(--peekBarH,150px) - 40px))}
+    max-height:min(74vh, calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--peekBarH,150px) - 36px))}
+  /* 喇叭从标题下面挪到释义那一行（释义短，右边有空），标题下面不再多占一截高度 */
+  .peek-meanrow{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+  .peek-meanrow .cb-mean{min-width:0}
+  .peek-card .card-spk{margin:0;width:40px;height:40px;font-size:18px;flex:0 0 auto}
   .peek-card .card-thai{font-size:3.25em}
   .peek-card .cb-mean{font-size:1.5em}
   .peek-card .cb-read{font-size:1.125em}
@@ -817,9 +823,11 @@
 <div id="peekPanel" role="dialog" aria-modal="true" aria-label="查看生词">
   <div class="card peek-card">
     <div class="card-thai thai" id="peekThai">—</div>
-    <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
     <div class="peek-body">
-      <div class="cb-mean" id="peekMean"></div>
+      <div class="peek-meanrow">
+        <div class="cb-mean" id="peekMean"></div>
+        <button class="card-spk" id="peekSpk" aria-label="发音">🔊</button>
+      </div>
       <div class="cb-read" id="peekRead"></div>
       <div class="cb-scroll">
         <div class="cb-note" id="peekNote"></div>
@@ -868,7 +876,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v96";
+const APP_VER = "v97";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
