@@ -876,7 +876,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v97";
+const APP_VER = "v98";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2825,18 +2825,49 @@ async function getTranslator(onProgress){
   }
   return { err:"nopair" };
 }
+/* 服务器翻译：iPhone 的 Safari 没有浏览器内置翻译，页面调不到系统翻译；
+   让服务器用它配好的 AI 模型翻（和名片识别 / 语音记录整理用的是同一把钥匙）。
+   需要已登录；服务器没配钥匙时返回 501。 */
+async function translateViaServer(t){
+  const cloud = getCloud();
+  if(!cloud) return { err:"nologin" };
+  if(navigator.onLine === false) return { err:"offline" };
+  let r;
+  try{
+    r = await fetchT(`${cloud.url}/api/translate`, {
+      method:"POST",
+      headers:Object.assign({ "Content-Type":"application/json" }, authHdr(cloud)),
+      body: JSON.stringify({ text:t, from:"th", to:"zh" })
+    }, 30000);
+  }catch(e){ return { err:"failed", detail:netReason(e) }; }
+  if(r.status === 404 || r.status === 501) return { err:"noserver" };
+  if(r.status === 401 || r.status === 403) return { err:"failed", detail:httpMsg(r.status) };
+  let d = {}; try{ d = await r.json(); }catch(e){}
+  if(!r.ok) return { err:"failed", detail:(d && d.message) || `服务器返回 ${r.status}` };
+  const out = String(d.translation || "").trim();
+  if(!out) return { err:"empty-result" };
+  return { out, via:"server" };
+}
 async function translateThai(text, onProgress){
   const t = (text || "").trim();
   if(!t) return { err:"empty" };
   if(_trCache[t]) return { out:_trCache[t], cached:true };
-  const got = await getTranslator(onProgress);
-  if(got.err) return { err:got.err };
-  try{
-    const out = String(await got.tr.translate(t) || "").trim();
-    if(!out) return { err:"empty-result" };
-    trCacheSet(t, out);
-    return { out };
-  }catch(e){ return { err:"failed", detail:(e && e.message) || String(e) }; }
+  // 先试浏览器内置翻译（免费、离线、设备端），没有再找服务器。
+  // 内置翻译有时会卡在「检查可用性 / 下载语言包」上一直不回来，限时 8 秒，
+  // 超时就去找服务器，别让用户干等。
+  const timeout = ms => new Promise(res=> setTimeout(()=> res({ err:"timeout" }), ms));
+  const got = await Promise.race([getTranslator(onProgress), timeout(8000)]);
+  if(!got.err){
+    try{
+      const out = String(await Promise.race([got.tr.translate(t), timeout(8000)]) || "").trim();
+      if(out && typeof out === "string" && !/^\[object/.test(out)){ trCacheSet(t, out); return { out, via:"local" }; }
+    }catch(e){ /* 本地失败也落到服务器 */ }
+  }
+  if(onProgress) onProgress(null);
+  const srv = await translateViaServer(t);
+  if(srv.out){ trCacheSet(t, srv.out); return srv; }
+  // 两边都不行：优先解释服务器那边为什么不行，本地那边的原因附在后面
+  return { err: srv.err, detail: srv.detail, localErr: got.err || "failed" };
 }
 let _trText = "";
 function openTrSheet(text){
@@ -2856,23 +2887,29 @@ function closeTrSheet(){
 async function runTranslate(){
   const body = $("#trBody");
   const res = await translateThai(_trText, pct=>{
-    body.innerHTML = `<span class="tr-bad">首次使用要先下载「泰语→中文」语言包…
+    body.innerHTML = pct === null
+      ? `<span class="tr-bad">正在请服务器翻译…</span>`
+      : `<span class="tr-bad">首次使用要先下载「泰语→中文」语言包…
       ${pct ? Math.round(pct*100)+"%" : ""}<span class="tr-note">只下载这一次，之后离线也能翻译。</span></span>`;
   });
   if(res.out){
-    body.innerHTML = `<span class="tr-res">${esc(res.out)}</span>` +
-      `<span class="tr-note">${res.cached ? "（本机缓存）" : "浏览器内置翻译 · 设备端完成"}</span>`;
+    const how = res.cached ? "（本机缓存）" : res.via === "server" ? "服务器 AI 翻译 · 仅供参考，存卡片前可以改" : "浏览器内置翻译 · 设备端完成";
+    body.innerHTML = `<span class="tr-res">${esc(res.out)}</span><span class="tr-note">${how}</span>`;
     $("#trAdd").disabled = false;
     return;
   }
+  const localNote = {
+    nosupport: `这台设备的浏览器没有内置翻译（iPhone / iPad 的 Safari 不支持；安卓或电脑上用 Chrome 138 以上才有）。`,
+    nopair: `浏览器内置翻译没有「泰语 → 中文」语言包。`
+  }[res.localErr] || "";
   const msg = {
-    nosupport: `这台设备的浏览器<b>没有内置翻译</b>。<br>iPhone / iPad 上的 Safari 目前不支持；
-      安卓或电脑上用 <b>Chrome 138 以上</b>打开就能用。`,
-    nopair: `浏览器内置翻译在这台设备上<b>没有「泰语 → 中文」的语言包</b>。<br>
-      可以到 Chrome 设置里的「语言」看看能不能下载泰语。`,
+    nologin: `还没登录，用不了服务器翻译。<br>请先在「随手记」里登录 Google 账号。`,
+    offline: `手机当前没有网络，用不了服务器翻译。`,
+    noserver: `服务器还没开启 AI 翻译（后端没有配置 <b>OCR_API_KEY</b>，或还没更新到新版本）。`,
     "empty-result": `没有翻译出内容，换个词再试试。`,
     failed: `翻译失败：${esc(res.detail || "")}`
   }[res.err] || "翻译没能完成。";
+  body.innerHTML = `<span class="tr-bad">${msg}` + (localNote ? `<span class="tr-note">${localNote}</span>` : "") + `</span>`;
   body.innerHTML = `<span class="tr-bad">${msg}</span>`;
   $("#trAdd").disabled = true;
 }

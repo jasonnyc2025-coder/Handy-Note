@@ -505,40 +505,80 @@ app.post('/api/cards/ocr', requireAuth, async (req, res) => {
 // and drop obvious filler, WITHOUT changing meaning. Reuses the same OpenAI-compatible
 // endpoint as OCR. Best-effort: returns the original text on any failure so a note
 // is never lost. Model defaults to OCR_MODEL (override with AI_TEXT_MODEL).
+// One text-only chat call: AI_TEXT_MODEL if pinned, else the same model-walking
+// fallback the OCR uses. Resolves { ok:true, text, model } or { ok:false, status, detail }.
+async function llmText(sys, user, maxTokens) {
+  const pinned = process.env.AI_TEXT_MODEL;
+  const mk = () => ({ max_tokens: maxTokens || 800,
+    messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] });
+  let j, model;
+  if (pinned) {
+    const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${OCR_API_KEY}` },
+      body: JSON.stringify(Object.assign({ model: pinned }, mk()))
+    });
+    if (!r.ok) return { ok: false, status: r.status, detail: (await r.text().catch(() => '')).slice(0, 200) };
+    j = await r.json(); model = pinned;
+  } else {
+    const out = await callVisionModel(mk);
+    if (!out.ok) return { ok: false, status: out.status, detail: out.detail };
+    j = out.json; model = out.model;
+  }
+  const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
+  let out = String(msg.content || msg.reasoning_content || '').trim();
+  const fence = out.match(/```(?:\w+)?\s*([\s\S]*?)```/);
+  if (fence) out = fence[1].trim();
+  out = out.replace(/^["“”'']+|["“”'']+$/g, '').trim();
+  return { ok: true, text: out, model };
+}
+
 async function punctuateText(text) {
   if (!OCR_API_KEY || !text || !text.trim()) return text;
-  const pinned = process.env.AI_TEXT_MODEL;
   const sys = '你是中文文本整理助手。用户给你一段语音听写的文字，通常没有标点、可能带口语化的重复或语气词。' +
     '请只做三件事：1) 断句并补上正确的标点；2) 去掉明显的口头语气词和重复；3) 保持原意，不增删信息、不解释、不翻译。' +
     '直接输出整理后的文本本身，不要加任何前后缀、引号或代码块。';
   try {
-    const mk = () => ({ max_tokens: 1200,
-      messages: [{ role: 'system', content: sys }, { role: 'user', content: text }] });
-    let j;
-    if (pinned) {
-      const r = await fetch(`${OCR_BASE_URL}/chat/completions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${OCR_API_KEY}` },
-        body: JSON.stringify(Object.assign({ model: pinned }, mk()))
-      });
-      if (!r.ok) { console.error('punctuate upstream', r.status); return text; }
-      j = await r.json();
-    } else {
-      const out = await callVisionModel(mk);
-      if (!out.ok) { console.error('punctuate upstream', out.status, out.detail); return text; }
-      j = out.json;
-    }
-    const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
-    let out = String(msg.content || msg.reasoning_content || '').trim();
-    const fence = out.match(/```(?:\w+)?\s*([\s\S]*?)```/);
-    if (fence) out = fence[1].trim();
-    out = out.replace(/^["“”'']+|["“”'']+$/g, '').trim();
-    return out || text;
+    const r = await llmText(sys, text, 1200);
+    if (!r.ok) { console.error('punctuate upstream', r.status, r.detail); return text; }
+    return r.text || text;
   } catch (err) {
     console.error('punctuate error:', err.message);
     return text;
   }
 }
+
+// POST /api/translate  { text, from?, to? } → { translation, model }
+// Thai → Chinese for the flashcards' 「翻译」 button. iOS Safari has no built-in
+// translator the page could use, so the phone asks the server, which uses the
+// same text model as OCR / quick-add. Needs OCR_API_KEY; otherwise 501.
+const _trCache = new Map();
+app.post('/api/translate', requireAuth, async (req, res) => {
+  if (!OCR_API_KEY) {
+    return res.status(501).json({ error: 'translate_unavailable', message: '服务器未配置 OCR_API_KEY，AI 翻译不可用' });
+  }
+  const text = String((req.body && req.body.text) || '').trim().slice(0, 500);
+  if (!text) return res.status(400).json({ error: 'No text' });
+  const from = String((req.body && req.body.from) || 'th').slice(0, 10);
+  const to = String((req.body && req.body.to) || 'zh').slice(0, 10);
+  const key = `${from}>${to}:${text}`;
+  if (_trCache.has(key)) return res.json({ translation: _trCache.get(key), cached: true });
+  const sys = '你是泰语—中文词典助手。用户给你一个泰语词、词组或短句（来自泰语学习卡片的例句），' +
+    '请给出简洁准确的简体中文翻译。规则：只输出译文本身，不要解释、不要拼音、不要加引号或前后缀；' +
+    '如果是多义词，用「/」分隔列出最常用的 2～3 个意思；短句就直接译成自然的中文。';
+  try {
+    const r = await llmText(sys, text, 300);
+    if (!r.ok) return res.status(502).json({ error: 'upstream', message: `翻译模型返回 ${r.status || '网络错误'}：${r.detail || ''}` });
+    const translation = (r.text || '').trim();
+    if (!translation) return res.status(502).json({ error: 'empty', message: '翻译模型没有返回内容' });
+    _trCache.set(key, translation);
+    if (_trCache.size > 2000) _trCache.delete(_trCache.keys().next().value);
+    res.json({ translation, model: r.model });
+  } catch (err) {
+    console.error('translate error:', err.message);
+    res.status(500).json({ error: 'Server error', message: err.message });
+  }
+});
 
 // ── Background push reminders (anonymous — no login required) ────────────────
 //

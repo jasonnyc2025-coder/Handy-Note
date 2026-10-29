@@ -118,6 +118,7 @@ The app expects a server at a configurable URL with these endpoints:
 | POST | `/api/auth/google` | Exchanges Google `id_token` → JWT `{ token, name, email, picture }` |
 | GET | `/api/sync` | Returns `{ notes, cats, thai, thaiRev, cards, cardsRev }` for authenticated user |
 | GET | `/api/sync/thai` (or `/cards`) | Just that section: `{ thai, thaiRev }`. With `?since=<rev>&wait=<s>` it long-polls (up to 25 s) until another device pushes a newer rev, answering `{ thaiRev, unchanged: true }` on timeout |
+| POST | `/api/translate` | `{ text, from?, to? }` → `{ translation }`. Thai→Chinese via the configured text model (needs `OCR_API_KEY`); used by the flashcards' 翻译 button where the browser has no built-in translator (iOS) |
 | PUT | `/api/sync` | Partial upsert: only the fields present are written. `thai` (and `cards`) is accepted only if `thaiBase` (`cardsBase`) equals the stored rev (compare-and-swap); the response carries `thaiAccepted` / `cardsAccepted` and the resulting revs |
 
 Authentication: `Authorization: Bearer <jwt>` header.
