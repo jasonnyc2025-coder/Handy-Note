@@ -71,6 +71,8 @@
   .listwrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 2px 120px}
   .listhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 10px}
   .count{font-size:13px;color:var(--muted)}
+  .syncline{font-size:12px;color:var(--muted);padding:0 2px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .syncline.bad{color:#f59e0b}
   .sort-btn{flex:0 0 auto;font-size:13px;font-weight:700;color:var(--brand-ink);background:var(--brand-soft);
     border-radius:99px;padding:5px 12px;white-space:nowrap}
   .sort-btn:active{filter:brightness(.9)}
@@ -227,6 +229,7 @@
       <span class="count" id="count"></span>
       <button class="sort-btn" id="sortBtn">⇅ 姓名</button>
     </div>
+    <div class="syncline" id="syncLine" style="display:none"></div>
     <div class="grid" id="grid"></div>
     <div class="empty" id="empty" style="display:none">
       <div class="em-ic">📇</div>
@@ -288,7 +291,7 @@
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet">
   <h3>设置与备份</h3>
-  <p class="sub">名片文字与缩略图会云同步；原图存在本机并同步到你的服务器。建议定期导出备份。</p>
+  <p class="sub">名片文字云同步（很轻，几 KB）；缩略图和原图单独存到你的服务器，按需下载。建议定期导出备份。</p>
   <button class="ghost" id="batchBtn">📷 从相册批量导入</button>
   <button class="ghost" id="reocrAllBtn">🔍 识别「未命名」的名片</button>
   <button class="ghost" id="exportBtn">⬇ 导出备份（含文字，不含原图）</button>
@@ -317,9 +320,8 @@
 "use strict";
 const $ = s => document.querySelector(s);
 const STORE_KEY = "namecards.v1";
-const REV_KEY   = "namecards.rev";
 const CLOUD_KEY = "quicknotes.cloud";   // shares 随手记's login
-const APP_VER   = "v24";
+const APP_VER   = "v25";
 
 /* ---------------- storage ---------------- */
 let cards = [];
@@ -342,7 +344,7 @@ function persistLocal(){
     return false;
   }
 }
-function save(){ persistLocal(); bumpRev(); scheduleCardsPush(); }
+function save(){ persistLocal(); scheduleCardsPush(); }
 // on later loads localStorage has no thumbnails — pull them back from IndexedDB
 async function hydrateThumbs(){
   let changed = false;
@@ -354,8 +356,6 @@ async function hydrateThumbs(){
 }
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-function getRev(){ return parseInt(localStorage.getItem(REV_KEY),10) || 0; }
-function bumpRev(){ const r = Date.now(); localStorage.setItem(REV_KEY, String(r)); return r; }
 // only the non-deleted cards
 function activeCards(){ return cards.filter(c=>!c._deleted); }
 function cardById(id){ return cards.find(c=>c.id===id); }
@@ -397,16 +397,29 @@ async function downscale(file, maxDim, quality){
 }
 function blobToDataURL(b){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(b); }); }
 
-/* ---------------- cloud sync (shares 随手记's login + /api/sync) ---------------- */
+/* ---------------- cloud sync (shares 随手记's login; own /api/cards endpoints) ----------------
+   v24 及以前走的是 GET/PUT /api/sync。那个接口连随手记的全部笔记（含内嵌照片、PDF）
+   和每张名片的缩略图一起回来，手机上每 20 秒拉一次就是好几 MB，20 秒超时根本跑不完，
+   上传也一样带着全部缩略图 —— 于是哪台设备都同步不上。
+   现在：文字走 /api/cards（没变化时服务器只回一行），缩略图单独走图片接口按需下载。 */
 function getCloud(){
   try{ const c = JSON.parse(localStorage.getItem(CLOUD_KEY)); return (c && c.token && c.url) ? c : null; }
   catch(e){ return null; }
 }
+const SRV_REV_KEY = "namecards.srvrev";   // 上次见到的服务器 rev（没变就不用整份下载）
+const DIRTY_KEY   = "namecards.dirty";    // 本机有还没推上去的改动（断网时留着，下次补推）
+function getSrvRev(){ return parseInt(localStorage.getItem(SRV_REV_KEY),10) || 0; }
+function setSrvRev(r){ try{ localStorage.setItem(SRV_REV_KEY, String(r||0)); }catch(e){} }
+function isDirty(){ return localStorage.getItem(DIRTY_KEY) === "1"; }
+function setDirty(v){ try{ localStorage.setItem(DIRTY_KEY, v ? "1" : "0"); }catch(e){} }
 let _pushTimer = null;
-function scheduleCardsPush(){ if(!getCloud()) return; clearTimeout(_pushTimer); _pushTimer = setTimeout(()=>serialSync(()=>cardsPush()), 900); }
+function scheduleCardsPush(){
+  setDirty(true);
+  if(!getCloud()) return;
+  clearTimeout(_pushTimer); _pushTimer = setTimeout(()=>serialSync(()=>cardsPush()), 900);
+}
 
-/* 同步状态：以前 push/pull 出任何错都被 catch 吞掉，两台设备对不上时
-   完全看不出是没登录、服务器没通、还是合并出了问题。 */
+/* 同步状态：出任何错都写出来（设置面板 + 列表顶上一行），两台设备对不上时才查得出原因 */
 const SYNCINFO_KEY = "namecards.syncinfo";
 let syncInfo = { at:0, ok:null, msg:"从未同步", serverCount:null };
 try{ const v = JSON.parse(localStorage.getItem(SYNCINFO_KEY)); if(v) syncInfo = v; }catch(e){}
@@ -414,11 +427,20 @@ function noteSync(ok, msg, extra){
   syncInfo = Object.assign({ at:Date.now(), ok, msg, serverCount:null }, extra||{});
   try{ localStorage.setItem(SYNCINFO_KEY, JSON.stringify(syncInfo)); }catch(e){}
   if(typeof renderSyncBox === "function") renderSyncBox();
+  if(typeof renderSyncLine === "function") renderSyncLine();
 }
 function netReason(e){
   if(e && e.name === "AbortError") return "请求超时";
   if(navigator.onLine === false)   return "手机当前没有网络";
   return "连不上服务器（域名、证书或服务没在运行）";
+}
+function httpReason(status){
+  return (status===401||status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${status}`;
+}
+function authHdr(cloud, json){
+  const h = { "Authorization":"Bearer "+cloud.token };
+  if(json) h["Content-Type"] = "application/json";
+  return h;
 }
 function fetchT(url, opts, ms){
   const ctl = new AbortController();
@@ -433,11 +455,7 @@ function serialSync(fn){
   return p;
 }
 
-/* 按 id 合并，而不是整个数组覆盖。
-   以前是「服务器 rev 更大就把本地整份换掉」，rev 又是各自的 Date.now()：
-   两台设备各加一张，各自 rev 都更大，谁也不肯拉对方的，于是永远停在
-   54 / 55 张对不上；真被覆盖的那一次，另一台新加的卡片就直接没了。
-   现在同一 id 比 modified，删除靠 _deleted 墓碑传播。 */
+/* 按 id 合并，而不是整个数组覆盖：同一 id 比 modified，删除靠 _deleted 墓碑传播。 */
 function _rankCard(c){ return Math.max(c.modified||0, c._deletedAt||0, c.createdAt||0); }
 function mergeCards(a, b){
   const byId = new Map();
@@ -457,94 +475,179 @@ function mergeCards(a, b){
 function cardsSig(list){
   return (list||[]).map(c => [c.id, _rankCard(c), c._deleted?1:0].join(":")).sort().join("|");
 }
+// 把服务器那份并进本机。返回「本机有服务器没有的东西」（那就得推一轮）
+function absorb(serverCards){
+  const localById = new Map(cards.map(c=>[c.id, c]));
+  const merged = mergeCards(cards, serverCards);
+  const mSig = cardsSig(merged), lSig = cardsSig(cards), rSig = cardsSig(serverCards);
+  if(mSig !== lSig){
+    for(const m of merged){
+      const l = localById.get(m.id);
+      if(!l || l === m) continue;
+      // 服务器那条赢了：文字换成它的，缩略图还是本机这张（除非对方换过照片）
+      if((m.thumbAt||0) > (l.thumbAt||0)){ idbDel(imgKey(m.id,"thumb")); if(serverThumbs) serverThumbs.delete(m.id); }
+      else if(l.thumb && !m.thumb) m.thumb = l.thumb;
+    }
+    cards = merged;
+    cards.forEach(stashThumb);   // 旧服务器还会把缩略图夹在文字里传过来
+    persistLocal();
+    render();
+    scheduleThumbWork();
+  }
+  return mSig !== rSig;
+}
 
-async function cardsPush(cur0){
-  const cloud = getCloud(); if(!cloud){ noteSync(false, "未登录，无法同步"); return false; }
-  try{
-    let cur = cur0;
-    if(!cur){
-      try{
-        const g = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-        if(!g.ok){ noteSync(false, (g.status===401||g.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${g.status}`); return false; }
-        cur = await g.json();
-      }catch(e){ noteSync(false, netReason(e)); return false; }   // 读不到就别推，否则拿旧数据盖掉服务器
-    }
-    let out = cards;
-    if(Array.isArray(cur.cards)){
-      const merged = mergeCards(cur.cards, cards);
-      if(cardsSig(merged) !== cardsSig(cards)){
-        cards = merged; cards.forEach(stashThumb); persistLocal(); render();
-      }
-      out = cards;
-    }
-    // rev 要压过服务器那份，服务器才会收（它按 rev 把关）
-    const pushRev = Math.max(getRev(), (Number(cur.cardsRev)||0) + 1);
-    localStorage.setItem(REV_KEY, String(pushRev));
-    // 只传 cards —— 服务器是「传了哪一段就只写哪一段」。以前把读回来的
-    // notes 原样再传上去，等于每改一张名片就把随手记的全部笔记（含内嵌
-    // 的 PDF / 照片）重新上传一遍，又慢又会盖掉别处刚改的笔记。
-    const put = await fetchT(`${cloud.url}/api/sync`, {
-      method:"PUT",
-      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
-      body: JSON.stringify({ cards: out, cardsRev: pushRev })
-    }, 40000);
-    if(!put.ok){
-      noteSync(false, (put.status===401||put.status===403) ? "登录已过期，请在「随手记」里重新登录" : `上传失败：服务器返回 ${put.status}`);
-      return false;
-    }
-    noteSync(true, "已同步", { serverCount: out.filter(c=>!c._deleted).length });
-    return true;
-  }catch(e){ noteSync(false, netReason(e)); return false; }
+// 推送只带文字；缩略图走图片接口（旧服务器除外）
+function forPush(list){ return list.map(c=>{ const o = Object.assign({}, c); delete o.thumb; return o; }); }
+
+let legacyServer = false;   // 服务器还没部署到有 /api/cards 的版本：退回旧的 /api/sync（慢，但能用）
+const LEGACY_MSG = "（服务器是旧版，请重新部署 server 后同步才会快）";
+
+// 读服务器上的名片。full=false 时带上 rev，没变化服务器只回一行
+async function fetchServerCards(cloud, full){
+  const q = (!full && getSrvRev()) ? `?rev=${getSrvRev()}` : "";
+  let r = legacyServer ? null : await fetchT(`${cloud.url}/api/cards${q}`, { cache:"no-store", headers:authHdr(cloud) });
+  if(r && r.status === 404){ legacyServer = true; r = null; }
+  if(!r) r = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:authHdr(cloud) }, 60000);
+  if(!r.ok) return { ok:false, status:r.status };
+  const d = await r.json();
+  if(d && d.unchanged) return { ok:true, unchanged:true, rev:Number(d.cardsRev)||0, count:d.count, thumbs:d.thumbs };
+  const list = (d && Array.isArray(d.cards)) ? d.cards : [];
+  return { ok:true, cards:list, rev:Number(d && d.cardsRev)||0,
+           count: list.filter(c=>c && !c._deleted).length, thumbs: legacyServer ? null : d.thumbs };
+}
+// 写到服务器。baseRev 是刚才读到的服务器 rev：中间有别的设备推过就会被拒，重读再合并
+async function putServerCards(cloud, list, baseRev){
+  const pushRev = Math.max(Date.now(), baseRev + 1);
+  const body = legacyServer
+    ? JSON.stringify({ cards: list, cardsRev: pushRev })
+    : JSON.stringify({ cards: forPush(list), cardsRev: pushRev, baseRev });
+  const r = await fetchT(`${cloud.url}/api/${legacyServer ? "sync" : "cards"}`,
+    { method:"PUT", headers:authHdr(cloud, true), body }, legacyServer ? 60000 : 30000);
+  if(!r.ok) return { ok:false, status:r.status };
+  const d = await r.json().catch(()=>({}));
+  if(!legacyServer && d && d.accepted === false) return { ok:true, accepted:false, rev:Number(d.cardsRev)||0 };
+  return { ok:true, accepted:true, rev:pushRev };
 }
 
 async function cardsPull(){
   const cloud = getCloud(); if(!cloud){ noteSync(false, "未登录，无法同步"); return { ok:false }; }
   try{
-    const res = await fetchT(`${cloud.url}/api/sync`, { cache:"no-store", headers:{ "Authorization":"Bearer "+cloud.token } });
-    if(!res.ok){
-      noteSync(false, (res.status===401||res.status===403) ? "登录已过期，请在「随手记」里重新登录" : `服务器返回 ${res.status}`);
-      return { ok:false };
+    const s = await fetchServerCards(cloud, getSrvRev() === 0);
+    if(!s.ok){ noteSync(false, httpReason(s.status)); return { ok:false }; }
+    let needPush = isDirty();
+    if(s.unchanged){
+      noteSync(true, "已同步", { serverCount: s.count });
+    }else{
+      if(absorb(s.cards)){ needPush = true; setDirty(true); }   // 本机有服务器没有的，才需要推
+      setSrvRev(s.rev);
+      noteSync(true, "已同步" + (legacyServer ? LEGACY_MSG : ""), { serverCount: s.count });
     }
-    const data = await res.json();
-    if(!Array.isArray(data.cards)){ noteSync(true, "已同步（服务器上还没有名片）", { serverCount: 0 }); return { ok:true, data, needPush:true }; }
-    noteSync(true, "已同步", { serverCount: data.cards.filter(c=>!c._deleted).length });
-    const merged = mergeCards(cards, data.cards);
-    const mSig = cardsSig(merged), lSig = cardsSig(cards), rSig = cardsSig(data.cards);
-    if(mSig !== lSig){
-      cards = merged;
-      cards.forEach(stashThumb);
-      persistLocal();
-      localStorage.setItem(REV_KEY, String(Math.max(getRev(), Number(data.cardsRev)||0)));
-      hydrateThumbs();
-      render();
-    }
-    return { ok:true, data, needPush: mSig !== rSig };   // 本地有服务器没有的，才需要推
+    if(s.thumbs) noteServerThumbs(s.thumbs);
+    return { ok:true, needPush };
   }catch(e){ noteSync(false, netReason(e)); return { ok:false }; }
+}
+
+async function cardsPush(){
+  const cloud = getCloud(); if(!cloud){ noteSync(false, "未登录，无法同步"); return false; }
+  try{
+    for(let attempt = 0; attempt < 3; attempt++){
+      // 推之前先读整份、合并 —— 读不到就别推，否则拿旧数据盖掉别的设备刚加的
+      const s = await fetchServerCards(cloud, true);
+      if(!s.ok){ noteSync(false, httpReason(s.status)); return false; }
+      absorb(s.cards);
+      if(s.thumbs) noteServerThumbs(s.thumbs);
+      const sigAtPut = cardsSig(cards);
+      const p = await putServerCards(cloud, cards, s.rev);
+      if(!p.ok){ noteSync(false, "上传失败：" + httpReason(p.status)); return false; }
+      if(p.accepted === false) continue;          // 刚好有别的设备先推了一步，重读再合并
+      setSrvRev(p.rev);
+      if(cardsSig(cards) === sigAtPut) setDirty(false);   // 推的过程中又改了的，留给下一轮
+      noteSync(true, "已同步" + (legacyServer ? LEGACY_MSG : ""), { serverCount: activeCards().length });
+      scheduleThumbWork();
+      return true;
+    }
+    noteSync(false, "其他设备正在同时改动，稍后自动重试");
+    return false;
+  }catch(e){ noteSync(false, netReason(e)); return false; }
 }
 
 let _syncRun = null;
 function cardsSync(){
-  if(!getCloud()) return Promise.resolve(false);
+  if(!getCloud()){ noteSync(false, "未登录，无法同步"); return Promise.resolve(false); }
   if(_syncRun) return _syncRun;                 // 已经有一轮在跑，就搭它的车
   _syncRun = serialSync(async ()=>{
     const r = await cardsPull();
-    if(r.ok && r.needPush) await cardsPush(r.data);
+    if(r.ok && r.needPush) await cardsPush();
     return !!r.ok;
   }).finally(()=>{ _syncRun = null; });
   return _syncRun;
 }
 
-// upload a card's full photo to the server (fire-and-forget)
-async function uploadImage(id, side, blob){
-  const cloud = getCloud(); if(!cloud || !blob) return;
+/* ---------------- thumbnails ----------------
+   文字同步不再夹带缩略图。缩略图存在服务器 card_images(side=thumb)，本机 IndexedDB 缓存：
+   1) 本机缺、服务器有 → 下载；2) 本机有、服务器没有（老数据）→ 补传；
+   3) 两边都没有但有原图 → 从原图生成一张再补传。 */
+let serverThumbs = null;            // Set<id>：服务器上有缩略图的卡片；null = 还不知道
+function noteServerThumbs(ids){ serverThumbs = new Set(ids || []); scheduleThumbWork(); }
+let _thumbTimer = null, _thumbBusy = false, _thumbAgain = false;
+const _thumbFail = new Map();       // key → 上次失败时间，10 分钟内不重试，免得死循环
+function thumbFailed(k){ return (Date.now() - (_thumbFail.get(k)||0)) < 10*60e3; }
+function scheduleThumbWork(){ clearTimeout(_thumbTimer); _thumbTimer = setTimeout(thumbWork, 300); }
+async function thumbWork(){
+  if(_thumbBusy){ _thumbAgain = true; return; }
+  const cloud = getCloud(); if(!cloud || !serverThumbs || legacyServer) return;
+  _thumbBusy = true; _thumbAgain = false;
+  let changed = false, lastRender = Date.now();
+  const bump = ()=>{ changed = true; if(Date.now() - lastRender > 600){ render(); lastRender = Date.now(); changed = false; } };
   try{
-    const dataUrl = await blobToDataURL(blob);
-    await fetch(`${cloud.url}/api/cards/image/${id}?side=${side}`, {
+    // 1) 下载
+    for(const c of activeCards().filter(c=> !c.thumb && serverThumbs.has(c.id) && !thumbFailed(c.id))){
+      let t = await idbGet(imgKey(c.id,"thumb")).catch(()=>null);
+      if(!t){
+        try{
+          const r = await fetchT(`${cloud.url}/api/cards/image/${c.id}?side=thumb`, { headers:authHdr(cloud) }, 15000);
+          if(r.ok){ t = await blobToDataURL(await r.blob()); await idbSet(imgKey(c.id,"thumb"), t).catch(()=>{}); }
+          else if(r.status === 404) serverThumbs.delete(c.id);
+        }catch(e){}
+      }
+      if(t){ c.thumb = t; bump(); } else _thumbFail.set(c.id, Date.now());
+    }
+    // 2) 补传
+    for(const c of activeCards().filter(c=> c.thumb && !serverThumbs.has(c.id) && !thumbFailed("up:"+c.id))){
+      if(await uploadImage(c.id, "thumb", c.thumb)) serverThumbs.add(c.id);
+      else _thumbFail.set("up:"+c.id, Date.now());
+    }
+    // 3) 从原图生成（每轮最多几张，别把流量一次用光）
+    for(const c of activeCards().filter(c=> !c.thumb && c.hasFront && !serverThumbs.has(c.id) && !thumbFailed("gen:"+c.id)).slice(0,4)){
+      let t = null;
+      try{
+        const blob = await getPhotoBlob(c, "front");
+        const tb = blob ? await downscale(blob, 460, 0.7) : null;
+        if(tb){ t = await blobToDataURL(tb); await idbSet(imgKey(c.id,"thumb"), t).catch(()=>{}); }
+      }catch(e){}
+      if(t){ c.thumb = t; bump(); if(await uploadImage(c.id, "thumb", t)) serverThumbs.add(c.id); }
+      else _thumbFail.set("gen:"+c.id, Date.now());
+    }
+  }finally{
+    _thumbBusy = false;
+    if(changed) render();
+    if(_thumbAgain) scheduleThumbWork();
+  }
+}
+
+// upload a card photo (front / back / thumb) to the server; takes a Blob or a data URL
+async function uploadImage(id, side, img){
+  const cloud = getCloud(); if(!cloud || !img) return false;
+  try{
+    const dataUrl = (typeof img === "string") ? img : await blobToDataURL(img);
+    const r = await fetchT(`${cloud.url}/api/cards/image/${id}?side=${side}`, {
       method:"PUT",
-      headers:{ "Authorization":"Bearer "+cloud.token, "Content-Type":"application/json" },
+      headers:authHdr(cloud, true),
       body: JSON.stringify({ data: dataUrl, mime:"image/jpeg" })
-    });
-  }catch(e){}
+    }, 60000);
+    return r.ok;
+  }catch(e){ return false; }
 }
 // resolve a full photo: local IndexedDB first, else download from server & cache
 async function getPhotoBlob(card, side){
@@ -951,11 +1054,13 @@ async function batchImport(fileList){
       if(nk && seenNames.has(nk)){ skipped++; continue; }        // same person already in
       const thumbBlob = await downscale(f, 460, 0.7);
       c.thumb = await blobToDataURL(thumbBlob);
+      c.thumbAt = now;
       c.imgHash = hash;
       await idbSet(imgKey(c.id, "thumb"), c.thumb).catch(()=>{});
       await idbSet(imgKey(c.id, "front"), full).catch(()=>{});
       cards.push(c);
       uploadImage(c.id, "front", full);
+      uploadImage(c.id, "thumb", thumbBlob).then(ok=>{ if(ok && serverThumbs) serverThumbs.add(c.id); });
       if(hash) seenHashes.add(hash);
       if(nk) seenNames.add(nk);
       done++;
@@ -1045,11 +1150,11 @@ $("#saveBtn").onclick = async ()=>{
       const cloud=getCloud(); if(cloud){ /* leave server copy; overwritten next upload */ }
     }else if(p.blob){
       await idbSet(imgKey(c.id,side), p.blob).catch(()=>{});
-      if(side==="front"){ c.hasFront=true; c.thumb = p.thumb; } else c.hasBack=true;
+      if(side==="front"){ c.hasFront=true; c.thumb = p.thumb; c.thumbAt = now; uploadImage(c.id, "thumb", p.thumb).then(ok=>{ if(ok && serverThumbs) serverThumbs.add(c.id); }); } else c.hasBack=true;
       uploadImage(c.id, side, p.blob);
     }
   }
-  if(editThumb===null && (pendingImg.front && pendingImg.front.cleared)){ c.thumb = null; idbDel(imgKey(c.id,"thumb")); }
+  if(editThumb===null && (pendingImg.front && pendingImg.front.cleared)){ c.thumb = null; c.thumbAt = now; idbDel(imgKey(c.id,"thumb")); }
   stashThumb(c);
   save();
   $("#editView").classList.remove("show");
@@ -1081,6 +1186,18 @@ function renderSyncBox(){
     `最近一次：${fmtWhen(syncInfo.at)}<br>` +
     `本机：<b>${mine}</b> 张` + (syncInfo.serverCount!=null ? ` ｜ 服务器：<b>${syncInfo.serverCount}</b> 张` : "");
 }
+// 列表顶上一行同步状态：不用点进设置就看得见有没有同步上、卡在哪
+function renderSyncLine(){
+  const el = $("#syncLine"); if(!el) return;
+  let txt, bad = false;
+  if(!getCloud()){ txt = "⚠️ 未登录：名片只存在本机，在「随手记」登录后才会同步"; bad = true; }
+  else if(syncInfo.ok === null) txt = "☁ 正在同步…";
+  else if(syncInfo.ok) txt = `☁ 已同步 · ${fmtWhen(syncInfo.at)}` + (syncInfo.serverCount!=null ? ` · 服务器 ${syncInfo.serverCount} 张` : "");
+  else { txt = `⚠️ 同步失败：${syncInfo.msg||""} · ${fmtWhen(syncInfo.at)}`; bad = true; }
+  el.textContent = txt; el.classList.toggle("bad", bad); el.style.display = "block";
+}
+const _sl = $("#syncLine"); if(_sl) _sl.onclick = ()=> openSheet(true);
+setInterval(renderSyncLine, 60000);
 function openSheet(v){ $("#sheet").classList.toggle("show",v); $("#sheetBg").classList.toggle("show",v);
   if(v) renderSyncBox(); }
 $("#gearBtn").onclick = ()=> openSheet(true);
@@ -1130,8 +1247,12 @@ const _av = $("#appVer"); if(_av) _av.textContent = APP_VER;
 load();
 render();
 hydrateThumbs();
+renderSyncLine();
 cardsSync();
-setInterval(cardsPull, 20000);
+setInterval(cardsSync, 20000);
+// iOS 把后台的 PWA 冻住，定时器不走；回到前台 / 网络恢复时立刻同步一次
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible") cardsSync(); });
+window.addEventListener("online", ()=> cardsSync());
 
 /* ---------------- auto-update ----------------
    Two independent paths so an update always lands:

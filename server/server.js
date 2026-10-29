@@ -193,10 +193,13 @@ function decodeDataUrl(s) {
   try { return { buf: Buffer.from(b64, 'base64'), mime }; } catch { return null; }
 }
 
+// 'front' | 'back' | 'thumb' (the ~460px list thumbnail, kept out of the metadata JSON)
+function sideOf(s) { return s === 'back' ? 'back' : s === 'thumb' ? 'thumb' : 'front'; }
+
 // PUT /api/cards/image/:cardId?side=front  — upload/replace a card photo
 app.put('/api/cards/image/:cardId', requireAuth, async (req, res) => {
   try {
-    const side = (req.query.side === 'back') ? 'back' : 'front';
+    const side = sideOf(req.query.side);
     const dec = decodeDataUrl(req.body && (req.body.data || req.body.image));
     if (!dec || !dec.buf.length) return res.status(400).json({ error: 'No image data' });
     await pool.query(
@@ -216,7 +219,7 @@ app.put('/api/cards/image/:cardId', requireAuth, async (req, res) => {
 // GET /api/cards/image/:cardId?side=front  — download a card photo
 app.get('/api/cards/image/:cardId', requireAuth, async (req, res) => {
   try {
-    const side = (req.query.side === 'back') ? 'back' : 'front';
+    const side = sideOf(req.query.side);
     const r = await pool.query(
       'SELECT mime, data FROM card_images WHERE user_id = $1 AND card_id = $2 AND side = $3',
       [req.user.userId, req.params.cardId, side]
@@ -238,6 +241,125 @@ app.delete('/api/cards/image/:cardId', requireAuth, async (req, res) => {
       [req.user.userId, req.params.cardId]);
     res.json({ ok: true });
   } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── 名片夹 metadata sync (protected) ────────────────────────────────────────
+//
+// 名片夹 used to ride on GET/PUT /api/sync. That payload also carries every 随手记
+// note (with inline photos / PDFs) plus every card thumbnail, so the 20-second
+// poll on a phone was a multi-megabyte download that kept hitting the client's
+// timeout — nothing synced on any device. These endpoints carry card text only:
+//
+//   GET /api/cards[?rev=N]  → { unchanged:true, cardsRev, count, thumbs } when the
+//                             stored rev is still N (a few bytes), otherwise
+//                             { cards, cardsRev, count, thumbs }
+//   PUT /api/cards          → { cards, cardsRev, baseRev }. Compare-and-swap: written
+//                             only when the stored rev still equals baseRev, else
+//                             { accepted:false, cardsRev } so the client re-merges.
+//                             (Without baseRev it falls back to cardsRev >= stored.)
+//
+// `thumbs` lists the card ids that have a thumbnail in card_images (side='thumb');
+// the client downloads those lazily and uploads any it has that the server lacks.
+// An inline `thumb` still found in the JSONB (older clients / existing rows) is
+// moved into card_images on the fly, so old data keeps its pictures.
+
+async function storeThumb(userId, cardId, dataUrl) {
+  const dec = decodeDataUrl(dataUrl);
+  if (!dec || !dec.buf.length) return false;
+  await pool.query(
+    `INSERT INTO card_images (user_id, card_id, side, mime, data, updated_at)
+       VALUES ($1, $2, 'thumb', $3, $4, NOW())
+     ON CONFLICT (user_id, card_id, side)
+       DO UPDATE SET mime = $3, data = $4, updated_at = NOW()`,
+    [userId, cardId, dec.mime, dec.buf]
+  );
+  return true;
+}
+
+// strip inline thumbnails out of a cards array, saving them to card_images
+async function splitThumbs(userId, cards) {
+  const out = [];
+  for (const c of cards) {
+    if (!c || typeof c !== 'object') continue;
+    if (typeof c.thumb === 'string' && c.thumb && c.id) {
+      try { await storeThumb(userId, String(c.id), c.thumb); }
+      catch (err) { console.error('thumb split error:', err.message); }
+    }
+    if ('thumb' in c) { const { thumb, ...rest } = c; out.push(rest); } else out.push(c);
+  }
+  return out;
+}
+
+async function thumbIds(userId) {
+  const r = await pool.query(
+    `SELECT card_id FROM card_images WHERE user_id = $1 AND side = 'thumb'`, [userId]);
+  return r.rows.map(x => x.card_id);
+}
+
+async function loadCards(userId) {
+  const r = await pool.query('SELECT cards, cards_rev FROM user_data WHERE user_id = $1', [userId]);
+  if (!r.rows.length) return { cards: [], rev: 0 };
+  let cards = Array.isArray(r.rows[0].cards) ? r.rows[0].cards : [];
+  const rev = Number(r.rows[0].cards_rev) || 0;
+  if (cards.some(c => c && typeof c.thumb === 'string')) {
+    // one-time migration of rows written by the old client: same data, same rev
+    cards = await splitThumbs(userId, cards);
+    await pool.query(
+      'UPDATE user_data SET cards = $2::jsonb WHERE user_id = $1 AND cards_rev = $3',
+      [userId, JSON.stringify(cards), rev]);
+  }
+  return { cards, rev };
+}
+
+const liveCount = cards => cards.filter(c => c && !c._deleted).length;
+
+app.get('/api/cards', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { cards, rev } = await loadCards(userId);
+    const thumbs = await thumbIds(userId);
+    const count = liveCount(cards);
+    if (req.query.rev !== undefined && Number(req.query.rev) === rev) {
+      return res.json({ unchanged: true, cardsRev: rev, count, thumbs });
+    }
+    res.json({ cards, cardsRev: rev, count, thumbs });
+  } catch (err) {
+    console.error('GET cards error:', err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/cards', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { cards, cardsRev, baseRev } = req.body || {};
+    if (!Array.isArray(cards)) return res.status(400).json({ error: 'cards must be an array' });
+    const rev = Number(cardsRev) || 0;
+    await pool.query(
+      `INSERT INTO user_data (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [userId]);
+    const stripped = await splitThumbs(userId, cards);
+    const json = JSON.stringify(stripped);
+    const r = (baseRev !== undefined)
+      ? await pool.query(
+          `UPDATE user_data SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
+            WHERE user_id = $1 AND COALESCE(cards_rev, 0) = $4 AND $3 > $4
+            RETURNING cards_rev`,
+          [userId, json, rev, Number(baseRev) || 0])
+      : await pool.query(
+          `UPDATE user_data SET cards = $2::jsonb, cards_rev = $3, updated_at = NOW()
+            WHERE user_id = $1 AND $3 >= COALESCE(cards_rev, 0)
+            RETURNING cards_rev`,
+          [userId, json, rev]);
+    if (!r.rows.length) {
+      const cur = await pool.query('SELECT cards_rev FROM user_data WHERE user_id = $1', [userId]);
+      return res.json({ ok: true, accepted: false,
+        cardsRev: Number(cur.rows[0] && cur.rows[0].cards_rev) || 0 });
+    }
+    res.json({ ok: true, accepted: true, cardsRev: rev, count: liveCount(stripped) });
+  } catch (err) {
+    console.error('PUT cards error:', err.message);
     res.status(500).json({ error: 'Server error' });
   }
 });

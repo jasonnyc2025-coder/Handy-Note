@@ -116,8 +116,11 @@ The app expects a server at a configurable URL with these endpoints:
 |--------|------|-------------|
 | GET | `/api/config` | Returns `{ googleClientId }` |
 | POST | `/api/auth/google` | Exchanges Google `id_token` → JWT `{ token, name, email, picture }` |
-| GET | `/api/sync` | Returns `{ notes, cats }` for authenticated user |
-| PUT | `/api/sync` | Saves `{ notes, cats }` for authenticated user |
+| GET | `/api/sync` | Returns `{ notes, cats, thai, thaiRev, cards, cardsRev }` for authenticated user |
+| PUT | `/api/sync` | Partial upsert: only the sections present in the body are written |
+| GET | `/api/cards?rev=N` | 名片夹 text only. `{ unchanged:true, cardsRev, count, thumbs }` when the stored rev is still N, else `{ cards, cardsRev, count, thumbs }` |
+| PUT | `/api/cards` | `{ cards, cardsRev, baseRev }` — compare-and-swap on `baseRev`; returns `{ accepted:false, cardsRev }` when another device pushed first |
+| GET/PUT/DELETE | `/api/cards/image/:id?side=front\|back\|thumb` | Card photos; thumbnails live here too, never in the sync JSON |
 
 Authentication: `Authorization: Bearer <jwt>` header.
 
