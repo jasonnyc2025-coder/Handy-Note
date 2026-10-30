@@ -28,6 +28,9 @@
     --accent: #c8553d;
     --accent-soft: #f0d9d2;
     --todo-soft: #d2e9f5;
+    /* 展开卡片的标题栏（整条可点收起），比 *-soft 深一档好认 */
+    --head-idea: #e6bdb0;
+    --head-todo: #b6d8ec;
     --done: #a9a294;
     --shadow: rgba(43, 39, 34, 0.08);
   }
@@ -83,6 +86,8 @@
     --line: #423d36;
     --accent-soft: #4a3530;
     --todo-soft: #1c3245;
+    --head-idea: #5f403a;
+    --head-todo: #24435c;
     --shadow: rgba(0,0,0,0.3);
     background-image: radial-gradient(#34302a 0.5px, transparent 0.5px);
     background-size: 22px 22px;
@@ -95,6 +100,8 @@
     --line: #363b50;
     --accent-soft: #3a3550;
     --todo-soft: #1d2a42;
+    --head-idea: #4b4470;
+    --head-todo: #27385e;
     --shadow: rgba(0,0,0,0.35);
     background-image: linear-gradient(160deg, #1a1d2b 0%, #232036 100%);
     background-attachment: fixed;
@@ -564,8 +571,8 @@
   /* 整条标题栏都能点着收起，和折叠态「点整条展开」对称 */
   .note-head[data-act="headtap"] { cursor: pointer; }
   .note-head { display: flex; align-items: flex-start; gap: 6px; border-radius: 9px; padding: 7px 8px; margin-bottom: 6px; }
-  .item.idea .note-head { background: var(--accent-soft); }
-  .item.todo .note-head { background: var(--todo-soft); }
+  .item.idea .note-head { background: var(--head-idea, var(--accent-soft)); }
+  .item.todo .note-head { background: var(--head-todo, var(--todo-soft)); }
   .note-head .text { flex: 1; min-width: 0; }
   .note-head .more-btn { flex-shrink: 0; margin-left: 0; margin-top: 2px; }
   /* at-a-glance flag on notes that have an alarm (on the note or any sub-item) */
@@ -2206,7 +2213,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v206</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v207</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
