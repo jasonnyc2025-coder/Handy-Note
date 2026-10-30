@@ -2211,7 +2211,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v204</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v205</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -3905,6 +3905,9 @@ document.addEventListener('click', async e => {
   if (act === 'expand') { setNoteExpanded(id, true); render(); return; }
   if (act === 'collapse') { setNoteExpanded(id, false); render(); return; }
   if (act === 'headtap') {
+    // 编辑框是替换 .text 插进 .note-head 里的，点编辑框（定光标、点颜色条、点附件）
+    // 不能当成「点标题栏收起」，否则一碰内容 render() 就把编辑框销毁了
+    if (e.target.closest('.edit-wrap')) return;
     // 正在选文字的时候别收起来，否则刚选好松手就没了
     const sel = window.getSelection();
     if (sel && !sel.isCollapsed && item.contains(sel.anchorNode)) return;
