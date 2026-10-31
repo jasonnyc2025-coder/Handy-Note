@@ -716,7 +716,7 @@
     </div>
     <div class="field">
       <label>中文释义 <span class="opt">（选填）</span></label>
-      <input id="fMean" placeholder="可留空，之后再补" autocomplete="off">
+      <input id="fMean" autocomplete="off">
     </div>
     <div class="field">
       <label>读音 / 罗马音 <span class="opt">（选填）</span></label>
@@ -921,7 +921,7 @@
   <h3>加入生词</h3>
   <p class="sub">把例句里选中的词加到你的生词本，之后一起复习。</p>
   <div class="field"><label>泰文</label><input class="thai" id="awThai" readonly></div>
-  <div class="field"><label>中文释义</label><input id="awMean" placeholder="这个词的意思…" autocomplete="off"></div>
+  <div class="field"><label>中文释义 <span class="opt">（选填）</span></label><input id="awMean" autocomplete="off"></div>
   <div class="field"><label>读音 / 罗马音 <span class="opt">（选填）</span></label><input id="awRead" autocomplete="off"></div>
   <div class="field">
     <label>例句 <span class="opt">（选填，可多条）</span></label>
@@ -940,7 +940,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v102";
+const APP_VER = "v103";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
