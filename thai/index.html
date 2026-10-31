@@ -263,7 +263,11 @@
   .ex-row .with-spk{position:relative}
   .ex-row .with-spk .mini{position:absolute;right:8px;top:14px}
   .ex-row textarea{width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 46px 14px 14px;font-size:16px;color:var(--ink);min-height:72px;resize:vertical;line-height:1.5}
-  .ex-row .ex-mean-in{width:100%;margin-top:12px;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 14px;font-size:16px;color:var(--ink)}
+  /* 例句框里不再放提示文字（和填好的内容混在一起看不清），改成框上面的小标签 */
+  .ex-row .ex-sub{font-size:calc(13px * var(--formZoom,1));font-weight:700;color:var(--ink);margin:0 2px 6px;text-align:left}
+  .ex-row .ex-sub i{font-style:normal;font-weight:500;color:var(--muted);font-size:.85em}
+  .ex-row .with-spk + .ex-sub{margin-top:12px}
+  .ex-row .ex-mean-in{width:100%;margin-top:0;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 14px;font-size:16px;color:var(--ink)}
   .ex-row textarea:focus,.ex-row .ex-mean-in:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
   .primary{
     width:100%;margin-top:22px;background:var(--teal);color:#fff;border-radius:13px;
@@ -936,7 +940,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v101";
+const APP_VER = "v102";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1472,11 +1476,13 @@ function addExRow(thai="", meaning="", listEl){
   row.className = "ex-row";
   row.innerHTML = `
     <div class="ex-row-head"><button class="mini" data-act="rmEx" aria-label="删除例句">✕</button><span></span></div>
+    <div class="ex-sub">泰文</div>
     <div class="with-spk">
-      <textarea class="thai ex-thai-in" placeholder="在此输入泰文例句…"></textarea>
+      <textarea class="thai ex-thai-in"></textarea>
       <button class="mini spk" data-act="exSpk" aria-label="例句发音">🔊</button>
     </div>
-    <input class="ex-mean-in" placeholder="这句话的中文翻译（选填）" autocomplete="off">`;
+    <div class="ex-sub">中文翻译 <i>（选填）</i></div>
+    <input class="ex-mean-in" autocomplete="off">`;
   row.querySelector(".ex-thai-in").value = thai;
   row.querySelector(".ex-mean-in").value = meaning;
   row.querySelector('[data-act="rmEx"]').onclick = ()=>{ row.remove(); renumberEx(listEl); };
