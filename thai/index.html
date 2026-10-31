@@ -16,6 +16,7 @@
     --card-bg:#ffffff; --card-ex-bg:#eef4f2;   /* white flashcard, soft grey example chips (light) */
     --home-card-bg:#e6f4f0; --home-card-line:#bfe3da;   /* teal-tinted preview card, set apart from the white list */
     --teal-soft:rgba(13,148,136,.12);                   /* active-tab pill */
+    --field-bg:#eaf6f3; --field-bg-focus:#ffffff;        /* 输入框底色：浅青，和页面灰底分得开 */
     --note-bg:#fdf6e9; --note-line:#f0e2c4; --amber-ink:#a15c0a;   /* 备注 card (light) */
     --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5; --field-line:#b9c6c2;
@@ -30,6 +31,7 @@
       --card-bg:#141d1b; --card-ex-bg:#1c2725;   /* dark unchanged */
       --home-card-bg:#123a34; --home-card-line:#1f5148;
       --teal-soft:rgba(45,212,191,.16);
+      --field-bg:#17302c; --field-bg-focus:#0f1f1c;
       --note-bg:#2a2416; --note-line:#3d3420; --amber-ink:#fbbf24;
       --ink:#eef2f1; --muted:#8a9a97; --line:#26332f; --field-line:#43584f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
@@ -242,6 +244,16 @@
     font-size:calc(16px * var(--formZoom,1))}
   #view-add .field input.thai,#view-add .ex-row textarea,#addWordSheet .ex-row textarea{line-height:1.6}
   #view-add .field label,#addWordSheet .field label{font-size:calc(15px * var(--formZoom,1))}
+  /* 输入框原来是白底细边，在浅灰页面上几乎看不出哪里能填。给个浅青底色和深一点的边，
+     正在输入的那个变回白底 + 青色边框，一眼能看出是哪一个 */
+  #view-add .field input,#view-add .field textarea,#view-add .ex-row textarea,#view-add .ex-row .ex-mean-in,
+  #addWordSheet .field input,#addWordSheet .field textarea,#addWordSheet .ex-row textarea,#addWordSheet .ex-row .ex-mean-in{
+    background:var(--field-bg);border-color:var(--teal-ink);border-width:1.5px}
+  #view-add .field input:focus,#view-add .field textarea:focus,#view-add .ex-row textarea:focus,#view-add .ex-row .ex-mean-in:focus,
+  #addWordSheet .field input:focus,#addWordSheet .field textarea:focus,#addWordSheet .ex-row textarea:focus,#addWordSheet .ex-row .ex-mean-in:focus{
+    background:var(--field-bg-focus);border-color:var(--teal)}
+  #view-add .field input::placeholder,#view-add textarea::placeholder,#addWordSheet input::placeholder,#addWordSheet textarea::placeholder{color:var(--muted);opacity:.75}
+  #view-add .ex-row,#addWordSheet .ex-row{background:var(--surface)}
   #view-add .ex-row-head span,#addWordSheet .ex-row-head span{font-size:calc(13px * var(--formZoom,1))}
   /* example rows */
   .ex-row{background:var(--surface-2);border:1.5px solid var(--field-line);border-radius:14px;padding:14px;margin-top:12px}
@@ -924,7 +936,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v100";
+const APP_VER = "v101";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
