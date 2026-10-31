@@ -107,14 +107,15 @@ function requireAuth(req, res, next) {
 app.get('/api/sync', requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT notes, cats, thai, thai_rev, cards, cards_rev FROM user_data WHERE user_id = $1',
+      'SELECT notes, cats, notes_rev, thai, thai_rev, cards, cards_rev FROM user_data WHERE user_id = $1',
       [req.user.userId]
     );
-    if (!result.rows.length) return res.json({ notes: [], cats: [], thai: [], thaiRev: 0, cards: [], cardsRev: 0 });
+    if (!result.rows.length) return res.json({ notes: [], cats: [], notesRev: 0, thai: [], thaiRev: 0, cards: [], cardsRev: 0 });
     const r = result.rows[0];
     res.json({
       notes: r.notes,
       cats: r.cats,
+      notesRev: Number(r.notes_rev) || 0,
       thai: r.thai || [],
       thaiRev: Number(r.thai_rev) || 0,
       cards: r.cards || [],
@@ -126,20 +127,23 @@ app.get('/api/sync', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/sync/:section  — one rev-gated section only (thai | cards).
+// GET /api/sync/:section  — one rev-gated section only (notes | thai | cards).
 //
-// The full GET /api/sync carries the notes with their inline photos/PDFs, which
-// is megabytes — far too heavy for a flashcard app to poll every 20 seconds on
-// mobile data (that is where the "请求超时" sync failures came from). This
-// returns just { thai, thaiRev } (or { cards, cardsRev }).
+// The full GET /api/sync carries the notes with their inline photos/PDFs plus
+// the flashcards and business cards, which is megabytes — far too heavy to poll
+// every 20 seconds on mobile data (that is where the "请求超时" sync failures
+// came from). This returns just that section: { thai, thaiRev }, { cards,
+// cardsRev }, or for the notes app { notes, cats, notesRev } (notes and cats
+// share one rev — the app always pushes them together).
 //
 // Long-poll: with ?since=<rev>&wait=<seconds> the request is held until the
 // section's rev goes past `since` (another device pushed) or the wait expires,
 // so a change on one device reaches the others within about a second. On
 // expiry it answers { thaiRev, unchanged: true } without the data.
 const SECTIONS = {
-  thai:  { col: 'thai',  revCol: 'thai_rev',  revKey: 'thaiRev'  },
-  cards: { col: 'cards', revCol: 'cards_rev', revKey: 'cardsRev' },
+  notes: { cols: ['notes', 'cats'], revCol: 'notes_rev', revKey: 'notesRev' },
+  thai:  { cols: ['thai'],          revCol: 'thai_rev',  revKey: 'thaiRev'  },
+  cards: { cols: ['cards'],         revCol: 'cards_rev', revKey: 'cardsRev' },
 };
 const LONGPOLL_MAX_S = 25;        // under the usual 60 s reverse-proxy read timeout
 const LONGPOLL_RECHECK_MS = 5000; // safety-net DB re-read while waiting
@@ -156,10 +160,10 @@ app.get('/api/sync/:section', requireAuth, async (req, res) => {
     return r.rows.length ? (Number(r.rows[0].rev) || 0) : 0;
   };
   const readAll = async () => {
-    const r = await pool.query(`SELECT ${sec.col} AS data, ${sec.revCol} AS rev FROM user_data WHERE user_id = $1`, [userId]);
-    return r.rows.length
-      ? { data: r.rows[0].data || [], rev: Number(r.rows[0].rev) || 0 }
-      : { data: [], rev: 0 };
+    const r = await pool.query(`SELECT ${sec.cols.join(', ')}, ${sec.revCol} AS rev FROM user_data WHERE user_id = $1`, [userId]);
+    const out = { [sec.revKey]: r.rows.length ? (Number(r.rows[0].rev) || 0) : 0 };
+    for (const c of sec.cols) out[c] = (r.rows.length && r.rows[0][c]) || [];
+    return out;
   };
 
   try {
@@ -187,8 +191,7 @@ app.get('/api/sync/:section', requireAuth, async (req, res) => {
       if (res.writableEnded || req.destroyed) return;   // client went away while we waited
     }
     if (since !== null && rev <= since) return res.json({ [sec.revKey]: rev, unchanged: true });
-    const cur = await readAll();
-    res.json({ [sec.col]: cur.data, [sec.revKey]: cur.rev });
+    res.json(await readAll());
   } catch (err) {
     console.error(`GET sync/${req.params.section} error:`, err.message);
     if (!res.headersSent) res.status(500).json({ error: 'Server error' });
@@ -203,7 +206,7 @@ app.get('/api/sync/:section', requireAuth, async (req, res) => {
 app.put('/api/sync', requireAuth, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { notes, cats, thai, thaiRev, thaiBase, cards, cardsRev, cardsBase } = req.body;
+    const { notes, cats, notesBase, thai, thaiRev, thaiBase, cards, cardsRev, cardsBase } = req.body;
 
     // Ensure a row exists (defaults fill the columns we don't touch)
     await pool.query(
@@ -211,17 +214,32 @@ app.put('/api/sync', requireAuth, async (req, res) => {
       [userId]
     );
 
-    if (notes !== undefined) {
-      await pool.query(
-        `UPDATE user_data SET notes = $2::jsonb, updated_at = NOW() WHERE user_id = $1`,
-        [userId, JSON.stringify(notes)]
+    const out = { ok: true };
+    // notes + cats share one rev (notes_rev). Every accepted write bumps it and
+    // wakes the other devices' long-polls. With `notesBase` (the rev the client
+    // last pulled) the write is a compare-and-swap, same as thai/cards below:
+    // if another device pushed in between, answer notesAccepted:false so the
+    // client pulls, merges by per-note timestamps, and pushes again — instead
+    // of its stale full array silently wiping the other device's new note.
+    // Without notesBase (older app versions) the write is accepted as before.
+    if (notes !== undefined || cats !== undefined) {
+      const sets = ['notes_rev = COALESCE(notes_rev, 0) + 1', 'updated_at = NOW()'];
+      const vals = [userId];
+      if (notes !== undefined) { vals.push(JSON.stringify(notes)); sets.push(`notes = $${vals.length}::jsonb`); }
+      if (cats !== undefined)  { vals.push(JSON.stringify(cats));  sets.push(`cats = $${vals.length}::jsonb`); }
+      let where = 'user_id = $1';
+      if (notesBase !== undefined) { vals.push(Number(notesBase) || 0); where += ` AND COALESCE(notes_rev, 0) = $${vals.length}`; }
+      const r = await pool.query(
+        `UPDATE user_data SET ${sets.join(', ')} WHERE ${where} RETURNING notes_rev`, vals
       );
-    }
-    if (cats !== undefined) {
-      await pool.query(
-        `UPDATE user_data SET cats = $2::jsonb, updated_at = NOW() WHERE user_id = $1`,
-        [userId, JSON.stringify(cats)]
-      );
+      out.notesAccepted = r.rowCount > 0;
+      if (out.notesAccepted) {
+        out.notesRev = Number(r.rows[0].notes_rev) || 0;
+        notifyChange(userId, 'notes');
+      } else {
+        const cur = await pool.query('SELECT notes_rev FROM user_data WHERE user_id = $1', [userId]);
+        out.notesRev = Number(cur.rows[0] && cur.rows[0].notes_rev) || 0;
+      }
     }
     // The rev-gated sections report whether the write was accepted. Before,
     // a stale push (another device wrote in between the client's GET and PUT)
@@ -236,7 +254,6 @@ app.put('/api/sync', requireAuth, async (req, res) => {
     //    card, with both devices reporting success. The loser gets
     //    thaiAccepted:false, re-reads, merges and pushes again.
     //  · Without it (older clients): the original "incoming rev >= stored" rule.
-    const out = { ok: true };
     if (thai !== undefined) {
       let r;
       if (thaiBase !== undefined) {

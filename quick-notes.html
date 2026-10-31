@@ -2213,7 +2213,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v207</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v208</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -4276,7 +4276,7 @@ function startAddSub(item, n) {
       const html = sanitizeRich(rich.innerHTML);
       const plain = plainOf(html);
       if (plain || subAtts.length) {
-        // Re-find by ID: cloudPull replaces the notes array every 20s,
+        // Re-find by ID: cloudPull may replace the notes array at any time,
         // making the captured `n` reference stale
         const liveN = notes.find(x => x.id === n.id) || n;
         if (!liveN.subs) liveN.subs = [];
@@ -5961,7 +5961,7 @@ function checkReminders() {
     handle(n, n.text || '提醒');
     (n.subs || []).forEach(s => handle(s, s.text || '子项提醒'));
   });
-  if (changed) { save(); if (!isUserEditing()) render(); }
+  if (changed) { save(); if (!isInlineEditing() && !isComposerOpen()) render(); }
 }
 setInterval(checkReminders, 15000);
 
@@ -6396,7 +6396,6 @@ document.getElementById('import-file').addEventListener('change', e => {
 // ===== 云同步（自建服务器 · Google 登录） =====
 const CLOUD_KEY = 'quicknotes.cloud';
 let cloud = null; // {url, token, name, email, picture}
-let cloudSyncing = false;
 
 function loadCloudCfg() {
   try {
@@ -6418,6 +6417,7 @@ cloudModal.addEventListener('click', e => { if (e.target === cloudModal) closeCl
 
 document.getElementById('cloud-disconnect').addEventListener('click', () => {
   cloud = null; saveCloudCfg(); updateCloudStatus();
+  stopLongPoll();
   closeCloudModal();
   showToast('已断开云同步，数据仍保留在本机');
 });
@@ -6490,7 +6490,7 @@ async function _handleGoogleSignIn(response, serverUrl) {
     save(); render(); updateCloudStatus();
     closeCloudModal();
     showToast(`✅ 已登录：${data.name}`);
-    setInterval(cloudPull, 20000);
+    startLongPoll();
   } catch (err) {
     note.textContent = '❌ ' + err.message;
     cloud = null;
@@ -6587,7 +6587,7 @@ async function republishCats() {
   live.forEach(c => { c.nmAt = now; });   // only stamp live cats; tombstones stay deleted
   _origSave();          // 本地保存（localStorage + IDB），不重复触发推送
   await cloudPush();     // 整包推送 cats 到服务器
-  showToast('✅ 已推送为准确版本，其它设备约 20 秒后自动更正');
+  showToast('✅ 已推送为准确版本，其它设备几秒内自动更正');
 }
 
 // ── Thai flashcards ──────────────────────────────────────────────────────────
@@ -6598,50 +6598,112 @@ async function republishCats() {
 
 // ── Sync API (JWT Bearer) ──────────────────────────────────────────────────
 
+// 本机最后一次从服务器拿到的 notes/cats 版本号。推送时作为 notesBase 带上：
+// 服务器只在版本没被别的设备动过时才收，被动过就答 notesAccepted:false，
+// 这边先拉下来按时间戳合并，再把合并结果推上去。
+let _notesRev = 0;
+// 服务器还没更新到带 /api/sync/notes 的版本（404）时，退回整包 GET /api/sync + 定时轮询
+let _notesLiteMissing = false;
+const _cSleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function cloudFetch() {
   if (!cloud || !cloud.token) return false;
   try {
-    const res = await fetch(`${cloud.url}/api/sync`, {
-      headers: { 'Authorization': 'Bearer ' + cloud.token }
-    });
+    const hdr = { 'Authorization': 'Bearer ' + cloud.token };
+    let res = null;
+    if (!_notesLiteMissing) {
+      res = await fetch(`${cloud.url}/api/sync/notes`, { headers: hdr, cache: 'no-store' });
+      if (res.status === 404) { _notesLiteMissing = true; res = null; }
+    }
+    if (!res) res = await fetch(`${cloud.url}/api/sync`, { headers: hdr, cache: 'no-store' });
     if (!res.ok) return false;
-    return await res.json();
+    const j = await res.json();
+    if (j && typeof j.notesRev === 'number') _notesRev = j.notesRev;
+    return j;
   } catch { return false; }
 }
 
-async function cloudPush() {
-  if (!cloud || !cloud.token || cloudSyncing) return;
-  cloudSyncing = true;
-  try {
-    const payload = await notesWithInlineAtts();
-    await fetch(`${cloud.url}/api/sync`, {
-      method: 'PUT',
-      headers: { 'Authorization': 'Bearer ' + cloud.token, 'Content-Type': 'application/json' },
-      // 只传自己这一段。服务器是「传了哪一段就只写哪一段」，泰语卡片那段由
-      // 泰语卡片自己负责 —— 这里能看到的只有 localStorage 里那份备份，
-      // 而备份在写满时会悄悄停在旧数据上，推上去就会把别的设备的新卡片顶掉
-      body: JSON.stringify({ notes: payload, cats })
-    });
-  } catch {}
-  cloudSyncing = false;
+// 推送：每次 save() 都会调，这里先攒 300 毫秒再发（连着几次保存只发一次），
+// 发的时候又有新改动就再发一轮，失败了按 2s/4s/8s…重试直到发上去。以前是
+// 「上一次还没发完就直接丢掉这次」，连着改两下第二下就留在本机，别的设备看不到。
+let _cpTimer = null, _cpDirty = false, _cpRun = null, _cpFails = 0;
+function cloudPush() {
+  if (!cloud || !cloud.token) return Promise.resolve();
+  _cpDirty = true;
+  clearTimeout(_cpTimer);
+  return new Promise(resolve => { _cpTimer = setTimeout(() => cloudFlush().then(resolve, resolve), 300); });
+}
+function cloudFlush() {
+  if (_cpRun) return _cpRun;
+  _cpRun = (async () => {
+    try {
+      while (_cpDirty && cloud && cloud.token) {
+        _cpDirty = false;
+        let ok = false, stale = false;
+        try {
+          const payload = await notesWithInlineAtts();
+          const base = _notesRev;
+          const res = await fetch(`${cloud.url}/api/sync`, {
+            method: 'PUT',
+            headers: { 'Authorization': 'Bearer ' + cloud.token, 'Content-Type': 'application/json' },
+            // 只传自己这一段。服务器是「传了哪一段就只写哪一段」，泰语卡片那段由
+            // 泰语卡片自己负责 —— 这里能看到的只有 localStorage 里那份备份，
+            // 而备份在写满时会悄悄停在旧数据上，推上去就会把别的设备的新卡片顶掉
+            body: JSON.stringify({ notes: payload, cats, notesBase: base })
+          });
+          if (res.ok) {
+            const j = await res.json().catch(() => ({}));
+            if (j && j.notesAccepted === false) stale = true;
+            else {
+              ok = true;
+              if (j && typeof j.notesRev === 'number' && j.notesRev > _notesRev) _notesRev = j.notesRev;
+            }
+          }
+        } catch {}
+        if (ok) { _cpFails = 0; continue; }
+        _cpDirty = true;                         // 没发上去，还得再发
+        if (stale) {
+          // 别的设备刚推过：先把它的拉下来合并（正在打字时 cloudPull 会跳过，
+          // 那就等会儿再试），合并完 _notesRev 跟上了，下一轮就能推上去
+          const pulled = await cloudPull();
+          if (!pulled) await _cSleep(3000);
+          continue;
+        }
+        _cpFails++;
+        await _cSleep(Math.min(2000 * Math.pow(2, _cpFails - 1), 60000));
+      }
+    } finally { _cpRun = null; }
+  })();
+  return _cpRun;
 }
 
-// 用户是否正在输入/编辑：新建输入框展开，或焦点在某个可编辑区域里。
-// 此时后台同步跳过重渲染，避免把正在打字的内容冲掉、光标跳走。
-function isUserEditing() {
-  const composer = document.getElementById('composer');
-  if (composer && !composer.classList.contains('collapsed')) return true;
+// 新建输入框是否展开。展开时别的设备的改动照样合并进数据，只是先不重画列表
+// （收起输入框时再画），免得正打着字列表在底下跳。
+function isComposerOpen() {
+  const c = document.getElementById('composer');
+  return !!(c && !c.classList.contains('collapsed'));
+}
+// 焦点是否在列表里某条记录的行内编辑器里。这时那条记录正被编辑器拿着改，
+// 不能把服务器那份合并进来（会把它手里的对象换掉），等编辑结束再说。
+// 新建输入框不算：它不碰已有记录，而且收起后 iOS 上焦点有时还留在里面 ——
+// 以前把这也算成「正在编辑」，结果输入框收起后同步就一直停着，像是要手动同步。
+function isInlineEditing() {
   const el = document.activeElement;
-  if (el && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return true;
-  return false;
+  if (!el || !(el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return false;
+  if (el.closest('#composer')) return false;
+  return !!el.closest('#list, #desktop-pane');
 }
+let _renderPending = false;   // 输入框展开期间合并进了新数据，收起时补画一次
 
-async function cloudPull() {
-  if (!cloud || !cloud.token) return;
-  if (isUserEditing()) return;   // 正在输入/编辑时不打断，等这一轮结束后下次再同步
-  const remote = await cloudFetch();
-  if (!remote || !Array.isArray(remote.notes)) return;
-  if (isUserEditing()) return;   // 拉取期间用户可能开始输入，再确认一次
+// 把服务器那份合并进本机。返回 true 表示这次确实处理了（有没有变化都算），
+// false 表示因为正在编辑而跳过、或没拿到数据。remote 不传就自己去拉。
+async function cloudPull(remote) {
+  if (!cloud || !cloud.token) return false;
+  if (isInlineEditing()) return false;   // 正在改某条记录，等这一轮结束后再合并
+  if (!remote) remote = await cloudFetch();
+  if (!remote || !Array.isArray(remote.notes)) return false;
+  if (isInlineEditing()) return false;   // 拉取期间用户可能开始编辑，再确认一次
+  if (typeof remote.notesRev === 'number' && remote.notesRev > _notesRev) _notesRev = remote.notesRev;
   // 对比完整内容（不只是 ID），确保子项/编辑内容变化也能触发更新
   const before = JSON.stringify(notes);
   await extractInlineAtts(remote.notes);
@@ -6654,7 +6716,7 @@ async function cloudPull() {
     try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
     try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
     if (catsChanged) saveToIDB();   // 把更新后的类别名也写回 IDB，重启后不丢
-    render();
+    if (isComposerOpen()) _renderPending = true; else { _renderPending = false; render(); }
     // a pull may have brought in new reminders (from Siri or another device) —
     // re-upload this device's reminder list so the push queue stays complete
     if (notesChanged) schedulePushSync();
@@ -6662,7 +6724,71 @@ async function cloudPull() {
   // the cloud was still showing a category we've deleted — push our tombstone
   // back so the deletion propagates instead of being resurrected next round.
   if (_catsNeedReassert) { _catsNeedReassert = false; cloudPush(); }
+  return true;
 }
+
+/* 长轮询：问服务器「有没有比 _notesRev 更新的」，服务器最多扣住 25 秒，
+   另一台设备一推上来就立刻放行 —— 别的设备上的增删改大约 1 秒就到这里，
+   不用再等 20 秒的定时轮询。页面切到后台就停，回到前台先拉一次再重开。
+   服务器没有这个接口（404）时退回每 20 秒拉一次整包。 */
+let _lpGen = 0, _lpAbort = null;
+function stopLongPoll() { _lpGen++; if (_lpAbort) { try { _lpAbort.abort(); } catch {} _lpAbort = null; } }
+function startLongPoll() { stopLongPoll(); longPollLoop(_lpGen); }
+async function longPollLoop(gen) {
+  let backoff = 2000;
+  const alive = () => gen === _lpGen && document.visibilityState !== 'hidden' && cloud && cloud.token;
+  while (alive()) {
+    if (_notesLiteMissing) {
+      await _cSleep(20000);
+      if (alive()) await cloudPull();
+      continue;
+    }
+    try {
+      const ctl = new AbortController(); _lpAbort = ctl;
+      const t = setTimeout(() => ctl.abort(), 40000);
+      let r;
+      try {
+        r = await fetch(`${cloud.url}/api/sync/notes?since=${_notesRev}&wait=25`,
+                        { cache: 'no-store', headers: { 'Authorization': 'Bearer ' + cloud.token }, signal: ctl.signal });
+      } finally { clearTimeout(t); if (_lpAbort === ctl) _lpAbort = null; }
+      if (!alive()) break;
+      if (r.status === 404) { _notesLiteMissing = true; continue; }
+      if (r.status === 401 || r.status === 403) { await _cSleep(60000); continue; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      backoff = 2000;
+      const rev = Number(d && d.notesRev) || 0;
+      if (d.unchanged || !Array.isArray(d.notes) || rev <= _notesRev) {
+        if (d.unchanged && rev > _notesRev) _notesRev = rev;
+        continue;
+      }
+      // 有新东西。正在改某条记录就先拿着，等编辑结束再合并（不重新去要，省流量）
+      while (alive() && isInlineEditing()) await _cSleep(1000);
+      if (!alive()) break;
+      if (!(await cloudPull(d))) await _cSleep(2000);
+    } catch (e) {
+      if (!alive()) break;
+      if (e && e.name === 'AbortError') continue;      // 自己的 40 秒超时，直接再问
+      await _cSleep(backoff);
+      backoff = Math.min(backoff * 2, 60000);
+    }
+  }
+}
+// 回到前台 / 网络恢复：立刻拉一次、把没推完的推掉，再重开长轮询。
+// 息屏或切走时 iOS 会把定时器和连接全冻住，不这样做的话别的设备改的东西
+// 要等很久才出现，看起来就像「必须手动同步」。
+function cloudResume() {
+  if (!cloud || !cloud.token) return;
+  cloudPull().finally(() => { if (_cpDirty) cloudFlush(); startLongPoll(); });
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') cloudResume();
+  else { stopLongPoll(); if (_cpDirty) { clearTimeout(_cpTimer); cloudFlush(); } }
+});
+window.addEventListener('online', cloudResume);
+window.addEventListener('pageshow', e => { if (e.persisted) cloudResume(); });
+// 兜底：长轮询万一断了（代理掐连接、长时间休眠），每 5 分钟也完整拉一次
+setInterval(() => { if (cloud && cloud.token && document.visibilityState !== 'hidden') cloudPull(); }, 5 * 60 * 1000);
 
 function updateCloudStatus() {
   const el = document.getElementById('cloud-status');
@@ -6686,7 +6812,7 @@ save = function() { _origSave(); if (cloud && cloud.token) cloudPush(); schedule
 
 loadCloudCfg();
 updateCloudStatus();
-if (cloud && cloud.token) { cloudPull(); setInterval(cloudPull, 20000); }
+if (cloud && cloud.token) { cloudPull().finally(startLongPoll); }
 
 (async () => {
   load(); // 同步从 localStorage 先加载，避免白屏
@@ -7135,6 +7261,8 @@ function closeDesktopComposer() {
 // Hook into add() → window.closeComposer
 const _prevCloseComposer = window.closeComposer;
 window.closeComposer = function() {
+  // 输入框开着的时候别的设备推来的改动只合并没画，现在补画
+  if (_renderPending) { _renderPending = false; render(); }
   if (isDesktopMode() && _composerHomeParent) {
     closeDesktopComposer();
     // Show the newly added note in the right pane

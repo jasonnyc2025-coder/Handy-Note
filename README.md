@@ -116,10 +116,10 @@ The app expects a server at a configurable URL with these endpoints:
 |--------|------|-------------|
 | GET | `/api/config` | Returns `{ googleClientId }` |
 | POST | `/api/auth/google` | Exchanges Google `id_token` → JWT `{ token, name, email, picture }` |
-| GET | `/api/sync` | Returns `{ notes, cats, thai, thaiRev, cards, cardsRev }` for authenticated user |
-| GET | `/api/sync/thai` (or `/cards`) | Just that section: `{ thai, thaiRev }`. With `?since=<rev>&wait=<s>` it long-polls (up to 25 s) until another device pushes a newer rev, answering `{ thaiRev, unchanged: true }` on timeout |
+| GET | `/api/sync` | Returns `{ notes, cats, notesRev, thai, thaiRev, cards, cardsRev }` for authenticated user |
+| GET | `/api/sync/notes` (or `/thai`, `/cards`) | Just that section: `{ notes, cats, notesRev }` / `{ thai, thaiRev }` / `{ cards, cardsRev }`. With `?since=<rev>&wait=<s>` it long-polls (up to 25 s) until another device pushes a newer rev, answering `{ notesRev, unchanged: true }` on timeout. The notes app lives on this: a change on one device reaches the others in about a second |
 | POST | `/api/translate` | `{ text, from?, to? }` → `{ translation }`. Thai→Chinese via the configured text model (needs `OCR_API_KEY`); used by the flashcards' 翻译 button where the browser has no built-in translator (iOS) |
-| PUT | `/api/sync` | Partial upsert: only the fields present are written. `thai` (and `cards`) is accepted only if `thaiBase` (`cardsBase`) equals the stored rev (compare-and-swap); the response carries `thaiAccepted` / `cardsAccepted` and the resulting revs |
+| PUT | `/api/sync` | Partial upsert: only the fields present are written. Every section is rev-gated: `notes`/`cats` (shared `notesRev`), `thai`, `cards`. A write is accepted only if `notesBase` / `thaiBase` / `cardsBase` equals the stored rev (compare-and-swap; omitting the base skips the check for older clients); the response carries `notesAccepted` / `thaiAccepted` / `cardsAccepted` and the resulting revs. An accepted write wakes that section's long-pollers |
 
 Authentication: `Authorization: Bearer <jwt>` header.
 
