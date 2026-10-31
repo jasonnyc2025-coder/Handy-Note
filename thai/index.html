@@ -230,6 +230,19 @@
   .field .with-spk .mini{position:absolute;right:8px;top:50%;transform:translateY(-50%)}
   /* the "添加生词 / 编辑生词" screen title */
   #view-add .section-h{font-size:19px;font-weight:800;color:var(--ink);text-transform:none;letter-spacing:0;margin:10px 4px 4px}
+  /* 添加 / 编辑页的字号：A− / A+ 调 --formZoom，输入框、例句框、标签一起放大缩小 */
+  .add-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 4px 4px}
+  .add-head .section-h{margin:0}
+  #formZoomCtl{display:flex;gap:8px;flex:0 0 auto}
+  #formZoomCtl button{width:44px;height:40px;border-radius:12px;background:var(--surface);color:var(--ink);
+    border:1px solid var(--line);font-size:15px;font-weight:800;cursor:pointer}
+  #formZoomCtl button:active{filter:brightness(.88)}
+  #view-add .field input,#view-add .field textarea,#view-add .ex-row textarea,#view-add .ex-row .ex-mean-in,
+  #addWordSheet .field input,#addWordSheet .field textarea,#addWordSheet .ex-row textarea,#addWordSheet .ex-row .ex-mean-in{
+    font-size:calc(16px * var(--formZoom,1))}
+  #view-add .field input.thai,#view-add .ex-row textarea,#addWordSheet .ex-row textarea{line-height:1.6}
+  #view-add .field label,#addWordSheet .field label{font-size:calc(15px * var(--formZoom,1))}
+  #view-add .ex-row-head span,#addWordSheet .ex-row-head span{font-size:calc(13px * var(--formZoom,1))}
   /* example rows */
   .ex-row{background:var(--surface-2);border:1.5px solid var(--field-line);border-radius:14px;padding:14px;margin-top:12px}
   .ex-row-head{display:flex;justify-content:flex-start;gap:8px;align-items:center;margin-bottom:10px}
@@ -652,7 +665,10 @@
     <button type="button" data-a="clear">清空</button>
   </div>
   <section class="view" id="view-add">
-    <div class="section-h" id="addTitle">添加生词</div>
+    <div class="add-head">
+      <div class="section-h" id="addTitle">添加生词</div>
+      <div id="formZoomCtl"><button id="formZoomOut" aria-label="字号减小">A−</button><button id="formZoomIn" aria-label="字号增大">A+</button></div>
+    </div>
     <div class="field">
       <label>泰文单词</label>
       <div class="with-spk">
@@ -876,7 +892,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v98";
+const APP_VER = "v99";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2632,6 +2648,16 @@ function applyPeekZoom(){
 }
 applyPeekZoom();
 $("#peekZoomIn").onclick  = e=>{ e.stopPropagation(); peekZoom += 0.15; applyPeekZoom(); };
+/* 添加 / 编辑页的字号，和浮层的分开记（输入时想要的大小和阅读时不一样） */
+let formZoom = parseFloat(localStorage.getItem("thaicards.formZoom")) || 1;
+function applyFormZoom(){
+  formZoom = Math.max(1, Math.min(Math.round(formZoom*100)/100, 1.9));
+  document.documentElement.style.setProperty("--formZoom", formZoom);
+  try{ localStorage.setItem("thaicards.formZoom", String(formZoom)); }catch(e){}
+}
+applyFormZoom();
+$("#formZoomIn").onclick  = ()=>{ formZoom += 0.15; applyFormZoom(); };
+$("#formZoomOut").onclick = ()=>{ formZoom -= 0.15; applyFormZoom(); };
 $("#peekZoomOut").onclick = e=>{ e.stopPropagation(); peekZoom -= 0.15; applyPeekZoom(); };
 $("#peekPrev").onclick = e=>{ e.stopPropagation(); peekStep(-1); };
 $("#peekNext").onclick = e=>{ e.stopPropagation(); peekStep(1); };
