@@ -390,10 +390,32 @@
   .hl-card{border-bottom:2px solid currentColor;padding-bottom:1px}
   mark.hl-a{background:#ffe08a;color:#5a4200}
   mark.hl-b{background:#e0d4fb;color:#4a2a86}
+  /* 可选的六种高亮色（c1 / c2 就是上面两种）。没指定颜色的老高亮仍按 a/b 交替 */
+  mark.hl.c1{background:#ffe08a;color:#5a4200}
+  mark.hl.c2{background:#e0d4fb;color:#4a2a86}
+  mark.hl.c3{background:#c6f1cf;color:#0f5a2a}
+  mark.hl.c4{background:#c9e4ff;color:#143f7a}
+  mark.hl.c5{background:#ffd3e2;color:#7a1f45}
+  mark.hl.c6{background:#ffd9b3;color:#7a3a00}
   @media(prefers-color-scheme:dark){
     mark.hl-a{background:#8a6a1f;color:#ffe9b0}
     mark.hl-b{background:#4a3a7c;color:#e7ddff}
+    mark.hl.c1{background:#8a6a1f;color:#ffe9b0}
+    mark.hl.c2{background:#4a3a7c;color:#e7ddff}
+    mark.hl.c3{background:#1f6b3a;color:#cff5d8}
+    mark.hl.c4{background:#1f4f86;color:#d4e8ff}
+    mark.hl.c5{background:#7c2f52;color:#ffd9e6}
+    mark.hl.c6{background:#8a4a14;color:#ffe2c4}
   }
+  /* 选词菜单里的调色板：点「高亮」后把按钮换成六个色块 */
+  #selPop.pal > button{display:none}
+  #selPalette{display:none;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  #selPop.pal #selPalette{display:flex}
+  #selPalette .sw{width:38px;height:38px;border-radius:99px;border:2px solid rgba(255,255,255,.35);padding:0;cursor:pointer}
+  #selPalette .sw.c1{background:#ffd54a} #selPalette .sw.c2{background:#b9a3f3} #selPalette .sw.c3{background:#7ddc93}
+  #selPalette .sw.c4{background:#86bdf7} #selPalette .sw.c5{background:#f7a3c2} #selPalette .sw.c6{background:#f7b36b}
+  #selPalette .sw.on{border-color:#fff;box-shadow:0 0 0 2px var(--teal)}
+  #selPalette .sw-x{background:rgba(255,255,255,.14);color:var(--bg);border-radius:9px;padding:9px 12px;font-size:14px;font-weight:600;white-space:nowrap;min-height:38px}
   /* floating popup shown when text is selected inside an example */
   /* fixed near the bottom (above the action buttons) so it never clashes with
      the OS text-selection menu, which appears next to the selection up top */
@@ -815,6 +837,16 @@
   <button id="selAdd">➕ 加入生词</button>
   <button id="selTrans">🌐 翻译</button>
   <button id="selHl">🖍 高亮</button>
+  <div id="selPalette">
+    <button class="sw-x" data-c="back" aria-label="返回">‹</button>
+    <button class="sw c1" data-c="1" aria-label="黄色"></button>
+    <button class="sw c2" data-c="2" aria-label="紫色"></button>
+    <button class="sw c3" data-c="3" aria-label="绿色"></button>
+    <button class="sw c4" data-c="4" aria-label="蓝色"></button>
+    <button class="sw c5" data-c="5" aria-label="粉色"></button>
+    <button class="sw c6" data-c="6" aria-label="橙色"></button>
+    <button class="sw-x" data-c="0" id="selHlOff">✕ 去掉高亮</button>
+  </div>
   <button id="selCopy">📋 复制</button>
   <button id="selSpeak" aria-label="朗读">🔊</button>
 </div>
@@ -892,7 +924,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v99";
+const APP_VER = "v100";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1037,14 +1069,19 @@ function _takeHighlights(srcEx, dstEx){
   const byText = new Map(), byMean = new Map();
   (srcEx||[]).forEach(e=>{
     if(!e) return;
-    if(e.thai && !byText.has(e.thai)) byText.set(e.thai, e.hl || []);
-    if(e.meaning && !byMean.has(e.meaning)) byMean.set(e.meaning, e.hlm || []);
+    if(e.thai && !byText.has(e.thai)) byText.set(e.thai, e);
+    if(e.meaning && !byMean.has(e.meaning)) byMean.set(e.meaning, e);
   });
+  const take = (out, src, key)=>{   // hl / hlm 连同颜色表 hlc / hlmc 一起搬
+    const h = src[key] || [], ck = key + "c";
+    if(h.length) out[key] = h.slice(); else delete out[key];
+    if(h.length && src[ck] && Object.keys(src[ck]).length) out[ck] = Object.assign({}, src[ck]); else delete out[ck];
+  };
   return (dstEx||[]).map(e=>{
     if(!e) return e;
     const out = Object.assign({}, e);
-    if(e.thai && byText.has(e.thai)){ const h = byText.get(e.thai); if(h.length) out.hl = h.slice(); else delete out.hl; }
-    if(e.meaning && byMean.has(e.meaning)){ const h = byMean.get(e.meaning); if(h.length) out.hlm = h.slice(); else delete out.hlm; }
+    if(e.thai && byText.has(e.thai)) take(out, byText.get(e.thai), "hl");
+    if(e.meaning && byMean.has(e.meaning)) take(out, byMean.get(e.meaning), "hlm");
     return out;
   });
 }
@@ -1461,17 +1498,36 @@ function carryHighlights(oldEx, newEx){
     if(e.thai && e.hl && e.hl.length && !byText.has(e.thai)) byText.set(e.thai, e.hl);
     if(e.meaning && e.hlm && e.hlm.length && !byMean.has(e.meaning)) byMean.set(e.meaning, e.hlm);
   });
+  const byTextC = new Map(), byMeanC = new Map();
+  olds.forEach(e=>{
+    if(!e) return;
+    if(e.thai && e.hlc && !byTextC.has(e.thai)) byTextC.set(e.thai, e.hlc);
+    if(e.meaning && e.hlmc && !byMeanC.has(e.meaning)) byMeanC.set(e.meaning, e.hlmc);
+  });
+  const pickColors = (map, kept)=>{   // 只留还在用的词的颜色
+    if(!map) return null;
+    const o = {}; kept.forEach(w=>{ if(map[w]) o[w] = map[w]; });
+    return Object.keys(o).length ? o : null;
+  };
   return (newEx || []).map((e, i)=>{
     const out = Object.assign({}, e);
     const src = byText.get(e.thai) || (olds[i] && olds[i].hl) || null;
     if(src && src.length){
       const kept = src.filter(w => w && (e.thai || "").indexOf(w) !== -1);
-      if(kept.length) out.hl = kept.slice();
+      if(kept.length){
+        out.hl = kept.slice();
+        const c = pickColors(byTextC.get(e.thai) || (olds[i] && olds[i].hlc), kept);
+        if(c) out.hlc = c; else delete out.hlc;
+      }
     }
     const srcM = byMean.get(e.meaning) || (olds[i] && olds[i].hlm) || null;
     if(srcM && srcM.length){
       const keptM = srcM.filter(w => w && (e.meaning || "").indexOf(w) !== -1);
-      if(keptM.length) out.hlm = keptM.slice();
+      if(keptM.length){
+        out.hlm = keptM.slice();
+        const c = pickColors(byMeanC.get(e.meaning) || (olds[i] && olds[i].hlmc), keptM);
+        if(c) out.hlmc = c; else delete out.hlmc;
+      }
     }
     return out;
   });
@@ -1775,29 +1831,32 @@ function underlineKnown(seg, idx){
   }
   return out;
 }
-function hlThai(thai, hlList, ownId){
+// colors：{ 词: 1..6 }，给了颜色的用那个色，没给的按 a/b 交替（老数据）
+function hlThai(thai, hlList, ownId, colors){
   const text = thai || "";
   // 1) 收集高亮区间；重叠的并成一段，避免嵌套出错
   const spans = [];
   (hlList || []).forEach(w=>{
     if(!w) return;
+    const c = colors && colors[w] ? Number(colors[w]) || 0 : 0;
     let i = text.indexOf(w);
-    while(i !== -1){ spans.push({ s:i, e:i + w.length }); i = text.indexOf(w, i + 1); }
+    while(i !== -1){ spans.push({ s:i, e:i + w.length, c }); i = text.indexOf(w, i + 1); }
   });
   spans.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
   const merged = [];
   spans.forEach(sp=>{
     const last = merged[merged.length - 1];
-    if(last && sp.s < last.e){ if(sp.e > last.e) last.e = sp.e; }
-    else merged.push({ s:sp.s, e:sp.e });
+    if(last && sp.s < last.e){ if(sp.e > last.e) last.e = sp.e; if(!last.c && sp.c) last.c = sp.c; }
+    else merged.push({ s:sp.s, e:sp.e, c:sp.c });
   });
   // 2) 拼 HTML：高亮段内部再给生词本里的词加下划线
   const idx = _knownWordIndex(ownId);
   let out = "", pos = 0, n = 0;
   merged.forEach(sp=>{
     out += esc(text.slice(pos, sp.s));
-    out += '<mark class="hl ' + (n++ % 2 ? 'hl-b' : 'hl-a') + '">' +
-           underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
+    const cls = sp.c ? ('c' + sp.c) : (n % 2 ? 'hl-b' : 'hl-a');
+    n++;
+    out += '<mark class="hl ' + cls + '">' + underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
     pos = sp.e;
   });
   out += esc(text.slice(pos));
@@ -1822,8 +1881,8 @@ function renderCardExamples(box, list, cardId){
     el.className = "cb-ex";
     if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
     el.innerHTML = `<div class="ex-no">${no} / ${total}</div>` +
-      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
-      (e.meaning ? `<div class="ex-mean">${hlThai(e.meaning, e.hlm, cardId)}</div>` : "");
+      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId, e.hlc)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
+      (e.meaning ? `<div class="ex-mean">${hlThai(e.meaning, e.hlm, cardId, e.hlmc)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
   });
@@ -2453,7 +2512,7 @@ async function longPollLoop(gen){
 
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
 let selCtx = null;   // { text, cbEx }
-function hideSelPop(){ $("#selPop").classList.remove("show"); selCtx=null; }
+function hideSelPop(){ $("#selPop").classList.remove("show"); $("#selPop").classList.remove("pal"); selCtx=null; }
 // 例句的两行都能选：泰文行和它下面的中文翻译行（翻译里常常混着泰文）
 function exLineOf(node){
   if(!node) return null;
@@ -2744,23 +2803,57 @@ document.addEventListener("click", e=>{
   }
   selectWordInNode(tn, c ? c.off : 0);
 }, false);
-function toggleHighlight(cbEx, text, field){
+// color：不传 = 开/关切换（老行为）；0 = 去掉；1..6 = 加上并用这个颜色
+function toggleHighlight(cbEx, text, field, color){
   if(!cbEx) return;
   const card = cards.find(c=>c.id===cbEx.dataset.card);
   const idx = parseInt(cbEx.dataset.ex, 10);
   if(!card || !card.examples || !card.examples[idx]) return;
   const ex = card.examples[idx];
   const key = field === "mean" ? "hlm" : "hl";   // 翻译行的高亮单独存，互不干扰
+  const ckey = key + "c";                        // 对应的颜色表 { 词: 1..6 }
   ex[key] = ex[key] || [];
   const i = ex[key].indexOf(text);
-  if(i>=0) ex[key].splice(i,1); else ex[key].push(text);
-  if(!ex[key].length) delete ex[key];
+  const remove = color === 0 || (color === undefined && i >= 0);
+  if(remove){
+    if(i >= 0) ex[key].splice(i, 1);
+    if(ex[ckey]){ delete ex[ckey][text]; if(!Object.keys(ex[ckey]).length) delete ex[ckey]; }
+  }else{
+    if(i < 0) ex[key].push(text);
+    if(color){ ex[ckey] = ex[ckey] || {}; ex[ckey][text] = color; }
+  }
+  if(!ex[key].length){ delete ex[key]; delete ex[ckey]; }
   card.hlAt = Date.now();   // 高亮有自己的时间戳，和文字编辑分开合并（见 _mergeCard）
   save();
   renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
 }
 $("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
-$("#selHl").onclick = ()=>{ if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
+// 点「高亮」先出调色板：六种颜色任选；这个词已经高亮的话再给一个「去掉」
+function _curHighlight(ctx){
+  if(!ctx || !ctx.cbEx) return { on:false, c:0 };
+  const card = cards.find(c=>c.id===ctx.cbEx.dataset.card);
+  const ex = card && card.examples && card.examples[parseInt(ctx.cbEx.dataset.ex, 10)];
+  if(!ex) return { on:false, c:0 };
+  const key = ctx.field === "mean" ? "hlm" : "hl";
+  const on = Array.isArray(ex[key]) && ex[key].indexOf(ctx.text) >= 0;
+  const c = on && ex[key + "c"] ? Number(ex[key + "c"][ctx.text]) || 0 : 0;
+  return { on, c };
+}
+$("#selHl").onclick = ()=>{
+  if(!selCtx) return;
+  const cur = _curHighlight(selCtx);
+  $("#selHlOff").style.display = cur.on ? "" : "none";
+  $$("#selPalette .sw").forEach(b=> b.classList.toggle("on", cur.on && Number(b.dataset.c) === cur.c));
+  $("#selPop").classList.add("pal");
+};
+$("#selPalette").onclick = e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  e.stopPropagation();
+  if(b.dataset.c === "back"){ $("#selPop").classList.remove("pal"); return; }
+  if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, Number(b.dataset.c) || 0);
+  hideSelPop();
+  const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
+};
 $("#selAdd").onclick = ()=>{ if(selCtx) openAddWord(selCtx.text); hideSelPop(); };
 function copyText(t){
   if(!t) return;
