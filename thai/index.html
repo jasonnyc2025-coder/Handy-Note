@@ -217,6 +217,9 @@
   .field{margin-top:18px}
   .field label{display:block;font-size:15px;font-weight:700;color:var(--ink);margin-bottom:8px;letter-spacing:.01em}
   .field label .opt{font-size:12px;font-weight:500;color:var(--muted)}
+  /* 必填字段的小标：和「（选填）」相对，一眼分出哪个必须填 */
+  .field label .req{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:var(--teal);
+    border-radius:6px;padding:2px 8px;margin-left:6px;vertical-align:middle;letter-spacing:.08em;line-height:1.3}
   .field input,.field textarea{
     width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:12px;
     padding:14px 14px;font-size:16px;color:var(--ink);
@@ -257,9 +260,12 @@
   #view-add .ex-row-head span,#addWordSheet .ex-row-head span{font-size:calc(13px * var(--formZoom,1))}
   /* example rows */
   .ex-row{background:var(--surface-2);border:1.5px solid var(--field-line);border-radius:14px;padding:14px;margin-top:12px}
-  .ex-row-head{display:flex;justify-content:flex-start;gap:8px;align-items:center;margin-bottom:10px}
-  .ex-row-head span{font-size:13px;font-weight:700;color:var(--ink)}
-  .ex-row-head .mini{width:28px;height:28px;font-size:13px;background:var(--surface)}
+  /* 例句标题靠左、带一道青色竖条；删除键挪到右边，不再和标题挤在一起 */
+  .ex-row-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
+  .ex-row-head span{font-size:calc(15px * var(--formZoom,1));font-weight:800;color:var(--teal-ink);
+    padding-left:10px;border-left:3px solid var(--teal);line-height:1.2}
+  .ex-row-head .mini{width:auto;height:30px;padding:0 10px;font-size:12px;font-weight:700;color:var(--muted);
+    background:var(--surface);border:1px solid var(--line);border-radius:9px}
   .ex-row .with-spk{position:relative}
   .ex-row .with-spk .mini{position:absolute;right:8px;top:14px}
   .ex-row textarea{width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 46px 14px 14px;font-size:16px;color:var(--ink);min-height:72px;resize:vertical;line-height:1.5}
@@ -708,7 +714,7 @@
       <div id="formZoomCtl"><button id="formZoomOut" aria-label="字号减小">A−</button><button id="formZoomIn" aria-label="字号增大">A+</button></div>
     </div>
     <div class="field">
-      <label>泰文单词</label>
+      <label>泰文单词 <span class="req">必填</span></label>
       <div class="with-spk">
         <input class="thai" id="fThai" placeholder="" autocomplete="off">
         <button class="mini spk" id="fThaiSpk" aria-label="发音">🔊</button>
@@ -940,7 +946,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v103";
+const APP_VER = "v104";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1475,7 +1481,7 @@ function addExRow(thai="", meaning="", listEl){
   const row = document.createElement("div");
   row.className = "ex-row";
   row.innerHTML = `
-    <div class="ex-row-head"><button class="mini" data-act="rmEx" aria-label="删除例句">✕</button><span></span></div>
+    <div class="ex-row-head"><span></span><button class="mini" data-act="rmEx" aria-label="删除例句">✕ 删除</button></div>
     <div class="ex-sub">泰文</div>
     <div class="with-spk">
       <textarea class="thai ex-thai-in"></textarea>
