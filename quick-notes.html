@@ -2213,7 +2213,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v208</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v209</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -3832,7 +3832,7 @@ function endDrag(commit) {
   ids.forEach((id, i) => {
     const n = notes.find(x => x.id === id);
     if (!n) return;
-    if (n.order !== i) { n.order = i; n.modified = Date.now(); changed = true; }
+    if (n.order !== i) { n.order = i; touch(n, 'order'); changed = true; }
   });
   if (changed) { save(); if (typeof cloudPush === 'function') cloudPush(); }
   render();
@@ -3967,9 +3967,9 @@ document.addEventListener('click', async e => {
       save(); render();
     }
   } else if (act === 'toggle') {
-    if (n) { n.modified = Date.now(); n.done = !n.done; save(); render(); }
+    if (n) { touch(n, 'done'); n.done = !n.done; save(); render(); }
   } else if (act === 'pin') {
-    if (n) { n.modified = Date.now(); n.pinned = !n.pinned; save(); render(); }
+    if (n) { touch(n, 'pinned'); n.pinned = !n.pinned; save(); render(); }
   } else if (act === 'view') {
     const att = n && n.atts[+actEl.dataset.idx];
     if (att) openLightbox(await getAttData(att));
@@ -3989,14 +3989,14 @@ document.addEventListener('click', async e => {
   } else if (act === 'subtoggle') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
-    if (s) { if (n) n.modified = Date.now(); s.done = !s.done; save(); render(); }
+    if (s) { touch(n); touch(s, 'done'); s.done = !s.done; save(); render(); }
   } else if (act === 'subdel') {
     const sid = actEl.dataset.sub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s) {
       const preview = (plainOf(s.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
-        if (n) n.modified = Date.now();
+        markSubDeleted(n, sid);
         n.subs = n.subs.filter(x => x.id !== sid);
         save(); render();
       }
@@ -4035,7 +4035,7 @@ document.addEventListener('click', async e => {
     const ssid = actEl.dataset.subsub;
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
-    if (ss) { if (n) n.modified = Date.now(); ss.done = !ss.done; save(); render(); }
+    if (ss) { touch(n); touch(ss, 'done'); ss.done = !ss.done; save(); render(); }
   } else if (act === 'subsubdel') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
@@ -4044,7 +4044,7 @@ document.addEventListener('click', async e => {
     if (ss) {
       const preview = (plainOf(ss.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
-        if (n) n.modified = Date.now();
+        markSubDeleted(n, ssid);
         s.subs = s.subs.filter(x => x.id !== ssid);
         save(); render();
       }
@@ -4070,7 +4070,7 @@ document.addEventListener('click', async e => {
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     const ss = s && s.subs && s.subs.find(x => x.id === ssid);
     const sss = ss && ss.subs && ss.subs.find(x => x.id === sssid);
-    if (sss) { if (n) n.modified = Date.now(); sss.done = !sss.done; save(); render(); }
+    if (sss) { touch(n); touch(sss, 'done'); sss.done = !sss.done; save(); render(); }
   } else if (act === 'sssdel') {
     const sid = actEl.dataset.sub;
     const ssid = actEl.dataset.subsub;
@@ -4081,7 +4081,7 @@ document.addEventListener('click', async e => {
     if (ss && sss) {
       const preview = (plainOf(sss.text) || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除「${preview}」吗？`)) {
-        if (n) n.modified = Date.now();
+        markSubDeleted(n, sssid);
         ss.subs = ss.subs.filter(x => x.id !== sssid);
         save(); render();
       }
@@ -4119,7 +4119,7 @@ document.addEventListener('click', async e => {
       const l5 = sss.subs.find(x => x.id === l5id);
       const preview = (plainOf(l5 && l5.text || '') || '（无文字）').slice(0, 20);
       if (await confirmDialog(`确定删除这个子项「${preview}」吗？`)) {
-        if (n) n.modified = Date.now();
+        markSubDeleted(n, l5id);
         sss.subs = sss.subs.filter(x => x.id !== l5id);
         save(); render();
       }
@@ -4128,7 +4128,7 @@ document.addEventListener('click', async e => {
     const sid = actEl.dataset.sub;
     if (n && n.subs) {
       const idx = n.subs.findIndex(x => x.id === sid);
-      if (idx > 0) { n.modified = Date.now(); n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
+      if (idx > 0) { touch(n); n.subs.unshift(n.subs.splice(idx, 1)[0]); save(); render(); }
     }
   } else if (act === 'subtts') {
     const sid = actEl.dataset.sub;
@@ -4164,7 +4164,7 @@ document.addEventListener('click', async e => {
     const s = n && n.subs && n.subs.find(x => x.id === sid);
     if (s && s.subs) {
       const idx = s.subs.findIndex(x => x.id === ssid);
-      if (idx > 0) { if (n) n.modified = Date.now(); s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
+      if (idx > 0) { touch(n); touch(s); s.subs.unshift(s.subs.splice(idx, 1)[0]); save(); render(); }
     }
   }
 });
@@ -4285,7 +4285,7 @@ function startAddSub(item, n) {
           text: html, rich: true, done: false,
           atts: subAtts.slice(), ts: Date.now()
         });
-        liveN.modified = Date.now();
+        touch(liveN);
         save();
       }
     }
@@ -4424,7 +4424,7 @@ function startEditSub(span, n, s) {
         liveS.text = html;
         liveS.rich = true;
         liveS.atts = editAtts;
-        liveN.modified = Date.now();
+        touch(liveS, 'text'); touch(liveN);
         save();
       }
     }
@@ -4539,7 +4539,7 @@ function startAddSubSub(subRow, n, s) {
           id: Date.now() + '' + Math.random().toString(36).slice(2, 5),
           text: html, rich: true, atts: ssAtts.slice(), done: false, ts: Date.now()
         });
-        liveN.modified = Date.now();
+        touch(liveN);
         save();
       }
     }
@@ -4654,7 +4654,7 @@ function startEditSubSub(ssRow, n, s, ss) {
         const liveS = (liveN.subs || []).find(x => x.id === s.id) || s;
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         liveSS.text = html; liveSS.rich = true; liveSS.atts = editAtts;
-        liveN.modified = Date.now();
+        touch(liveSS, 'text'); touch(liveN);
         save();
       }
     }
@@ -4742,7 +4742,7 @@ function startAddSSS(ssRow, n, s, ss) {
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         if (!liveSS.subs) liveSS.subs = [];
         liveSS.subs.push({ id: Date.now()+''+Math.random().toString(36).slice(2,6), text: html, rich: true, done: false, ts: Date.now(), atts: sssAtts.slice() });
-        liveN.modified = Date.now();
+        touch(liveN);
         save();
       }
     }
@@ -4848,7 +4848,7 @@ function startEditSSS(sssRow, n, s, ss, sss) {
         const liveSS = (liveS.subs || []).find(x => x.id === ss.id) || ss;
         const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
         liveSSS.text = html; liveSSS.rich = true; liveSSS.atts = editAtts;
-        liveN.modified = Date.now();
+        touch(liveSSS, 'text'); touch(liveN);
         save();
       }
     }
@@ -4936,7 +4936,7 @@ function startAddL5(sssRow, n, s, ss, sss) {
         const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
         if (!liveSSS.subs) liveSSS.subs = [];
         liveSSS.subs.push({ id: Date.now()+Math.random().toString(36).slice(2,6), text: html, rich: true, done: false, ts: Date.now(), atts: l5Atts.slice() });
-        liveN.modified = Date.now();
+        touch(liveN);
         save();
       }
     }
@@ -5031,7 +5031,7 @@ function startEditL5(l5Row, n, s, ss, sss, l5) {
         const liveSSS = (liveSS.subs || []).find(x => x.id === sss.id) || sss;
         const liveL5 = (liveSSS.subs || []).find(x => x.id === l5.id) || l5;
         liveL5.text = html; liveL5.rich = true; liveL5.atts = editAtts;
-        liveN.modified = Date.now();
+        touch(liveL5, 'text'); touch(liveN);
         save();
       }
     }
@@ -5114,7 +5114,7 @@ function startEdit(item, n) {
         liveN.text = html;
         liveN.rich = true;
         liveN.atts = editAtts;
-        liveN.modified = Date.now();
+        touch(liveN, 'text');
         save();
       }
     }
@@ -5487,8 +5487,9 @@ function moveNoteUnder(n, target) {
   }
   target.subs = target.subs || [];
   target.subs.push(sub);
-  target.modified = Date.now();
-  notes = notes.filter(x => x.id !== n.id);
+  touch(target);
+  // 原来的那条留墓碑而不是直接拿掉，否则别的设备一同步它又以独立记录的身份回来
+  n._deleted = true; n._deletedAt = Date.now();
   // 展开目标笔记，并把它的子项列表也打开（子项默认是收起的），
   // 否则移过去之后看不见东西落在哪儿
   try { if (typeof setNoteExpanded === 'function') setNoteExpanded(target.id, true); } catch (_) {}
@@ -5590,9 +5591,10 @@ function chooseCat(n) {
     if (!b) return;
     const cid = b.dataset.cat;
     if (cid) n.cat = cid; else delete n.cat;
+    touch(n, 'cat');
     save(); render(); finish();
   };
-  const onNew = async () => { finish(); const id = await addCategory(); if (id) { n.cat = id; save(); render(); } };
+  const onNew = async () => { finish(); const id = await addCategory(); if (id) { n.cat = id; touch(n, 'cat'); save(); render(); } };
   const onBg = (e) => { if (e.target === modal) finish(); };
   list.addEventListener('click', pick);
   newBtn.addEventListener('click', onNew);
@@ -5797,6 +5799,7 @@ document.getElementById('remind-save').addEventListener('click', () => {
   target.remindAt = ts;
   target.repeat = repeat;
   target.remindFired = false;
+  touch(target, 'remind'); touch(parentNoteOf(target.id));
   save(); render(); closeRemindModal();
 });
 document.getElementById('remind-del').addEventListener('click', () => {
@@ -5808,7 +5811,7 @@ document.getElementById('remind-del').addEventListener('click', () => {
     return;
   }
   const target = findRemindTarget(remindTargetId, remindTargetSubId);
-  if (target) { delete target.remindAt; delete target.remindFired; delete target.repeat; save(); render(); }
+  if (target) { delete target.remindAt; delete target.remindFired; delete target.repeat; touch(target, 'remind'); touch(parentNoteOf(target.id)); save(); render(); }
   closeRemindModal();
 });
 document.getElementById('remind-cancel').addEventListener('click', closeRemindModal);
@@ -5915,6 +5918,7 @@ function snoozeReminderById(id, mins) {
   if (!o) return false;
   o.remindAt = Date.now() + mins * 60 * 1000;
   o.remindFired = false;
+  touch(o, 'remind'); touch(parentNoteOf(o.id));
   save(); render();
   return true;
 }
@@ -5954,12 +5958,16 @@ function checkReminders() {
       const next = nextOccurrence(obj.remindAt, obj.repeat);
       if (next) { obj.remindAt = next; obj.remindFired = false; }
       else { obj.remindFired = true; }
+      touch(obj, 'remind');   // 盖章后别的设备合并时以「已响过」为准，不会再响一遍
+      return true;
     }
+    return false;
   };
   notes.forEach(n => {
     if (n._deleted) return;               // 已删除的记录不再触发提醒
-    handle(n, n.text || '提醒');
-    (n.subs || []).forEach(s => handle(s, s.text || '子项提醒'));
+    let hit = handle(n, n.text || '提醒');
+    (n.subs || []).forEach(s => { if (handle(s, s.text || '子项提醒')) hit = true; });
+    if (hit) touch(n);
   });
   if (changed) { save(); if (!isInlineEditing() && !isComposerOpen()) render(); }
 }
@@ -6210,7 +6218,7 @@ gearMenu.addEventListener('click', async e => {
     // 默认的确认框标题/按钮是「确认删除 / 删除」，这里不是删东西，换个说法
     if (!await confirmDialog(`把手动拖出来的顺序清掉，恢复成按时间排序？\n（有 ${n0} 条是手动排过的）`,
           { title: '恢复排序', okText: '恢复', danger: false })) return;
-    notes.forEach(n => { if (Number.isFinite(n.order)) { delete n.order; n.modified = Date.now(); } });
+    notes.forEach(n => { if (Number.isFinite(n.order)) { delete n.order; touch(n, 'order'); } });
     save(); if (typeof cloudPush === 'function') cloudPush();
     render(); showToast('已恢复按时间排序');
   }
@@ -6346,23 +6354,133 @@ async function exportData() {
 }
 
 // 合并导入：按 id 去重，新数据补充进来，已存在的取较新的
+/* ===== 多设备合并 =====
+   没有哪台设备是「主」。每条记录、每个子项（不限层级）都按自己的时间合并，
+   记录里的不同字段也各记各的改动时间：
+     · touch(obj, group) 在每次改动时给对象盖章：obj.modified（整体最后改动）和
+       obj._f[group]（这一组字段最后改动）。组：text（正文/富文本/附件）、done、
+       pinned、cat、type、remind（提醒时间/重复/已响）、order（手动排序）。
+     · 合并同一条记录时，每一组字段取两边改动时间更晚的那份，所以 iPad 上改了
+       正文、手机上同时勾了完成，两边都保留。
+     · 子项按 id 递归合并：各自只在一边有的都留下（除非被删过），两边都有的
+       再按字段合并。子项删除记在所属记录的 _subDel[id] = 删除时间 里，
+       比删除更晚的改动可以让它回来，否则就是删了。
+     · 旧数据没有 _f 时退回到整条按 modified 比较，和以前一样。 */
+const FIELD_GROUPS = {
+  text:   ['text', 'rich', 'atts'],
+  done:   ['done'],
+  pinned: ['pinned'],
+  cat:    ['cat'],
+  type:   ['type'],
+  remind: ['remindAt', 'repeat', 'remindFired'],
+  order:  ['order'],
+};
+function touch(obj, group) {
+  if (!obj) return;
+  const now = Date.now();
+  obj.modified = now;
+  if (!obj._f) obj._f = {};          // 有 _f 就表示这条已经按字段记时间了（哪怕还是空的）
+  if (group) obj._f[group] = now;
+}
+// 删掉某条记录下的一个子项（任意层级）：调用方自己把它从数组里拿掉，这里只记墓碑
+function markSubDeleted(n, subId) {
+  if (!n) return;
+  touch(n);
+  if (!n._subDel) n._subDel = {};
+  n._subDel[subId] = Date.now();
+}
+// 找到某个 id（记录或任意层级的子项）所属的顶层记录
+function parentNoteOf(id) {
+  const has = arr => (arr || []).some(o => o.id === id || has(o.subs));
+  return notes.find(n => n.id === id || has(n.subs)) || null;
+}
+// 键按字母序的 JSON，用来比较两份数据内容是否一样（忽略键顺序）
+function canonJSON(v) {
+  if (Array.isArray(v)) return '[' + v.map(canonJSON).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => JSON.stringify(k) + ':' + canonJSON(v[k])).join(',') + '}';
+  return JSON.stringify(v);
+}
+const _itemTime = o => (o && (o.modified || o.ts)) || 0;
+// 某一组字段的最后改动时间。已经按字段记时间的对象，没盖过章的组就当作创建后
+// 没改过（只有 ts）—— 不能退回 modified，不然在 iPad 上改个子项把 modified 抬高了，
+// 会让手机上早些时候勾的「完成」被这条「更新」的整体盖掉。旧数据（没有 _f）
+// 退回整条的 modified，和以前一样。
+const _groupTime = (o, g) => (o && o._f && o._f[g]) || (o && o._f ? (o.ts || 0) : _itemTime(o));
+
+// 两份同一个对象（记录或子项）合并成一份。远端 r、本机 l；平手取远端（和以前一致）
+function mergeItem(l, r, tombs) {
+  const rNewer = _itemTime(r) >= _itemTime(l);
+  const base = rNewer ? r : l;
+  const out = Object.assign({}, base);
+  if (l.ts && r.ts) out.ts = Math.min(l.ts, r.ts);
+  const hasF = !!(l._f || r._f);
+  if (hasF) out._f = Object.assign({}, l._f || {}, r._f || {}); else delete out._f;
+  for (const g in FIELD_GROUPS) {
+    const tl = _groupTime(l, g), tr = _groupTime(r, g);
+    const src = tr >= tl ? r : l;
+    for (const k of FIELD_GROUPS[g]) {
+      if (src[k] === undefined) delete out[k]; else out[k] = src[k];
+    }
+    if (hasF && ((l._f && l._f[g]) || (r._f && r._f[g]))) out._f[g] = Math.max(tl, tr);
+  }
+  const mod = Math.max(l.modified || 0, r.modified || 0);
+  if (mod) out.modified = mod; else delete out.modified;
+  const subs = mergeSubs(l.subs, r.subs, tombs, rNewer);
+  if (subs.length || base.subs) out.subs = subs; else delete out.subs;
+  return out;
+}
+// 两个子项数组合并：顺序以较新那边为底，另一边独有的插在它原来前一项的后面
+function mergeSubs(ls, rs, tombs, rNewer) {
+  ls = ls || []; rs = rs || [];
+  if (!ls.length && !rs.length) return [];
+  const base = rNewer ? rs : ls, other = rNewer ? ls : rs;
+  const baseById = new Map(base.map(x => [x.id, x]));
+  const otherById = new Map(other.map(x => [x.id, x]));
+  const alive = x => !(tombs[x.id] && tombs[x.id] >= _itemTime(x));
+  const out = [];
+  for (const b of base) {
+    const o = otherById.get(b.id);
+    const m = o ? (rNewer ? mergeItem(o, b, tombs) : mergeItem(b, o, tombs)) : b;
+    if (alive(m)) out.push(m);
+  }
+  let prevId = null;
+  for (const o of other) {
+    if (!baseById.has(o.id)) {
+      if (alive(o)) {
+        const at = prevId == null ? -1 : out.findIndex(x => x.id === prevId);
+        out.splice(at + 1, 0, o);
+      }
+    }
+    prevId = o.id;
+  }
+  return out;
+}
+
 function mergeNotes(incoming) {
+  const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;   // 墓碑保留 60 天
   const byId = {};
   notes.forEach(n => byId[n.id] = n);
-  incoming.forEach(n => {
-    if (!n || !n.id) return;
-    const cur = byId[n.id];
-    if (!cur) {
-      byId[n.id] = n; // 包括删除标记（tombstone），让本机也感知到删除
-    } else {
-      // 比较时间：删除时间 / 编辑时间 / 创建时间，取最新
-      const nTime   = n._deletedAt   || n.modified || n.ts;
-      const curTime = cur._deletedAt || cur.modified || cur.ts;
-      byId[n.id] = (nTime >= curTime) ? n : cur;
+  incoming.forEach(r => {
+    if (!r || !r.id) return;
+    const l = byId[r.id];
+    if (!l) { byId[r.id] = r; return; }   // 包括删除标记（tombstone），让本机也感知到删除
+    // 一边删了：删除时间 vs 另一边的最后改动，晚的算数（删了之后又改的会回来）
+    if (l._deleted || r._deleted) {
+      const dl = l._deleted ? (l._deletedAt || 1) : 0, dr = r._deleted ? (r._deletedAt || 1) : 0;
+      if (l._deleted && r._deleted) { byId[r.id] = dr >= dl ? r : l; return; }
+      const dead = l._deleted ? l : r, live = l._deleted ? r : l;
+      byId[r.id] = Math.max(dl, dr) >= _itemTime(live) ? dead : live;
+      return;
     }
+    // 子项墓碑两边取并集（同一个 id 取更晚的删除时间），过期的清掉
+    const tombs = {};
+    for (const src of [l._subDel, r._subDel]) for (const id in (src || {})) {
+      if (src[id] > cutoff && !(tombs[id] > src[id])) tombs[id] = src[id];
+    }
+    const m = mergeItem(l, r, tombs);
+    if (Object.keys(tombs).length) m._subDel = tombs; else delete m._subDel;
+    byId[r.id] = m;
   });
-  // 清理超过 60 天的 tombstone，避免数据无限增长
-  const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
   notes = Object.values(byId)
     .filter(n => !n._deleted || (n._deletedAt && n._deletedAt > cutoff))
     .sort((a,b) => b.ts - a.ts);
@@ -6712,6 +6830,10 @@ async function cloudPull(remote) {
   mergeCats(remote.cats);
   const notesChanged = before !== JSON.stringify(notes);
   const catsChanged = catsBefore !== JSON.stringify(cats);
+  // 合并结果比服务器那份多了东西（本机的改动它还没有）→ 推回去，所有设备才会一致。
+  // 比较要忽略键的顺序：服务器的 JSONB 会把键重排，按原样比永远不相等，两台设备就会互相推个不停
+  const remoteNorm = canonJSON(remote.notes.filter(n => n && n.id).slice().sort((a,b) => b.ts - a.ts));
+  if (canonJSON(notes) !== remoteNorm) cloudPush();
   if (notesChanged || catsChanged) {
     try { localStorage.setItem(KEY, JSON.stringify(notes)); } catch {}
     try { localStorage.setItem(CATS_KEY, JSON.stringify(cats)); } catch {}
