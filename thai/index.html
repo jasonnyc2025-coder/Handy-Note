@@ -225,7 +225,7 @@
     padding:14px 14px;font-size:16px;color:var(--ink);
   }
   .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
-  #fieldTools{display:flex;gap:8px;margin:8px 0 2px;flex-wrap:wrap}
+  #fieldTools{display:flex;gap:8px;margin:0 0 8px;flex-wrap:wrap}
   #fieldTools[hidden]{display:none}
   #fieldTools button{min-height:40px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;
     background:var(--surface-2);color:var(--teal-ink);border:1px solid var(--line);cursor:pointer}
@@ -946,7 +946,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v105";
+const APP_VER = "v106";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1581,11 +1581,12 @@ function setExamples(list, listEl){
     (el.tagName === "INPUT" && !["button","checkbox","radio","file"].includes((el.type||"text").toLowerCase())));
   function attach(el){
     cur = el;
-    if(el.parentNode) el.parentNode.insertBefore(bar, el.nextSibling);
+    // 放在输入框的正上方（标签下面）。带喇叭的输入框外面套了一层 .with-spk，
+    // 要插在那一层前面，不然会跑进框里
+    const anchor = el.parentNode && el.parentNode.classList.contains("with-spk") ? el.parentNode : el;
+    if(anchor.parentNode) anchor.parentNode.insertBefore(bar, anchor);
     bar.hidden = false;
     remember();
-    // 插在最后一个字段下面时可能正好在可视区之外，滚一下让它露出来
-    setTimeout(()=>{ try{ bar.scrollIntoView({ block:"nearest" }); }catch(_){ } }, 60);
   }
   document.addEventListener("focusin", e=>{
     const el = e.target;
