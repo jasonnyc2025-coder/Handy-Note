@@ -946,7 +946,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v106";
+const APP_VER = "v107";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1879,8 +1879,8 @@ function hlThai(thai, hlList, ownId, colors){
   let out = "", pos = 0, n = 0;
   merged.forEach(sp=>{
     out += esc(text.slice(pos, sp.s));
-    const cls = sp.c ? ('c' + sp.c) : (n % 2 ? 'hl-b' : 'hl-a');
-    n++;
+    // 黄紫交替只在没指定颜色的老高亮之间数，不然新加一个彩色高亮会把旁边老的换色
+    const cls = sp.c ? ('c' + sp.c) : (n++ % 2 ? 'hl-b' : 'hl-a');
     out += '<mark class="hl ' + cls + '">' + underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
     pos = sp.e;
   });
@@ -2546,6 +2546,9 @@ function exLineOf(node){
 }
 function exThaiOf(node){ return exLineOf(node); }   // 旧名字还有别处在用
 function onSelChange(){
+  // 调色板打开着的时候不理会选区变化：iOS 上一点「高亮」按钮选区就没了，
+  // 以前这里跟着把菜单关掉，颜色还没来得及选（要用的词已经记在 selCtx 里）
+  if($("#selPop").classList.contains("pal")) return;
   const sel = window.getSelection();
   if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
   // Thai has no spaces between words, so a drag easily runs past the sentence and
