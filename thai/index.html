@@ -194,6 +194,10 @@
     background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 14px;
     display:flex;align-items:center;gap:12px;min-width:0;
   }
+  /* 编号贴在卡片左上角，不占横向空间 —— 挤在泰文前面会把长词压成一列 */
+  .witem{position:relative;padding-top:28px}
+  .witem .w-no{position:absolute;top:7px;left:12px;font-size:11px;font-weight:800;color:var(--teal-ink);
+    background:var(--teal-soft);border-radius:7px;padding:1px 7px;line-height:1.5;letter-spacing:.02em;font-variant-numeric:tabular-nums}
   .witem .w-thai{font-size:22px;font-weight:600;line-height:1.35;flex:0 1 auto;min-width:0;overflow-wrap:break-word}
   /* basis 0 so the (ellipsized) meaning/reading can't inflate the body and
      squeeze the Thai column; min-width keeps the meaning readable */
@@ -946,7 +950,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v107";
+const APP_VER = "v108";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1382,8 +1386,12 @@ $("#homeCard").onclick = e=>{ if(e.target.closest("button")) return; if(window.g
 $("#homeCardSpk").onclick = e=>{ e.stopPropagation(); const c=cards.find(x=>x.id===homeCardId); if(c) speak(c.thai); };
 
 /* ---------------- word list ---------------- */
+// 每张卡前面的编号：按加入先后，第 1 张加的是 1，最新的那张就是总张数。
+// 编号跟着卡片走，不随列表顺序或搜索结果变，所以也可以当「第几号卡」来称呼
+function cardNo(c){ const i = cards.indexOf(c); return i < 0 ? "" : String(i + 1); }
 function wordItemHTML(c){
   return `<div class="witem" data-id="${c.id}">
+    <div class="w-no">${cardNo(c)}</div>
     <div class="w-thai thai">${esc(c.thai)}</div>
     <div class="w-body">
       <div class="w-mean">${esc(c.meaning||"—")}</div>
