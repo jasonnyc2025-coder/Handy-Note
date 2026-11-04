@@ -646,6 +646,11 @@
   .sync-pill.off{background:rgba(148,163,184,.18);color:var(--muted)}
   .sync-box .sync-detail{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px;word-break:break-word}
   .sync-box .sync-detail b{color:var(--ink);font-weight:700}
+  .trash-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+  .trash-item .trash-txt{min-width:0;font-size:14px;line-height:1.5}
+  .trash-item .trash-txt b{font-size:18px}
+  .trash-item .trash-txt small{color:var(--muted)}
+  .trash-item .trash-restore{width:auto;margin:0;padding:8px 14px;flex:0 0 auto;color:var(--teal-ink);font-weight:700}
   .toast{
     position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
     background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:99px;font-size:13px;font-weight:600;
@@ -838,6 +843,10 @@
     <div class="sync-head"><span>💾 存储</span><span class="sync-pill off" id="storePill">检查中…</span></div>
     <div class="sync-detail" id="storeDetail"></div>
   </div>
+  <div class="sync-box" id="trashBox">
+    <div class="sync-head"><span>🗑 最近删除</span><span class="sync-pill off" id="trashPill">空</span></div>
+    <div class="sync-detail" id="trashDetail"></div>
+  </div>
   <div class="sync-box" id="offlineBox">
     <div class="sync-head"><span>✈️ 飞行模式可用性</span><span class="sync-pill off" id="offPill">检查中…</span></div>
     <div class="sync-detail" id="offDetail"></div>
@@ -950,7 +959,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v108";
+const APP_VER = "v109";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -977,7 +986,7 @@ function load(){
   // （{id,_deleted:true}）—— 留在 cards 里会显示成一张空白卡，挪回墓碑表
   cards = cards.filter(c=>{
     if(!c) return false;
-    if(c._deleted){ tombs.push({ id:c.id, _deletedAt:c._deletedAt||0 }); return false; }
+    if(c._deleted){ tombs.push(_tombOf(c)); return false; }
     return true;
   });
   // migrate old single-example fields -> examples array
@@ -1084,8 +1093,21 @@ function save(){ persistThai(); bumpThaiRev(); scheduleThaiPush(); }
 
 /* --- cross-device merge (by card id): additions / edits / deletes from every
    device all survive, instead of the last writer overwriting the whole set --- */
+// 墓碑：{ id, _deletedAt, snap }。snap 是删除时那张卡的内容，留 120 天，
+// 设置页「最近删除」里可以一键恢复；没有 snap 的是老版本删的，只能看到 id
+const SNAP_KEYS = ["thai","meaning","reading","note","examples","createdAt","day"];
+function _snapOf(c){ const o = {}; SNAP_KEYS.forEach(k=>{ if(c[k] !== undefined) o[k] = c[k]; }); return o; }
+function _tombOf(e){
+  const t = { id:e.id, _deletedAt:e._deletedAt||0 };
+  if(e.snap && e.snap.thai) t.snap = e.snap;
+  return t;
+}
 function combinedThai(){
-  return cards.concat(tombs.map(t=>({ id:t.id, _deleted:true, _deletedAt:t._deletedAt||0 })));
+  return cards.concat(tombs.map(t=>{
+    const e = { id:t.id, _deleted:true, _deletedAt:t._deletedAt||0 };
+    if(t.snap) e.snap = t.snap;
+    return e;
+  }));
 }
 function _rankThai(e){ return e._deleted ? (e._deletedAt||0) : (e.modified || e.createdAt || 0); }
 // 把 src 例句上的高亮（hl / hlm）搬到 dst 的例句上：按例句原文配对，配不上的
@@ -1146,8 +1168,7 @@ function sortCards(list){
 function applyCombinedThai(arr){
   cards = sortCards(arr.filter(e=> e && !e._deleted));
   const cutoff = Date.now() - 120*864e5;   // drop tombstones older than ~120 days
-  tombs = arr.filter(e=> e && e._deleted && (e._deletedAt||0) > cutoff)
-             .map(e=>({ id:e.id, _deletedAt:e._deletedAt||0 }));
+  tombs = arr.filter(e=> e && e._deleted && (e._deletedAt||0) > cutoff).map(_tombOf);
 }
 // 稳定序列化（键排序），保证两台设备对同一张卡片算出同一个指纹
 function _stableStr(v){
@@ -1476,8 +1497,36 @@ function delCard(id){
   if(!c) return;
   if(!confirm(`删除「${c.thai}」？`)) return;
   cards = cards.filter(x=>x.id!==id);
-  tombs = tombs.filter(t=>t.id!==id); tombs.push({ id, _deletedAt: Date.now() });
-  save(); renderList(); renderHome(); toast("已删除");
+  tombs = tombs.filter(t=>t.id!==id); tombs.push({ id, _deletedAt: Date.now(), snap: _snapOf(c) });
+  save(); renderList(); renderHome(); toast("已删除（可在设置里的「最近删除」恢复）");
+}
+// 从「最近删除」恢复：用删除时存下的内容重建，modified 取现在，这样在别的设备上
+// 合并时能压过那块墓碑（墓碑按 _deletedAt 比，活卡按 modified 比）
+function restoreCard(id){
+  const t = tombs.find(x=>x.id===id);
+  if(!t || !t.snap) return false;
+  if(cards.some(c=>c.id===id)) return false;
+  cards.push(Object.assign({ id, day:todayStr(), createdAt:Date.now(), examples:[] }, t.snap, { modified: Date.now() }));
+  sortCards(cards);
+  tombs = tombs.filter(x=>x.id!==id);
+  save(); renderHome();
+  if(document.querySelector("#view-list.active")) renderList();
+  return true;
+}
+function renderTrashBox(){
+  const box = document.getElementById("trashDetail"), pill = document.getElementById("trashPill");
+  if(!box) return;
+  const list = tombs.filter(t=>t.snap && t.snap.thai).sort((a,b)=>(b._deletedAt||0)-(a._deletedAt||0));
+  if(pill){ pill.textContent = list.length ? `${list.length} 张` : "空"; pill.className = "sync-pill " + (list.length ? "ok" : "off"); }
+  if(!list.length){ box.innerHTML = `删掉的卡会在这里保留 120 天，可以随时恢复。<br>现在没有可恢复的卡片。`; return; }
+  box.innerHTML = `删掉的卡在这里保留 120 天。` + list.map(t=>
+    `<div class="trash-item"><div class="trash-txt"><b class="thai">${esc(t.snap.thai)}</b>` +
+    (t.snap.meaning ? ` <span>${esc(t.snap.meaning)}</span>` : "") +
+    `<br><small>删于 ${fmtWhen(t._deletedAt)}</small></div>` +
+    `<button class="ghost trash-restore" data-id="${esc(t.id)}">恢复</button></div>`).join("");
+  box.querySelectorAll(".trash-restore").forEach(b=> b.onclick = ()=>{
+    if(restoreCard(b.dataset.id)){ toast("已恢复"); renderTrashBox(); renderStoreBox(); }
+  });
 }
 
 /* ---------------- add / edit ---------------- */
@@ -2018,7 +2067,7 @@ $("#sheetCloseBottom").onclick = ()=>openSheet(false);
 function openSheet(show){
   $("#sheet").classList.toggle("show",show);
   $("#sheetBg").classList.toggle("show",show);
-  if(show){ renderSyncBox(); renderOfflineBox(); renderStoreBox(); probeStorage(); }
+  if(show){ renderSyncBox(); renderOfflineBox(); renderStoreBox(); renderTrashBox(); probeStorage(); }
 }
 // 手动同步：跑完一整轮 pull→push，然后再读一次服务器核对，确认真的写进去了
 $("#syncNowBtn").onclick = async ()=>{
