@@ -263,11 +263,14 @@
   #view-add .ex-row,#addWordSheet .ex-row{background:var(--surface)}
   #view-add .ex-row-head span,#addWordSheet .ex-row-head span{font-size:calc(13px * var(--formZoom,1))}
   /* example rows */
-  .ex-row{background:var(--surface-2);border:1.5px solid var(--field-line);border-radius:14px;padding:14px;margin-top:12px}
+  /* 每条例句一个琥珀色的框：和里面青色的输入框、外面灰底的页面都分得开，
+     一眼看出「这两个框是同一条例句」 */
+  .ex-row{background:var(--surface-2);border:2.5px solid var(--amber);border-radius:14px;padding:14px;margin-top:12px}
+  #view-add .ex-row,#addWordSheet .ex-row{background:rgba(245,158,11,.07)}
   /* 例句标题靠左、带一道青色竖条；删除键挪到右边，不再和标题挤在一起 */
   .ex-row-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
-  .ex-row-head span{font-size:calc(15px * var(--formZoom,1));font-weight:800;color:var(--teal-ink);
-    padding-left:10px;border-left:3px solid var(--teal);line-height:1.2}
+  .ex-row-head span{font-size:calc(15px * var(--formZoom,1));font-weight:800;color:var(--amber-ink);
+    padding-left:10px;border-left:3px solid var(--amber);line-height:1.2}
   .ex-row-head .mini{width:auto;height:30px;padding:0 10px;font-size:12px;font-weight:700;color:var(--muted);
     background:var(--surface);border:1px solid var(--line);border-radius:9px}
   .ex-row .with-spk{position:relative}
@@ -968,7 +971,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v114";
+const APP_VER = "v115";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
