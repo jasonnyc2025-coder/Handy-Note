@@ -968,7 +968,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v113";
+const APP_VER = "v114";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2648,7 +2648,7 @@ function onSelChange(){
   }
   if(!exThai){ hideSelPop(); return; }
   if((aEx && fEx && aEx !== fEx) || (lines && lines.length > 1)){
-    const span = exThai.querySelector("span") || exThai;   // the text only, not the 🔊 button
+    const span = exThai.querySelector(":scope > span") || exThai;   // the text only, not the 🔊 button
     const r = document.createRange(); r.selectNodeContents(span);
     sel.removeAllRanges(); sel.addRange(r);
   }
@@ -2656,7 +2656,10 @@ function onSelChange(){
   // 旁边 🔊 按钮的字符也带进来
   let text = "";
   try{
-    const span = exThai.querySelector("span") || exThai;
+    // 只认直接子级的 span（例句泰文行的正文包装）。高亮词、带下划线的生词本词也是 span，
+    // 嵌在里面；以前这里随手拿第一个 span，备注 / 翻译行里一有高亮，选区就被裁到那个小 span
+    // 外面，文字为空，菜单直接不弹
+    const span = exThai.querySelector(":scope > span") || exThai;
     const r0 = sel.getRangeAt(0).cloneRange(), sr = document.createRange(); sr.selectNodeContents(span);
     if(r0.compareBoundaryPoints(Range.START_TO_START, sr) < 0) r0.setStart(sr.startContainer, sr.startOffset);
     if(r0.compareBoundaryPoints(Range.END_TO_END, sr) > 0) r0.setEnd(sr.endContainer, sr.endOffset);
