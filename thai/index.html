@@ -459,6 +459,9 @@
   #selPop button:active{background:var(--teal);color:#fff}
   #selPop #selHl{background:#ffd54a;color:#4a3600}                        /* 高亮按钮本身带一点高亮色 */
   #selPalette .sw-x{background:#ffffff;color:#0a6f66}
+  /* 调色板里显示正在上色的词：iOS 一点按钮正文里的选区就没了，不然不知道在给谁上色 */
+  #selPalWord{color:#ffe08a;font-weight:800;font-size:16px;padding:0 4px;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #selPalWord:empty{display:none}
   /* "peek at this word" read-only overlay — sits above the review screen */
   #peekBg{position:fixed;inset:0;z-index:88;background:rgba(0,0,0,.72);display:none;
     -webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px)}
@@ -879,6 +882,7 @@
   <button id="selHl">🖍 高亮</button>
   <div id="selPalette">
     <button class="sw-x" data-c="back" aria-label="返回">‹</button>
+    <span id="selPalWord"></span>
     <button class="sw c1" data-c="1" aria-label="黄色"></button>
     <button class="sw c2" data-c="2" aria-label="紫色"></button>
     <button class="sw c3" data-c="3" aria-label="绿色"></button>
@@ -964,7 +968,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v112";
+const APP_VER = "v113";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2662,7 +2666,8 @@ function onSelChange(){
   if(!text){ hideSelPop(); return; }
   const isNote = exThai.classList.contains("cb-note");
   const cbEx = isNote ? exThai : exThai.closest(".cb-ex");   // 备注行：高亮挂在卡片上，用备注框自己带的 data-card
-  selCtx = { text, cbEx, field: isNote ? "note" : exThai.classList.contains("ex-mean") ? "mean" : "thai" };
+  let keep = null; try{ keep = sel.getRangeAt(0).cloneRange(); }catch(e){}
+  selCtx = { text, cbEx, range: keep, field: isNote ? "note" : exThai.classList.contains("ex-mean") ? "mean" : "thai" };
   // if the selected word is itself a headword in the vocab book (and not the
   // very card that owns this example), offer a "peek at that word" button
   const ownId = cbEx ? cbEx.dataset.card : null;
@@ -2976,7 +2981,14 @@ $("#selHl").onclick = ()=>{
   const cur = _curHighlight(selCtx);
   $("#selHlOff").style.display = cur.on ? "" : "none";
   $$("#selPalette .sw").forEach(b=> b.classList.toggle("on", cur.on && Number(b.dataset.c) === cur.c));
+  $("#selPalWord").textContent = selCtx.text;
   $("#selPop").classList.add("pal");
+  // iOS 一点按钮正文里的选区就被清掉，把它放回去，让人看得见是在给哪个词上色
+  const restore = ()=>{ try{
+    const s = window.getSelection();
+    if(selCtx && selCtx.range && s && s.isCollapsed){ s.removeAllRanges(); s.addRange(selCtx.range); }
+  }catch(e){} };
+  requestAnimationFrame(restore); setTimeout(restore, 120);
 };
 $("#selPalette").onclick = e=>{
   const b = e.target.closest("button"); if(!b) return;
