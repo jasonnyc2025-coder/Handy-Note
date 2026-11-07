@@ -2213,7 +2213,7 @@
   <header>
     <div class="titlebar">
       <div class="title-col">
-        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v209</span></div>
+        <div class="title"><span class="title-text">随手<em>记</em></span><span id="app-ver" style="font-size:0.82rem;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 10px;border-radius:9px;letter-spacing:.03em">v210</span></div>
         <div class="sub"><span data-i18n="subtitle">想到什么随时记 · 自动保存</span></div>
       </div>
       <span style="flex:1"></span>
@@ -3061,6 +3061,26 @@ function renderTabs() {
   });
   html += `<button class="tab tab-add" data-filter="__add">＋</button>`;
   tabs.innerHTML = html;
+  centerActiveTab(tabs);
+}
+// 把当前类别的标签滚到标签栏正中间：打开 App 时直接看到自己在哪个类别，
+// 不用左右找。只在「当前类别变了」时滚（打开、切换类别），后台同步、计数
+// 变化引起的重画不动它，免得用户正翻着标签栏被拽回去。
+let _tabsCenteredFor = null;
+function centerActiveTab(tabs) {
+  if (_tabsCenteredFor === filter) return;
+  const first = _tabsCenteredFor === null;
+  _tabsCenteredFor = filter;
+  const go = () => {
+    const el = tabs.querySelector('.tab.active');
+    if (!el) return;
+    const left = el.offsetLeft - (tabs.clientWidth - el.offsetWidth) / 2;
+    const max = tabs.scrollWidth - tabs.clientWidth;
+    const x = Math.max(0, Math.min(left, max));
+    try { tabs.scrollTo({ left: x, behavior: first ? 'auto' : 'smooth' }); } catch { tabs.scrollLeft = x; }
+  };
+  // 刚开 App 时字体/布局可能还没稳，下一帧再量一次，量不到宽度就再等一帧
+  requestAnimationFrame(() => { if (tabs.clientWidth) go(); else requestAnimationFrame(go); });
 }
 
 // 根据类别 id 稳定地分配一个颜色（同一类别永远同色）
