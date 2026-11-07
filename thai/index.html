@@ -964,7 +964,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v111";
+const APP_VER = "v112";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2631,14 +2631,34 @@ function onSelChange(){
   // spills into the NEXT example. Keep the selection inside one example: if the two
   // ends landed in different examples, snap it back to just this example's text.
   const aEx = exThaiOf(sel.anchorNode), fEx = exThaiOf(sel.focusNode);
-  const exThai = fEx || aEx;
+  let exThai = fEx || aEx, lines = null;
+  if(!exThai || (aEx && fEx && aEx !== fEx)){
+    // iOS 上选区跨了两行时，起止点常常落在外层容器上而不是文字节点里，按起止点
+    // 找不到例句行，以前这里就把菜单关掉了。改为看选区实际盖住了哪些行。
+    let r = null; try{ r = sel.getRangeAt(0); }catch(e){}
+    if(r){
+      lines = [...document.querySelectorAll(".ex-thai, .ex-mean, .cb-note")]
+        .filter(el => el.offsetParent !== null && r.intersectsNode(el) && (el.textContent || "").trim());
+    }
+    if(lines && lines.length) exThai = lines[0];
+  }
   if(!exThai){ hideSelPop(); return; }
-  if(aEx && fEx && aEx !== fEx){
+  if((aEx && fEx && aEx !== fEx) || (lines && lines.length > 1)){
     const span = exThai.querySelector("span") || exThai;   // the text only, not the 🔊 button
     const r = document.createRange(); r.selectNodeContents(span);
     sel.removeAllRanges(); sel.addRange(r);
   }
-  const text = sel.toString().trim();
+  // 取文字时把选区裁到这一行的正文范围内：起止点落在容器上时，原样 toString 会把
+  // 旁边 🔊 按钮的字符也带进来
+  let text = "";
+  try{
+    const span = exThai.querySelector("span") || exThai;
+    const r0 = sel.getRangeAt(0).cloneRange(), sr = document.createRange(); sr.selectNodeContents(span);
+    if(r0.compareBoundaryPoints(Range.START_TO_START, sr) < 0) r0.setStart(sr.startContainer, sr.startOffset);
+    if(r0.compareBoundaryPoints(Range.END_TO_END, sr) > 0) r0.setEnd(sr.endContainer, sr.endOffset);
+    text = r0.toString();
+  }catch(e){ text = sel.toString(); }
+  text = text.replace(/🔊/g, "").trim();
   if(!text){ hideSelPop(); return; }
   const isNote = exThai.classList.contains("cb-note");
   const cbEx = isNote ? exThai : exThai.closest(".cb-ex");   // 备注行：高亮挂在卡片上，用备注框自己带的 data-card
@@ -2825,7 +2845,7 @@ $("#formZoomOut").onclick = ()=>{ formZoom -= 0.15; applyFormZoom(); };
 $("#peekZoomOut").onclick = e=>{ e.stopPropagation(); peekZoom -= 0.15; applyPeekZoom(); };
 $("#peekPrev").onclick = e=>{ e.stopPropagation(); peekStep(-1); };
 $("#peekNext").onclick = e=>{ e.stopPropagation(); peekStep(1); };
-document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(onSelChange, 180); });
+document.addEventListener("selectionchange", ()=>{ clearTimeout(window._selT); window._selT = setTimeout(()=>{ try{ onSelChange(); }catch(e){ logErr("选词", e); } }, 180); });
 document.addEventListener("scroll", hideSelPop, true);
 
 // Thai has no spaces, so long-press selects the whole sentence. Let a *single tap*
