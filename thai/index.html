@@ -637,6 +637,12 @@
   #trSheet .tr-body .tr-res{font-size:21px;font-weight:700;color:var(--teal)}
   #trSheet .tr-body .tr-note{display:block;margin-top:9px;font-size:13px;color:var(--muted);line-height:1.6}
   #trSheet .tr-body .tr-bad{font-size:14.5px;color:var(--muted);line-height:1.7}
+  /* 网页调不出系统选词菜单里的「翻译」，退而求其次：一键把词交给 Google 翻译 App / 网页，
+     或走系统分享面板（安卓的分享面板里有 Google 翻译）*/
+  #trSheet .tr-ext{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  #trSheet .tr-ext button{flex:1 1 auto;min-height:42px;padding:0 12px;border-radius:11px;font-size:14px;font-weight:700;
+    background:var(--surface-2);color:var(--teal-ink);border:1px solid var(--line);cursor:pointer}
+  #trSheet .tr-ext button:active{filter:brightness(.9)}
   #trSheet .tr-body .tr-bad b{color:var(--ink)}
   #trSheet .tr-acts{display:flex;gap:10px;margin-top:16px}
   #trSheet .tr-acts button{flex:1;min-height:48px;border-radius:14px;font-size:15.5px;font-weight:700}
@@ -906,6 +912,10 @@
     <button class="tr-spk" id="trSpeak" aria-label="朗读">🔊</button>
   </div>
   <div class="tr-body" id="trBody"></div>
+  <div class="tr-ext">
+    <button id="trGoogle">🌐 用 Google 翻译打开</button>
+    <button id="trShare" style="display:none">📤 分享到其它 App 翻译</button>
+  </div>
   <div class="tr-acts">
     <button class="tr-add" id="trAdd">➕ 加入生词</button>
     <button class="tr-close" id="trClose">关闭</button>
@@ -971,7 +981,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v115";
+const APP_VER = "v116";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2910,8 +2920,14 @@ function selectWordInNode(textNode, offset){
 // （电脑上用鼠标拖选，松开时同样会触发 click，以前会把划好的选区
 //  直接换成分词器切出的那一个词 —— 想选「ความเสียหาย」只能得到「ความเสีย」。）
 let _downPt = null;
-document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; }, true);
-document.addEventListener("mousedown", e=>{ if(!_downPt) _downPt = { x:e.clientX, y:e.clientY }; }, true);
+// 按下的瞬间把当时的选区记下来：浏览器会在按下时就把旧选区收掉，等到 click 里已经看不到了
+let _downSel = null;
+function _rememberSel(){
+  try{ const s = window.getSelection(); _downSel = (s && !s.isCollapsed && s.rangeCount) ? s.getRangeAt(0).cloneRange() : null; }
+  catch(e){ _downSel = null; }
+}
+document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(); }, true);
+document.addEventListener("mousedown", e=>{ if(!_downPt){ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(); } }, true);
 function _draggedSince(e){
   if(!_downPt) return false;
   const dx = e.clientX - _downPt.x, dy = e.clientY - _downPt.y;
@@ -2931,6 +2947,15 @@ document.addEventListener("click", e=>{
   let tn = c && c.node;
   if(tn && tn.nodeType!==3) tn = [...(tn.childNodes||[])].find(n=>n.nodeType===3);
   if(!tn || !line.contains(tn)) return;
+  // 再点一下已经选中的那个词：把按下前的选区放回去，不要重新选（第二下点偏一点就会跳到别的词）
+  try{
+    if(_downSel && _downSel.isPointInRange(tn, c ? c.off : 0)){
+      const r = _downSel; _downSel = null;
+      sel.removeAllRanges(); sel.addRange(r);
+      return;
+    }
+  }catch(err){}
+  _downSel = null;
   // 翻译行多半是中文，用泰语分词器去切会切错 —— 只有点在泰文字符上才自动选词，
   // 其余交给浏览器自己的双击/拖选
   if(line.classList.contains("ex-mean") || line.classList.contains("cb-note")){
@@ -3189,6 +3214,18 @@ $("#selTrans").onclick = ()=>{
   if(t) openTrSheet(t);
 };
 $("#trClose").onclick = closeTrSheet;
+// 系统选词菜单里的「翻译」网页是调不出来的；这两个按钮是最接近的替代：
+// Google 翻译的链接装了 App 会直接拉起 App，没装就开网页；分享面板里也能选翻译 App
+function googleTranslateUrl(t){
+  const zh = /[\u0e00-\u0e7f]/.test(t) ? ["th","zh-CN"] : ["zh-CN","th"];
+  return `https://translate.google.com/?sl=${zh[0]}&tl=${zh[1]}&text=${encodeURIComponent(t)}&op=translate`;
+}
+$("#trGoogle").onclick = ()=>{ if(_trText) window.open(googleTranslateUrl(_trText), "_blank", "noopener"); };
+$("#trShare").onclick = async ()=>{
+  if(!_trText || !navigator.share) return;
+  try{ await navigator.share({ text:_trText }); }catch(e){ /* 用户取消 */ }
+};
+if(navigator.share) $("#trShare").style.display = "";
 $("#trBg").onclick = closeTrSheet;
 $("#trSpeak").onclick = ()=> speak(_trText);
 $("#trAdd").onclick = ()=>{
