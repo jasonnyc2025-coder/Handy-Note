@@ -637,12 +637,6 @@
   #trSheet .tr-body .tr-res{font-size:21px;font-weight:700;color:var(--teal)}
   #trSheet .tr-body .tr-note{display:block;margin-top:9px;font-size:13px;color:var(--muted);line-height:1.6}
   #trSheet .tr-body .tr-bad{font-size:14.5px;color:var(--muted);line-height:1.7}
-  /* 网页调不出系统选词菜单里的「翻译」，退而求其次：一键把词交给 Google 翻译 App / 网页，
-     或走系统分享面板（安卓的分享面板里有 Google 翻译）*/
-  #trSheet .tr-ext{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  #trSheet .tr-ext button{flex:1 1 auto;min-height:42px;padding:0 12px;border-radius:11px;font-size:14px;font-weight:700;
-    background:var(--surface-2);color:var(--teal-ink);border:1px solid var(--line);cursor:pointer}
-  #trSheet .tr-ext button:active{filter:brightness(.9)}
   #trSheet .tr-body .tr-bad b{color:var(--ink)}
   #trSheet .tr-acts{display:flex;gap:10px;margin-top:16px}
   #trSheet .tr-acts button{flex:1;min-height:48px;border-radius:14px;font-size:15.5px;font-weight:700}
@@ -912,10 +906,6 @@
     <button class="tr-spk" id="trSpeak" aria-label="朗读">🔊</button>
   </div>
   <div class="tr-body" id="trBody"></div>
-  <div class="tr-ext">
-    <button id="trGoogle">🌐 用 Google 翻译打开</button>
-    <button id="trShare" style="display:none">📤 分享到其它 App 翻译</button>
-  </div>
   <div class="tr-acts">
     <button class="tr-add" id="trAdd">➕ 加入生词</button>
     <button class="tr-close" id="trClose">关闭</button>
@@ -981,7 +971,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v116";
+const APP_VER = "v117";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2920,14 +2910,30 @@ function selectWordInNode(textNode, offset){
 // （电脑上用鼠标拖选，松开时同样会触发 click，以前会把划好的选区
 //  直接换成分词器切出的那一个词 —— 想选「ความเสียหาย」只能得到「ความเสีย」。）
 let _downPt = null;
-// 按下的瞬间把当时的选区记下来：浏览器会在按下时就把旧选区收掉，等到 click 里已经看不到了
-let _downSel = null;
-function _rememberSel(){
-  try{ const s = window.getSelection(); _downSel = (s && !s.isCollapsed && s.rangeCount) ? s.getRangeAt(0).cloneRange() : null; }
-  catch(e){ _downSel = null; }
+// 按下的瞬间把当时的选区记下来：浏览器会在按下时就把旧选区收掉，等到 click 里已经看不到了。
+// 同时记下这一下是不是按在已选中的词上面（_tapInsideSel）
+let _downSel = null, _downAt = 0, _tapInsideSel = false;
+function _rememberSel(x, y){
+  _downAt = Date.now(); _tapInsideSel = false;
+  try{
+    const s = window.getSelection();
+    _downSel = (s && !s.isCollapsed && s.rangeCount) ? s.getRangeAt(0).cloneRange() : null;
+    if(_downSel){
+      const c = _caretAtPoint(x, y);
+      let tn = c && c.node;
+      if(tn && tn.nodeType !== 3) tn = [...(tn.childNodes||[])].find(n=>n.nodeType===3) || tn;
+      if(tn) _tapInsideSel = _downSel.isPointInRange(tn, c ? c.off : 0);
+    }
+  }catch(e){ _downSel = null; }
 }
-document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(); }, true);
-document.addEventListener("mousedown", e=>{ if(!_downPt){ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(); } }, true);
+document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); }, true);
+document.addEventListener("mousedown", e=>{ if(!_downPt){ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); } }, true);
+// 安卓上在已选中的词上再点一下（或双击），系统会按它自己的分词重新选一段，词就"跳"了。
+// 快速点按（300ms 内）落在原选区里时，不让浏览器开始新选区；长按（>300ms）不拦，
+// 系统的长按选词菜单照常能用
+document.addEventListener("selectstart", e=>{
+  if(_tapInsideSel && Date.now() - _downAt < 300) e.preventDefault();
+}, true);
 function _draggedSince(e){
   if(!_downPt) return false;
   const dx = e.clientX - _downPt.x, dy = e.clientY - _downPt.y;
@@ -3207,25 +3213,33 @@ async function runTranslate(){
   body.innerHTML = `<span class="tr-bad">${msg}</span>`;
   $("#trAdd").disabled = true;
 }
+/* 安卓：「翻译」按钮直接向系统发 PROCESS_TEXT 请求，系统弹出它自己的翻译选项
+   （Google 翻译 / 三星翻译 / 词典……），和长按选词菜单里的「翻译」是同一套。
+   网页没法让系统菜单在单击时出现，这是最接近的做法。没有 App 接这个请求、
+   或不是安卓（iPhone 没有对应机制）时，退回 App 自己的翻译面板。 */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
+function systemTranslate(t){
+  if(!IS_ANDROID) return false;
+  let left = false;
+  const onHide = ()=>{ if(document.visibilityState === "hidden") left = true; };
+  document.addEventListener("visibilitychange", onHide);
+  try{
+    location.href = "intent:#Intent;action=android.intent.action.PROCESS_TEXT;type=text/plain;" +
+      "S.android.intent.extra.PROCESS_TEXT=" + encodeURIComponent(t) + ";B.android.intent.extra.PROCESS_TEXT_READONLY=true;end";
+  }catch(e){ document.removeEventListener("visibilitychange", onHide); return false; }
+  // 系统接住了会把页面切到后台；900ms 后还在前台说明没有 App 接，改用 App 自己的翻译
+  setTimeout(()=>{ document.removeEventListener("visibilitychange", onHide); if(!left) openTrSheet(t); }, 900);
+  return true;
+}
 $("#selTrans").onclick = ()=>{
   const t = selCtx && selCtx.text;
   hideSelPop();
   const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
-  if(t) openTrSheet(t);
+  if(!t) return;
+  if(!systemTranslate(t)) openTrSheet(t);
 };
 $("#trClose").onclick = closeTrSheet;
-// 系统选词菜单里的「翻译」网页是调不出来的；这两个按钮是最接近的替代：
-// Google 翻译的链接装了 App 会直接拉起 App，没装就开网页；分享面板里也能选翻译 App
-function googleTranslateUrl(t){
-  const zh = /[\u0e00-\u0e7f]/.test(t) ? ["th","zh-CN"] : ["zh-CN","th"];
-  return `https://translate.google.com/?sl=${zh[0]}&tl=${zh[1]}&text=${encodeURIComponent(t)}&op=translate`;
-}
-$("#trGoogle").onclick = ()=>{ if(_trText) window.open(googleTranslateUrl(_trText), "_blank", "noopener"); };
-$("#trShare").onclick = async ()=>{
-  if(!_trText || !navigator.share) return;
-  try{ await navigator.share({ text:_trText }); }catch(e){ /* 用户取消 */ }
-};
-if(navigator.share) $("#trShare").style.display = "";
+
 $("#trBg").onclick = closeTrSheet;
 $("#trSpeak").onclick = ()=> speak(_trText);
 $("#trAdd").onclick = ()=>{
