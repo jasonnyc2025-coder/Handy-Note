@@ -511,6 +511,15 @@
   .peek-card .cb-ex .ex-no{font-size:.75em}
   .peek-card .cb-ex .ex-thai{font-size:1.75em}
   .peek-card .cb-ex .ex-mean{font-size:1.125em}
+  /* 宽屏（折叠屏展开、平板）：卡片不再卡在 460px，按屏宽放大到最多 780px，
+     标题词不用再折成两行，字也相应放大一点；普通手机（<600px）不受影响 */
+  @media (min-width:600px){
+    .peek-card{max-width:min(780px, 92vw)}
+    .peek-card .card-thai{font-size:3.6em}
+    .peek-card .cb-mean{font-size:1.6em}
+    .peek-card .cb-ex .ex-thai{font-size:1.9em}
+    .peek-card .cb-ex .ex-mean{font-size:1.2em}
+  }
   /* search-term highlight inside the opened card */
   mark.s-hit{background:#ffd54a;color:#3a2c00;border-radius:4px;padding:0 2px;font-weight:800}
   /* A− / A+ 字号控制，方便看清浮层里的文字 */
@@ -971,7 +980,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v117";
+const APP_VER = "v118";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
