@@ -267,6 +267,11 @@
      一眼看出「这两个框是同一条例句」 */
   .ex-row{background:var(--surface-2);border:2.5px solid var(--amber);border-radius:14px;padding:14px;margin-top:12px}
   #view-add .ex-row,#addWordSheet .ex-row{background:rgba(245,158,11,.07)}
+  /* 「添加一条例句」：以前是一条细灰的幽灵按钮，夹在例句框和备注之间看不出来。
+     改成琥珀色虚线大按钮（和例句框同色系），上下各留出一段空，和两边都分开 */
+  .ghost.add-ex-btn{margin:18px 0 10px;padding:17px 14px;font-size:calc(17px * var(--formZoom,1));font-weight:800;
+    color:var(--amber-ink);background:rgba(245,158,11,.10);border:2.5px dashed var(--amber);border-radius:14px}
+  .ghost.add-ex-btn:active{background:rgba(245,158,11,.22)}
   /* 例句标题靠左、带一道青色竖条；删除键挪到右边，不再和标题挤在一起 */
   .ex-row-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
   .ex-row-head span{font-size:calc(15px * var(--formZoom,1));font-weight:800;color:var(--amber-ink);
@@ -760,7 +765,7 @@
     <div class="field">
       <label>例句 <span class="opt">（选填，可多条）</span></label>
       <div id="exList"></div>
-      <button class="ghost" id="addExBtn" style="margin-top:10px">＋ 添加例句</button>
+      <button class="ghost add-ex-btn" id="addExBtn">＋ 添加一条例句</button>
     </div>
     <div class="field">
       <label>备注 <span class="opt">（选填，用法/辨析等）</span></label>
@@ -966,7 +971,7 @@
   <div class="field">
     <label>例句 <span class="opt">（选填，可多条）</span></label>
     <div id="awExList"></div>
-    <button class="ghost" id="awAddEx" style="margin-top:10px">＋ 添加例句</button>
+    <button class="ghost add-ex-btn" id="awAddEx">＋ 添加一条例句</button>
   </div>
   <div class="opt-row" style="margin-top:16px">
     <button class="ghost" id="awCancel">取消</button>
@@ -980,7 +985,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v118";
+const APP_VER = "v119";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
