@@ -422,7 +422,8 @@
   .cb-ex .ex-no{font-size:12px;font-weight:800;color:var(--teal-ink);letter-spacing:.04em;margin-bottom:6px;min-height:22px;line-height:22px}
   .cb-ex .ex-thai{font-size:28px;font-weight:500;line-height:1.55;display:block}
   .cb-ex .ex-thai > span{display:block}
-  .cb-ex .ex-thai .mini{position:absolute;top:8px;right:10px;width:44px;height:44px;font-size:20px;border-radius:12px;margin:0}
+  .cb-ex .ex-thai .mini{position:absolute;top:8px;right:10px;width:54px;height:54px;font-size:26px;border-radius:14px;margin:0}
+  .cb-ex .ex-no{padding-right:64px;min-height:46px}   /* 编号行给右上角的喇叭让位，也把泰文第一行压到喇叭下面，不被盖住 */
   .cb-ex .ex-mean{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.5}
   /* two alternating highlight colors so two touching highlighted words
      (common in spaceless Thai) don't merge into one blob.
@@ -996,7 +997,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v122";
+const APP_VER = "v123";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
