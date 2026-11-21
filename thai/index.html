@@ -233,11 +233,12 @@
   .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
   /* 输入工具条：按钮加大好按，用蓝紫色和周围青色 / 琥珀色的东西区分开；
      「粘贴」最常用，单独放到最右边、再用实色突出，不会和「清空」按混 */
-  #fieldTools{display:flex;gap:10px;margin:0 0 10px;flex-wrap:wrap;align-items:center}
+  /* 四个按钮平分一行，不换行；「粘贴」略宽一点 */
+  #fieldTools{display:flex;gap:8px;margin:0 0 10px;flex-wrap:nowrap;align-items:stretch}
   #fieldTools[hidden]{display:none}
-  #fieldTools button{min-height:50px;padding:0 20px;border-radius:13px;font-size:calc(16px * var(--formZoom,1));font-weight:800;
-    background:var(--tool-bg);color:var(--tool-ink);border:2px solid var(--tool-line);cursor:pointer}
-  #fieldTools button.ft-paste{margin-left:auto;background:var(--tool-solid);color:#fff;border-color:var(--tool-solid);padding:0 24px}
+  #fieldTools button{flex:1 1 0;min-width:0;min-height:50px;padding:0 6px;border-radius:13px;font-size:calc(16px * var(--formZoom,1));font-weight:800;
+    white-space:nowrap;background:var(--tool-bg);color:var(--tool-ink);border:2px solid var(--tool-line);cursor:pointer}
+  #fieldTools button.ft-paste{flex:1.35 1 0;background:var(--tool-solid);color:#fff;border-color:var(--tool-solid)}
   #fieldTools button:active{filter:brightness(.9)}
   .field textarea{min-height:70px;resize:vertical;line-height:1.5}
   .field .with-spk{position:relative}
@@ -998,7 +999,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v125";
+const APP_VER = "v126";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
