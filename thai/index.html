@@ -997,7 +997,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v123";
+const APP_VER = "v124";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1690,7 +1690,8 @@ function setExamples(list, listEl){
   }
   document.addEventListener("focusin", e=>{
     const el = e.target;
-    if(isField(el) && el.closest("#view-add")) attach(el);
+    // 添加页和浮层里的「加入生词」表单都要有这排按钮
+    if(isField(el) && el.closest("#view-add, #addWordSheet")) attach(el);
     else if(!bar.contains(el)){ bar.hidden = true; cur = null; }
   });
   // 鼠标按下时阻止失焦即可；触摸上绝不能 preventDefault —— iOS 会把随后的
