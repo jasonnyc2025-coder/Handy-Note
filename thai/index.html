@@ -752,6 +752,7 @@
   <div id="fieldTools" hidden>
     <button type="button" data-a="all">全选</button>
     <button type="button" data-a="clear">清空</button>
+    <button type="button" data-a="copy">复制</button>
     <button type="button" data-a="paste" class="ft-paste">📋 粘贴</button>
   </div>
   <section class="view" id="view-add">
@@ -997,7 +998,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v124";
+const APP_VER = "v125";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1703,6 +1704,16 @@ function setExamples(list, listEl){
     if(act === "all"){ cur.focus(); cur.select(); remember(); return; }
     if(act === "clear"){ cur.value = ""; cur.focus(); remember();
       cur.dispatchEvent(new Event("input",{bubbles:true})); return; }
+    if(act === "copy"){
+      // 有选中的一段就复制那一段，没有就复制整个框（选区用按下前记下的 selS/selE）
+      const len = cur.value.length;
+      const s0 = Math.min(selS, len), e0 = Math.min(Math.max(selE, s0), len);
+      const t = e0 > s0 ? cur.value.slice(s0, e0) : cur.value;
+      if(!t.trim()){ toast("这个框里还没有内容"); return; }
+      copyText(t);
+      cur.focus(); try{ cur.setSelectionRange(s0, e0 > s0 ? e0 : s0); }catch(_){}
+      return;
+    }
     if(act === "paste"){
       let txt = "";
       try{ txt = await navigator.clipboard.readText(); }
