@@ -17,6 +17,7 @@
     --home-card-bg:#e6f4f0; --home-card-line:#bfe3da;   /* teal-tinted preview card, set apart from the white list */
     --teal-soft:rgba(13,148,136,.12);                   /* active-tab pill */
     --field-bg:#eaf6f3; --field-bg-focus:#ffffff;        /* 输入框底色：浅青，和页面灰底分得开 */
+    --tool-bg:#eceefc; --tool-ink:#4f46e5; --tool-line:#a5b0f5; --tool-solid:#4f46e5;   /* 粘贴 / 全选 / 清空 工具条：蓝紫色 */
     --note-bg:#fdf6e9; --note-line:#f0e2c4; --amber-ink:#a15c0a;   /* 备注 card (light) */
     --card-shadow:0 10px 30px rgba(18,32,30,.10), 0 2px 6px rgba(18,32,30,.05);
     --ink:#12201e; --muted:#6b7a77; --line:#e2e7e5; --field-line:#b9c6c2;
@@ -32,6 +33,7 @@
       --home-card-bg:#123a34; --home-card-line:#1f5148;
       --teal-soft:rgba(45,212,191,.16);
       --field-bg:#17302c; --field-bg-focus:#0f1f1c;
+      --tool-bg:#232a52; --tool-ink:#c7d2fe; --tool-line:#5b63b8; --tool-solid:#6366f1;
       --note-bg:#2a2416; --note-line:#3d3420; --amber-ink:#fbbf24;
       --ink:#eef2f1; --muted:#8a9a97; --line:#26332f; --field-line:#43584f;
       --teal:#2dd4bf; --teal-ink:#5eead4; --amber:#fbbf24;
@@ -229,10 +231,13 @@
     padding:14px 14px;font-size:16px;color:var(--ink);
   }
   .field input:focus,.field textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-soft)}
-  #fieldTools{display:flex;gap:8px;margin:0 0 8px;flex-wrap:wrap}
+  /* 输入工具条：按钮加大好按，用蓝紫色和周围青色 / 琥珀色的东西区分开；
+     「粘贴」最常用，单独放到最右边、再用实色突出，不会和「清空」按混 */
+  #fieldTools{display:flex;gap:10px;margin:0 0 10px;flex-wrap:wrap;align-items:center}
   #fieldTools[hidden]{display:none}
-  #fieldTools button{min-height:40px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;
-    background:var(--surface-2);color:var(--teal-ink);border:1px solid var(--line);cursor:pointer}
+  #fieldTools button{min-height:50px;padding:0 20px;border-radius:13px;font-size:calc(16px * var(--formZoom,1));font-weight:800;
+    background:var(--tool-bg);color:var(--tool-ink);border:2px solid var(--tool-line);cursor:pointer}
+  #fieldTools button.ft-paste{margin-left:auto;background:var(--tool-solid);color:#fff;border-color:var(--tool-solid);padding:0 24px}
   #fieldTools button:active{filter:brightness(.9)}
   .field textarea{min-height:70px;resize:vertical;line-height:1.5}
   .field .with-spk{position:relative}
@@ -740,9 +745,9 @@
   <!-- 跟随焦点的小工具条：iOS 上系统的「粘贴/全选」菜单会被顶到屏幕最顶端够不着，
        这里给一排自己的按钮，就在输入框正下方 -->
   <div id="fieldTools" hidden>
-    <button type="button" data-a="paste">📋 粘贴</button>
     <button type="button" data-a="all">全选</button>
     <button type="button" data-a="clear">清空</button>
+    <button type="button" data-a="paste" class="ft-paste">📋 粘贴</button>
   </div>
   <section class="view" id="view-add">
     <div class="add-head">
@@ -987,7 +992,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v120";
+const APP_VER = "v121";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
