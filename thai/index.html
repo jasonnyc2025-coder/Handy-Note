@@ -999,7 +999,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v126";
+const APP_VER = "v127";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -3288,17 +3288,34 @@ $("#trAdd").onclick = ()=>{
   openAddWord(thai);
   $("#awMean").value = mean;      // 把翻译结果预填进去，改一下就能存
 };
-$("#awCancel").onclick = closeAddWord;
+/* 键盘开着时点「取消 / 保存」：手指抬起的那一刻输入框失焦、键盘收起，这个底部弹层
+   跟着重新排版，随后才派发的 click 落到了挪过来的「添加一条例句」上 —— 看起来就是
+   点取消反而多了一条例句。改为在 touchend 当场执行并吞掉后面的 click。 */
+function bindTapNow(el, fn){
+  let t0 = 0, x0 = 0, y0 = 0, handledAt = 0;
+  el.addEventListener("touchstart", e=>{ const t = e.touches && e.touches[0]; if(!t) return; t0 = Date.now(); x0 = t.clientX; y0 = t.clientY; }, { passive:true });
+  el.addEventListener("touchend", e=>{
+    const t = e.changedTouches && e.changedTouches[0]; if(!t || !t0) return;
+    const quickTap = Date.now() - t0 < 700 && Math.hypot(t.clientX - x0, t.clientY - y0) < 10;
+    t0 = 0;
+    if(!quickTap) return;
+    e.preventDefault();
+    handledAt = Date.now();
+    fn(e);
+  });
+  el.addEventListener("click", e=>{ if(Date.now() - handledAt < 600) return; fn(e); });
+}
+bindTapNow($("#awCancel"), closeAddWord);
 $("#addWordBg").onclick = closeAddWord;
 $("#awAddEx").onclick = ()=> addExRow("", "", $("#awExList"));
-$("#awSave").onclick = ()=>{
+bindTapNow($("#awSave"), ()=>{
   const thai = $("#awThai").value.trim(); if(!thai){ closeAddWord(); return; }
   cards.push({ id:uid(), day:todayStr(), createdAt:Date.now(), modified:Date.now(), thai, meaning:$("#awMean").value.trim(), reading:$("#awRead").value.trim(), examples:collectExamples($("#awExList")) });
   save();
   closeAddWord();
   toast("已加入生词：" + thai);
   if(document.querySelector("#view-home.active")) renderHome();
-};
+});
 
 /* ---------------- boot ---------------- */
 const _av = document.getElementById("appVer"); if(_av) _av.textContent = APP_VER;
