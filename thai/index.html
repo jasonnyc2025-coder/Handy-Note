@@ -456,6 +456,18 @@
   }
   /* 选词菜单里的调色板：点「高亮」后把按钮换成六个色块 */
   #selPop.pal > button{display:none}
+  /* 「相关卡片」列表：选中的词在别的卡片里出现过（标题 / 例句 / 备注），列出来点哪张看哪张 */
+  #selRelated{display:none;flex-direction:column;gap:6px;width:min(92vw, 520px)}
+  #selPop.rel > button{display:none}
+  #selPop.rel #selRelated{display:flex}
+  #selRelated .rel-head{display:flex;align-items:center;gap:10px;color:#ffe08a;font-weight:800;font-size:15px}
+  #selRelList{display:flex;flex-direction:column;gap:6px;max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #selRelList button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;
+    background:#ffffff;color:#0a6f66;border-radius:10px;padding:9px 12px;min-height:44px}
+  #selRelList button .rel-thai{font-size:18px;font-weight:700;color:#12201e}
+  #selRelList button .rel-thai mark{background:#ffd54a;color:#4a3600;border-radius:4px;padding:0 2px}
+  #selRelList button .rel-sub{font-size:13px;color:#4b5f5b;font-weight:500}
+  #selRelList button .rel-sub mark{background:#ffd54a;color:#4a3600;border-radius:3px;padding:0 2px}
   #selPalette{display:none;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
   #selPop.pal #selPalette{display:flex}
   #selPalette .sw{width:38px;height:38px;border-radius:99px;border:2px solid rgba(255,255,255,.35);padding:0;cursor:pointer}
@@ -911,6 +923,10 @@
   <button id="selAdd">➕ 加入生词</button>
   <button id="selTrans">🌐 翻译</button>
   <button id="selHl">🖍 高亮</button>
+  <div id="selRelated">
+    <div class="rel-head"><button class="sw-x" data-rel="back" aria-label="返回">‹</button><span id="selRelTitle"></span></div>
+    <div id="selRelList"></div>
+  </div>
   <div id="selPalette">
     <button class="sw-x" data-c="back" aria-label="返回">‹</button>
     <span id="selPalWord"></span>
@@ -999,7 +1015,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v127";
+const APP_VER = "v128";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2659,7 +2675,7 @@ async function longPollLoop(gen){
 
 /* ---------- select a word in an example -> highlight / add to vocab ---------- */
 let selCtx = null;   // { text, cbEx }
-function hideSelPop(){ $("#selPop").classList.remove("show"); $("#selPop").classList.remove("pal"); selCtx=null; }
+function hideSelPop(){ $("#selPop").classList.remove("show"); $("#selPop").classList.remove("pal"); $("#selPop").classList.remove("rel"); selCtx=null; }
 // 例句的两行都能选：泰文行和它下面的中文翻译行（翻译里常常混着泰文）
 function exLineOf(node){
   if(!node) return null;
@@ -2670,7 +2686,7 @@ function exThaiOf(node){ return exLineOf(node); }   // 旧名字还有别处在�
 function onSelChange(){
   // 调色板打开着的时候不理会选区变化：iOS 上一点「高亮」按钮选区就没了，
   // 以前这里跟着把菜单关掉，颜色还没来得及选（要用的词已经记在 selCtx 里）
-  if($("#selPop").classList.contains("pal")) return;
+  if($("#selPop").classList.contains("pal") || $("#selPop").classList.contains("rel")) return;
   const sel = window.getSelection();
   if(!sel || sel.isCollapsed || !sel.rangeCount){ hideSelPop(); return; }
   // Thai has no spaces between words, so a drag easily runs past the sentence and
@@ -2718,13 +2734,42 @@ function onSelChange(){
   const ownId = cbEx ? cbEx.dataset.card : null;
   const match = findCardByThai(text);
   selCtx.match = (match && match.id !== ownId) ? match : null;
-  $("#selPeek").style.display = selCtx.match ? "flex" : "none";
+  // 不是某张卡的标题，但在别的卡片里出现过 → 也给入口，列出那些卡片
+  selCtx.related = selCtx.match ? [] : findCardsContaining(text, ownId);
+  const pk = $("#selPeek");
+  if(selCtx.match){ pk.textContent = "📖 查看该词"; pk.style.display = "flex"; }
+  else if(selCtx.related.length){ pk.textContent = `📚 相关卡片 ${selCtx.related.length}`; pk.style.display = "flex"; }
+  else pk.style.display = "none";
+  $("#selPop").classList.remove("rel");
   $("#selPop").classList.add("show");   // fixed position via CSS (bottom-centered)
 }
 function findCardByThai(text){
   const t = (text||"").trim();
   if(!t) return null;
   return cards.find(c => (c.thai||"").trim() === t) || null;
+}
+// 选中的词在哪些卡片里出现过（标题 / 释义 / 例句 / 备注），排除自己这张。
+// 标题里含这个词的排前面，再是例句里含的。返回 [{card, where}]
+function findCardsContaining(text, ownId){
+  const t = (text||"").trim();
+  if(!t) return [];
+  const out = [];
+  cards.forEach(c=>{
+    if(!c || c.id === ownId) return;
+    const thai = c.thai || "";
+    if(thai.indexOf(t) !== -1){ out.push({ card:c, rank: thai.trim() === t ? 0 : 1, where:"" }); return; }
+    const ex = (c.examples||[]).find(e => e && ((e.thai||"").indexOf(t) !== -1));
+    if(ex){ out.push({ card:c, rank:2, where:ex.thai }); return; }
+    if((c.note||"").indexOf(t) !== -1){ out.push({ card:c, rank:3, where:"备注" }); return; }
+    if((c.meaning||"").indexOf(t) !== -1){ out.push({ card:c, rank:4, where:"" }); }
+  });
+  out.sort((a,b)=> a.rank - b.rank || (b.card.createdAt||0) - (a.card.createdAt||0));
+  return out;
+}
+function _markWord(str, w){
+  const i = (str||"").indexOf(w);
+  if(i < 0) return esc(str||"");
+  return esc(str.slice(0,i)) + "<mark>" + esc(w) + "</mark>" + esc(str.slice(i + w.length));
 }
 // read-only peek at a vocab card, layered over the review (queue untouched)
 let _peekReturnId = null;   // which 生词 list row opened this peek (to highlight on close)
@@ -3091,14 +3136,33 @@ function _copyFallback(t){
   }catch(e){ toast("复制失败"); }
 }
 $("#selCopy").onclick = ()=>{ if(selCtx) copyText(selCtx.text); hideSelPop(); const s=window.getSelection&&window.getSelection(); if(s) s.removeAllRanges(); };
-$("#selPeek").onclick = ()=>{
-  const m = selCtx && selCtx.match;
+function _openFromSel(m){
   hideSelPop();
   const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
   if(!m) return;
   // 浮层里查词 → 叠一层，看完能退回正在读的那张；列表里查词 → 照旧直接打开
   if($("#peekPanel").classList.contains("show")) pushPeek(m);
   else { openPeek(m); updatePeekBack(); }
+}
+$("#selPeek").onclick = ()=>{
+  if(!selCtx) return;
+  if(selCtx.match){ _openFromSel(selCtx.match); return; }
+  const rel = selCtx.related || [];
+  if(!rel.length) return;
+  // 列出含这个词的卡片，点哪张看哪张
+  const w = selCtx.text;
+  $("#selRelTitle").textContent = `「${w}」出现在 ${rel.length} 张卡片里`;
+  $("#selRelList").innerHTML = rel.slice(0, 30).map((r,i)=>
+    `<button type="button" data-i="${i}"><span class="rel-thai">${_markWord(r.card.thai, w)}</span>` +
+    `<span class="rel-sub">${r.card.meaning ? esc(r.card.meaning) : ""}${r.where && r.where !== "备注" ? "　例句：" + _markWord(r.where, w) : r.where === "备注" ? "　备注里" : ""}</span></button>`).join("");
+  $("#selPop").classList.add("rel");
+};
+$("#selRelated").onclick = e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  e.stopPropagation();
+  if(b.dataset.rel === "back"){ $("#selPop").classList.remove("rel"); return; }
+  const r = selCtx && selCtx.related && selCtx.related[Number(b.dataset.i)];
+  if(r) _openFromSel(r.card);
 };
 
 /* ---------- add selected word as a new vocab card ---------- */
