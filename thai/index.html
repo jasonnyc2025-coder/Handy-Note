@@ -284,8 +284,12 @@
   .ex-row-head .mini{width:auto;height:30px;padding:0 10px;font-size:12px;font-weight:700;color:var(--muted);
     background:var(--surface);border:1px solid var(--line);border-radius:9px}
   .ex-row .with-spk{position:relative}
-  .ex-row .with-spk .mini{position:absolute;right:8px;top:14px}
-  .ex-row textarea{width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 46px 14px 14px;font-size:16px;color:var(--ink);min-height:72px;resize:vertical;line-height:1.5}
+  /* 例句泰文框里的喇叭：加大到 48px、往下挪到和第一行文字平齐，右边给它留够位置 */
+  .ex-row .with-spk .mini{position:absolute;right:12px;top:26px;width:48px;height:48px;font-size:22px;border-radius:13px}
+  .ex-row textarea{width:100%;background:var(--surface);border:1.5px solid var(--field-line);border-radius:11px;padding:14px 70px 14px 14px;font-size:16px;color:var(--ink);min-height:88px;resize:vertical;line-height:1.5}
+  /* 泰文单词框的喇叭同样加大 */
+  .field .with-spk .mini{width:48px;height:48px;font-size:22px;border-radius:13px;right:12px}
+  .field .with-spk input{padding-right:70px}
   /* 例句框里不再放提示文字（和填好的内容混在一起看不清），改成框上面的小标签 */
   .ex-row .ex-sub{font-size:calc(13px * var(--formZoom,1));font-weight:700;color:var(--ink);margin:0 2px 6px;text-align:left}
   .ex-row .ex-sub i{font-style:normal;font-weight:500;color:var(--muted);font-size:.85em}
@@ -992,7 +996,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v121";
+const APP_VER = "v122";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
