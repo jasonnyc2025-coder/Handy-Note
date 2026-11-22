@@ -1015,7 +1015,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v128";
+const APP_VER = "v129";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1176,10 +1176,11 @@ function _takeHighlights(srcEx, dstEx){
     if(e.thai && !byText.has(e.thai)) byText.set(e.thai, e);
     if(e.meaning && !byMean.has(e.meaning)) byMean.set(e.meaning, e);
   });
-  const take = (out, src, key)=>{   // hl / hlm 连同颜色表 hlc / hlmc 一起搬
-    const h = src[key] || [], ck = key + "c";
+  const take = (out, src, key)=>{   // hl / hlm 连同颜色表 hlc / hlmc、次数表 hlo / hlmo 一起搬
+    const h = src[key] || [], ck = key + "c", ok = key + "o";
     if(h.length) out[key] = h.slice(); else delete out[key];
     if(h.length && src[ck] && Object.keys(src[ck]).length) out[ck] = Object.assign({}, src[ck]); else delete out[ck];
+    if(h.length && src[ok] && Object.keys(src[ok]).length) out[ok] = Object.assign({}, src[ok]); else delete out[ok];
   };
   return (dstEx||[]).map(e=>{
     if(!e) return e;
@@ -1204,8 +1205,12 @@ function _mergeCard(prev, e){
   if(hl === text) return text;
   const out = Object.assign({}, text, { hlAt: hl.hlAt, examples: _takeHighlights(hl.examples, text.examples) });
   if((hl.note || "") === (text.note || "")){   // 备注文字一样时，备注的高亮也听 hl 赢家的
-    if(hl.noteHl && hl.noteHl.length){ out.noteHl = hl.noteHl.slice(); if(hl.noteHlc) out.noteHlc = Object.assign({}, hl.noteHlc); else delete out.noteHlc; }
-    else { delete out.noteHl; delete out.noteHlc; }
+    if(hl.noteHl && hl.noteHl.length){
+      out.noteHl = hl.noteHl.slice();
+      if(hl.noteHlc) out.noteHlc = Object.assign({}, hl.noteHlc); else delete out.noteHlc;
+      if(hl.noteHlo) out.noteHlo = Object.assign({}, hl.noteHlo); else delete out.noteHlo;
+    }
+    else { delete out.noteHl; delete out.noteHlc; delete out.noteHlo; }
   }
   return out;
 }
@@ -1640,11 +1645,14 @@ function carryHighlights(oldEx, newEx){
     if(e.thai && e.hl && e.hl.length && !byText.has(e.thai)) byText.set(e.thai, e.hl);
     if(e.meaning && e.hlm && e.hlm.length && !byMean.has(e.meaning)) byMean.set(e.meaning, e.hlm);
   });
-  const byTextC = new Map(), byMeanC = new Map();
+  const byTextC = new Map(), byMeanC = new Map(), byTextO = new Map(), byMeanO = new Map();
   olds.forEach(e=>{
     if(!e) return;
     if(e.thai && e.hlc && !byTextC.has(e.thai)) byTextC.set(e.thai, e.hlc);
     if(e.meaning && e.hlmc && !byMeanC.has(e.meaning)) byMeanC.set(e.meaning, e.hlmc);
+    // 「只标第几次」只在这一行文字没改过时才还有意义（按原文配对到的才带过去）
+    if(e.thai && e.hlo && !byTextO.has(e.thai)) byTextO.set(e.thai, e.hlo);
+    if(e.meaning && e.hlmo && !byMeanO.has(e.meaning)) byMeanO.set(e.meaning, e.hlmo);
   });
   const pickColors = (map, kept)=>{   // 只留还在用的词的颜色
     if(!map) return null;
@@ -1660,6 +1668,8 @@ function carryHighlights(oldEx, newEx){
         out.hl = kept.slice();
         const c = pickColors(byTextC.get(e.thai) || (olds[i] && olds[i].hlc), kept);
         if(c) out.hlc = c; else delete out.hlc;
+        const o = pickColors(byTextO.get(e.thai), kept);
+        if(o) out.hlo = o; else delete out.hlo;
       }
     }
     const srcM = byMean.get(e.meaning) || (olds[i] && olds[i].hlm) || null;
@@ -1669,6 +1679,8 @@ function carryHighlights(oldEx, newEx){
         out.hlm = keptM.slice();
         const c = pickColors(byMeanC.get(e.meaning) || (olds[i] && olds[i].hlmc), keptM);
         if(c) out.hlmc = c; else delete out.hlmc;
+        const o = pickColors(byMeanO.get(e.meaning), keptM);
+        if(o) out.hlmo = o; else delete out.hlmo;
       }
     }
     return out;
@@ -1845,7 +1857,10 @@ $("#saveCard").onclick = ()=>{
       data.noteHl = kept.length ? kept : undefined;
       const col = {}; kept.forEach(w=>{ if(c.noteHlc && c.noteHlc[w]) col[w] = c.noteHlc[w]; });
       data.noteHlc = Object.keys(col).length ? col : undefined;
-      if(!data.noteHl){ delete c.noteHl; delete c.noteHlc; delete data.noteHl; delete data.noteHlc; }
+      const occ = {}; if((data.note || "") === (c.note || "")) kept.forEach(w=>{ if(c.noteHlo && c.noteHlo[w]) occ[w] = c.noteHlo[w]; });
+      data.noteHlo = Object.keys(occ).length ? occ : undefined;
+      if(!data.noteHlo) delete c.noteHlo;
+      if(!data.noteHl){ delete c.noteHl; delete c.noteHlc; delete c.noteHlo; delete data.noteHl; delete data.noteHlc; delete data.noteHlo; }
     }
     Object.assign(c,data); c.modified=Date.now(); save();
     toast("已更新");
@@ -1993,15 +2008,20 @@ function underlineKnown(seg, idx){
   return out;
 }
 // colors：{ 词: 1..6 }，给了颜色的用那个色，没给的按 a/b 交替（老数据）
-function hlThai(thai, hlList, ownId, colors){
+// occ：{ 词: [第几次出现, ...] }。给了就只标这几次，没给（老数据）就把这个词每次出现都标上
+function hlThai(thai, hlList, ownId, colors, occ){
   const text = thai || "";
   // 1) 收集高亮区间；重叠的并成一段，避免嵌套出错
   const spans = [];
   (hlList || []).forEach(w=>{
     if(!w) return;
     const c = colors && colors[w] ? Number(colors[w]) || 0 : 0;
-    let i = text.indexOf(w);
-    while(i !== -1){ spans.push({ s:i, e:i + w.length, c }); i = text.indexOf(w, i + 1); }
+    const only = occ && Array.isArray(occ[w]) ? occ[w] : null;
+    let i = text.indexOf(w), k = 0;
+    while(i !== -1){
+      if(!only || only.indexOf(k) !== -1) spans.push({ s:i, e:i + w.length, c });
+      k++; i = text.indexOf(w, i + 1);
+    }
   });
   spans.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
   const merged = [];
@@ -2028,7 +2048,7 @@ function hlThai(thai, hlList, ownId, colors){
 function renderNote(box, note, card){
   if(!box) return;
   const s = (note || "").trim();
-  if(card && card.id){ box.dataset.card = card.id; box.innerHTML = hlThai(s, card.noteHl, card.id, card.noteHlc); }
+  if(card && card.id){ box.dataset.card = card.id; box.innerHTML = hlThai(s, card.noteHl, card.id, card.noteHlc, card.noteHlo); }
   else { delete box.dataset.card; box.textContent = s; }
   box.style.display = s ? "block" : "none";
 }
@@ -2044,8 +2064,8 @@ function renderCardExamples(box, list, cardId){
     el.className = "cb-ex";
     if(cardId!=null){ el.dataset.card = cardId; el.dataset.ex = idx; }
     el.innerHTML = `<div class="ex-no">${no} / ${total}</div>` +
-      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId, e.hlc)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
-      (e.meaning ? `<div class="ex-mean">${hlThai(e.meaning, e.hlm, cardId, e.hlmc)}</div>` : "");
+      `<div class="ex-thai thai"><span>${hlThai(e.thai, e.hl, cardId, e.hlc, e.hlo)}</span><button class="mini spk" aria-label="例句发音">🔊</button></div>` +
+      (e.meaning ? `<div class="ex-mean">${hlThai(e.meaning, e.hlm, cardId, e.hlmc, e.hlmo)}</div>` : "");
     el.querySelector(".spk").onclick = ev=>{ ev.stopPropagation(); speak(e.thai); };
     box.appendChild(el);
   });
@@ -2712,7 +2732,7 @@ function onSelChange(){
   }
   // 取文字时把选区裁到这一行的正文范围内：起止点落在容器上时，原样 toString 会把
   // 旁边 🔊 按钮的字符也带进来
-  let text = "";
+  let text = "", occIdx = null;
   try{
     // 只认直接子级的 span（例句泰文行的正文包装）。高亮词、带下划线的生词本词也是 span，
     // 嵌在里面；以前这里随手拿第一个 span，备注 / 翻译行里一有高亮，选区就被裁到那个小 span
@@ -2722,13 +2742,17 @@ function onSelChange(){
     if(r0.compareBoundaryPoints(Range.START_TO_START, sr) < 0) r0.setStart(sr.startContainer, sr.startOffset);
     if(r0.compareBoundaryPoints(Range.END_TO_END, sr) > 0) r0.setEnd(sr.endContainer, sr.endOffset);
     text = r0.toString();
+    // 选的是这个词在这一行里的第几次出现：同一个词一句里出现两次时，只高亮选中的那一次
+    const pre = sr.cloneRange(); pre.setEnd(r0.startContainer, r0.startOffset);
+    const lead = text.length - text.replace(/^\s+/, "").length;
+    occIdx = _occIndex(span.textContent || "", text.replace(/🔊/g, "").trim(), pre.toString().length + lead);
   }catch(e){ text = sel.toString(); }
   text = text.replace(/🔊/g, "").trim();
   if(!text){ hideSelPop(); return; }
   const isNote = exThai.classList.contains("cb-note");
   const cbEx = isNote ? exThai : exThai.closest(".cb-ex");   // 备注行：高亮挂在卡片上，用备注框自己带的 data-card
   let keep = null; try{ keep = sel.getRangeAt(0).cloneRange(); }catch(e){}
-  selCtx = { text, cbEx, range: keep, field: isNote ? "note" : exThai.classList.contains("ex-mean") ? "mean" : "thai" };
+  selCtx = { text, cbEx, range: keep, occ: occIdx, field: isNote ? "note" : exThai.classList.contains("ex-mean") ? "mean" : "thai" };
   // if the selected word is itself a headword in the vocab book (and not the
   // very card that owns this example), offer a "peek at that word" button
   const ownId = cbEx ? cbEx.dataset.card : null;
@@ -3055,30 +3079,59 @@ document.addEventListener("click", e=>{
   selectWordInNode(tn, c ? c.off : 0);
 }, false);
 // color：不传 = 开/关切换（老行为）；0 = 去掉；1..6 = 加上并用这个颜色
-function toggleHighlight(cbEx, text, field, color){
+// 一段文字里某个词出现了几次 / 从 startOff 开始的那一次是第几次
+function _occCount(line, w){ let n = 0, i = (line||"").indexOf(w); while(w && i !== -1){ n++; i = line.indexOf(w, i + 1); } return n; }
+function _occIndex(line, w, startOff){ let k = 0, i = (line||"").indexOf(w); while(w && i !== -1 && i < startOff){ k++; i = line.indexOf(w, i + 1); } return k; }
+// color：不传 = 开/关切换；0 = 去掉；1..6 = 加上并用这个颜色。
+// occIdx：选中的是这个词在这一行里的第几次出现（从 0 数）；同一个词出现多次时只动这一次。
+// 数据：hl 里仍是词的列表（老版本照样能读），hlo = { 词: [第几次...] } 记只标哪几次；
+// 没有 hlo 的词按老规矩每次出现都标。
+function toggleHighlight(cbEx, text, field, color, occIdx){
   if(!cbEx) return;
   const card = cards.find(c=>c.id===cbEx.dataset.card);
   if(!card) return;
-  let ex, key;
-  if(field === "note"){ ex = card; key = "noteHl"; }      // 备注的高亮直接挂在卡片上
+  let ex, key, line;
+  if(field === "note"){ ex = card; key = "noteHl"; line = card.note || ""; }      // 备注的高亮直接挂在卡片上
   else{
     const idx = parseInt(cbEx.dataset.ex, 10);
     if(!card.examples || !card.examples[idx]) return;
     ex = card.examples[idx];
     key = field === "mean" ? "hlm" : "hl";   // 翻译行的高亮单独存，互不干扰
+    line = (field === "mean" ? ex.meaning : ex.thai) || "";
   }
   const ckey = key + "c";                    // 对应的颜色表 { 词: 1..6 }
+  const okey = key + "o";                    // 只标哪几次出现 { 词: [k...] }
   ex[key] = ex[key] || [];
   const i = ex[key].indexOf(text);
-  const remove = color === 0 || (color === undefined && i >= 0);
+  const total = _occCount(line, text);
+  const hasOcc = occIdx != null && total > 1;            // 只出现一次就没必要记次数
+  const cur = ex[okey] && Array.isArray(ex[okey][text]) ? ex[okey][text] : null;   // null = 全部
+  const onHere = i >= 0 && (!cur || cur.indexOf(occIdx) !== -1 || !hasOcc);
+  const remove = color === 0 || (color === undefined && onHere);
   if(remove){
-    if(i >= 0) ex[key].splice(i, 1);
-    if(ex[ckey]){ delete ex[ckey][text]; if(!Object.keys(ex[ckey]).length) delete ex[ckey]; }
+    if(i >= 0){
+      let left = [];
+      if(hasOcc){
+        const all = cur ? cur.slice() : Array.from({ length: total }, (_, k) => k);
+        left = all.filter(k => k !== occIdx);
+      }
+      if(left.length){ ex[okey] = ex[okey] || {}; ex[okey][text] = left; }
+      else{
+        ex[key].splice(i, 1);
+        if(ex[ckey]){ delete ex[ckey][text]; if(!Object.keys(ex[ckey]).length) delete ex[ckey]; }
+        if(ex[okey]){ delete ex[okey][text]; if(!Object.keys(ex[okey]).length) delete ex[okey]; }
+      }
+    }
   }else{
     if(i < 0) ex[key].push(text);
+    if(hasOcc){
+      if(i < 0){ ex[okey] = ex[okey] || {}; ex[okey][text] = [occIdx]; }
+      else if(cur && cur.indexOf(occIdx) === -1){ cur.push(occIdx); cur.sort((a,b)=>a-b); }
+      // cur 为 null = 老数据全标着，本来就包含这一次，保持
+    }
     if(color){ ex[ckey] = ex[ckey] || {}; ex[ckey][text] = color; }
   }
-  if(!ex[key].length){ delete ex[key]; delete ex[ckey]; }
+  if(!ex[key].length){ delete ex[key]; delete ex[ckey]; delete ex[okey]; }
   card.hlAt = Date.now();   // 高亮有自己的时间戳，和文字编辑分开合并（见 _mergeCard）
   save();
   if(field === "note") renderNote(cbEx, card.note, card);
@@ -3093,7 +3146,9 @@ function _curHighlight(ctx){
   const ex = ctx.field === "note" ? card : (card.examples && card.examples[parseInt(ctx.cbEx.dataset.ex, 10)]);
   if(!ex) return { on:false, c:0 };
   const key = ctx.field === "note" ? "noteHl" : ctx.field === "mean" ? "hlm" : "hl";
-  const on = Array.isArray(ex[key]) && ex[key].indexOf(ctx.text) >= 0;
+  let on = Array.isArray(ex[key]) && ex[key].indexOf(ctx.text) >= 0;
+  const occ = ex[key + "o"] && Array.isArray(ex[key + "o"][ctx.text]) ? ex[key + "o"][ctx.text] : null;
+  if(on && occ && ctx.occ != null) on = occ.indexOf(ctx.occ) !== -1;   // 这一次出现有没有被标
   const c = on && ex[key + "c"] ? Number(ex[key + "c"][ctx.text]) || 0 : 0;
   return { on, c };
 }
@@ -3115,7 +3170,7 @@ $("#selPalette").onclick = e=>{
   const b = e.target.closest("button"); if(!b) return;
   e.stopPropagation();
   if(b.dataset.c === "back"){ $("#selPop").classList.remove("pal"); return; }
-  if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, Number(b.dataset.c) || 0);
+  if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, Number(b.dataset.c) || 0, selCtx.occ);
   hideSelPop();
   const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
 };
