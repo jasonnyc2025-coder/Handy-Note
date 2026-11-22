@@ -159,7 +159,7 @@
      distinct from the plain white word rows scrolling beneath it */
   .card.home-card{align-self:stretch;flex:0 0 auto;min-height:150px;max-height:min(38vh,320px);margin-top:12px;padding:18px;
     background:var(--home-card-bg);border-color:var(--home-card-line)}
-  .home-card .card-thai{font-size:38px}
+  .home-card .card-thai{font-size:calc(38px * var(--tfit,1))}
   .home-card .card-spk{margin-top:10px;width:46px;height:46px;font-size:20px;background:var(--surface);border-color:var(--home-card-line)}
   .home-card .card-back{margin-top:14px;padding-top:14px;border-top-color:var(--home-card-line)}
   .home-card .cb-ex{background:var(--surface)}   /* white chips pop on the tinted card */
@@ -393,7 +393,10 @@
   .card .tap-hint{position:absolute;bottom:16px;left:0;right:0;font-size:12px;color:var(--muted);letter-spacing:.04em}
   /* Thai stacks vowel/tone marks above & below the base letters, so a tight
      line-height makes wrapped lines collide — give it generous leading */
-  .card-thai{font-size:52px;font-weight:600;line-height:1.42;word-break:break-word}
+  /* 标题词按长度自动缩字号（--tfit 由 fitThaiTitle 设置）：短词照旧很大，长词组缩小，
+     不再一个标题占掉大半张卡 */
+  .card-thai{font-size:calc(52px * var(--tfit,1));font-weight:600;line-height:1.42;word-break:break-word}
+  .card-thai.t-fit{line-height:1.3}
   .card-spk{
     margin-top:18px;width:56px;height:56px;border-radius:99px;background:var(--surface-2);
     display:grid;place-items:center;font-size:24px;color:var(--teal-ink);border:1px solid var(--line);
@@ -534,7 +537,7 @@
   .peek-meanrow{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
   .peek-meanrow .cb-mean{min-width:0}
   .peek-card .card-spk{margin:0;width:40px;height:40px;font-size:18px;flex:0 0 auto}
-  .peek-card .card-thai{font-size:3.25em}
+  .peek-card .card-thai{font-size:calc(3.25em * var(--tfit,1))}
   .peek-card .cb-mean{font-size:1.15em;font-weight:600;line-height:1.45}   /* 释义长的时候占太多，缩一档 */
   .peek-card .peek-meanrow{margin-bottom:-4px}
   .peek-card .cb-read{font-size:1.125em}
@@ -546,7 +549,7 @@
      标题词不用再折成两行，字也相应放大一点；普通手机（<600px）不受影响 */
   @media (min-width:600px){
     .peek-card{max-width:min(780px, 92vw)}
-    .peek-card .card-thai{font-size:3.6em}
+    .peek-card .card-thai{font-size:calc(3.6em * var(--tfit,1))}
     .peek-card .cb-mean{font-size:1.25em}
     .peek-card .cb-ex .ex-thai{font-size:1.9em}
     .peek-card .cb-ex .ex-mean{font-size:1.2em}
@@ -1016,7 +1019,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v130";
+const APP_VER = "v131";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1425,6 +1428,15 @@ $$(".nav button").forEach(b=> b.onclick=()=>{ editReturnToReview=false; _editFro
 
 /* ---------------- home ---------------- */
 let homeCardId = null, homeRevealed = false, homeUserPicked = false;
+// 标题词的字号按长度缩放：数可见字符（泰文的上下标元音 / 声调不占位，不算），
+// 9 个以内原大小，越长越小，最小一半。设在元素的 --tfit 上，CSS 里乘进字号
+function fitThaiTitle(el, text){
+  if(!el) return;
+  const n = (text || "").replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E\s]/g, "").length;
+  const f = n <= 9 ? 1 : n <= 14 ? .8 : n <= 20 ? .66 : n <= 28 ? .56 : .5;
+  el.style.setProperty("--tfit", f);
+  el.classList.toggle("t-fit", f < 1);
+}
 function renderHome(){
   $("#homeDue").textContent = cards.length;
   $("#startReview").disabled = cards.length===0;
@@ -1455,7 +1467,7 @@ function selectHomeCard(id, userPicked){
   const c = cards.find(x=>x.id===id);
   if(!c) return;
   homeCardId = id; homeRevealed = false; homeUserPicked = !!userPicked;
-  $("#homeCardThai").textContent = c.thai;
+  $("#homeCardThai").textContent = c.thai; fitThaiTitle($("#homeCardThai"), c.thai);
   $("#homeCbMean").textContent = c.meaning || "";
   $("#homeCbRead").textContent = c.reading || "";
   renderNote($("#homeCbNote"), c.note, c);
@@ -1952,7 +1964,7 @@ function renderReviewCard(){
   const c = queue[0];
   if(!c){ endSession(); return; }
   saveSession();           // persist progress so we can resume after a restart
-  $("#cardThai").textContent = c.thai;
+  $("#cardThai").textContent = c.thai; fitThaiTitle($("#cardThai"), c.thai);
   $("#cbMean").textContent = c.meaning || "";
   $("#cbRead").textContent = c.reading || "";
   renderNote($("#cbNote"), c.note, c);
@@ -2818,7 +2830,7 @@ function flashViewed(id, scroll){
 function openPeek(card){
   if(!card) return;
   _peekReturnId = null;   // reset; the 生词 list tap re-sets it right after this call
-  $("#peekThai").textContent = card.thai || "—";
+  $("#peekThai").textContent = card.thai || "—"; fitThaiTitle($("#peekThai"), card.thai);
   $("#peekMean").textContent = card.meaning || "";
   $("#peekRead").textContent = card.reading || "";
   renderNote($("#peekNote"), card.note, card);
