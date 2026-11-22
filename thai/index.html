@@ -535,7 +535,8 @@
   .peek-meanrow .cb-mean{min-width:0}
   .peek-card .card-spk{margin:0;width:40px;height:40px;font-size:18px;flex:0 0 auto}
   .peek-card .card-thai{font-size:3.25em}
-  .peek-card .cb-mean{font-size:1.5em}
+  .peek-card .cb-mean{font-size:1.15em;font-weight:600;line-height:1.45}   /* 释义长的时候占太多，缩一档 */
+  .peek-card .peek-meanrow{margin-bottom:-4px}
   .peek-card .cb-read{font-size:1.125em}
   .peek-card .cb-note{font-size:1.125em}
   .peek-card .cb-ex .ex-no{font-size:.75em}
@@ -546,7 +547,7 @@
   @media (min-width:600px){
     .peek-card{max-width:min(780px, 92vw)}
     .peek-card .card-thai{font-size:3.6em}
-    .peek-card .cb-mean{font-size:1.6em}
+    .peek-card .cb-mean{font-size:1.25em}
     .peek-card .cb-ex .ex-thai{font-size:1.9em}
     .peek-card .cb-ex .ex-mean{font-size:1.2em}
   }
@@ -1015,7 +1016,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v129";
+const APP_VER = "v130";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
