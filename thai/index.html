@@ -1019,7 +1019,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v132";
+const APP_VER = "v133";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2739,9 +2739,28 @@ function onSelChange(){
   }
   if(!exThai){ hideSelPop(); return; }
   if((aEx && fEx && aEx !== fEx) || (lines && lines.length > 1)){
-    const span = exThai.querySelector(":scope > span") || exThai;   // the text only, not the 🔊 button
-    const r = document.createRange(); r.selectNodeContents(span);
-    sel.removeAllRanges(); sel.addRange(r);
+    // 拖选时手指越过了行的上下边，选区跨到了别的例句（安卓上拖选柄尤其容易）：
+    // 保留"选得最多的那一行"里被选中的那一段，而不是整个跳去另一行、也不是整行全选
+    let r0 = null; try{ r0 = sel.getRangeAt(0); }catch(e){}
+    const cands = (lines && lines.length) ? lines : [aEx, fEx].filter(Boolean);
+    let best = null, bestLen = 0;
+    if(r0) cands.forEach(line=>{
+      const sp = line.querySelector(":scope > span") || line;
+      const sr = document.createRange(); sr.selectNodeContents(sp);
+      const c = r0.cloneRange();
+      try{
+        if(c.compareBoundaryPoints(Range.START_TO_START, sr) < 0) c.setStart(sr.startContainer, sr.startOffset);
+        if(c.compareBoundaryPoints(Range.END_TO_END, sr) > 0) c.setEnd(sr.endContainer, sr.endOffset);
+      }catch(e){ return; }
+      const len = c.collapsed ? 0 : c.toString().replace(/🔊/g, "").trim().length;
+      if(len > bestLen){ bestLen = len; best = { line, range:c }; }
+    });
+    if(best){ exThai = best.line; sel.removeAllRanges(); sel.addRange(best.range); }
+    else{
+      const span = exThai.querySelector(":scope > span") || exThai;   // the text only, not the 🔊 button
+      const r = document.createRange(); r.selectNodeContents(span);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
   }
   // 取文字时把选区裁到这一行的正文范围内：起止点落在容器上时，原样 toString 会把
   // 旁边 🔊 按钮的字符也带进来
