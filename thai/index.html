@@ -613,6 +613,7 @@
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
   #peekExList .ex-thai, #peekExList .ex-thai *,
   #peekExList .ex-mean, #peekExList .ex-mean *,
+  #peekThai, #peekThai *, #peekMean, #peekMean *,
   #peekNote, #peekNote *{
     -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;cursor:text}
   .peek-card .peek-body{width:100%;display:flex;flex-direction:column;flex:1;min-height:0;
@@ -1042,7 +1043,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v135";
+const APP_VER = "v136";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1192,6 +1193,13 @@ function combinedThai(){
     return e;
   }));
 }
+// 挂在卡片本身上的三行：备注 / 标题 / 释义。它们的高亮直接存在卡片上
+// （noteHl / titleHl / meanHl，各带 c 颜色表、o 次数表，和例句的 hl / hlc / hlo 同一格式）
+const CARD_LINES = {
+  note:  { key:"noteHl",  text:c => c.note },
+  title: { key:"titleHl", text:c => c.thai },
+  cmean: { key:"meanHl",  text:c => c.meaning },
+};
 function _rankThai(e){ return e._deleted ? (e._deletedAt||0) : (e.modified || e.createdAt || 0); }
 // 把 src 例句上的高亮（hl / hlm）搬到 dst 的例句上：按例句原文配对，配不上的
 // （那条例句被改过）保留 dst 自己的。和 carryHighlights 不同，这里 src 没有
@@ -1231,14 +1239,17 @@ function _mergeCard(prev, e){
   const hl = ha > hb ? e : prev;
   if(hl === text) return text;
   const out = Object.assign({}, text, { hlAt: hl.hlAt, examples: _takeHighlights(hl.examples, text.examples) });
-  if((hl.note || "") === (text.note || "")){   // 备注文字一样时，备注的高亮也听 hl 赢家的
-    if(hl.noteHl && hl.noteHl.length){
-      out.noteHl = hl.noteHl.slice();
-      if(hl.noteHlc) out.noteHlc = Object.assign({}, hl.noteHlc); else delete out.noteHlc;
-      if(hl.noteHlo) out.noteHlo = Object.assign({}, hl.noteHlo); else delete out.noteHlo;
+  // 备注 / 标题 / 释义这几行文字一样时，它们的高亮也听 hl 赢家的
+  Object.keys(CARD_LINES).forEach(f=>{
+    const L = CARD_LINES[f], k = L.key;
+    if((L.text(hl) || "") !== (L.text(text) || "")) return;
+    if(hl[k] && hl[k].length){
+      out[k] = hl[k].slice();
+      if(hl[k + "c"]) out[k + "c"] = Object.assign({}, hl[k + "c"]); else delete out[k + "c"];
+      if(hl[k + "o"]) out[k + "o"] = Object.assign({}, hl[k + "o"]); else delete out[k + "o"];
     }
-    else { delete out.noteHl; delete out.noteHlc; delete out.noteHlo; }
-  }
+    else { delete out[k]; delete out[k + "c"]; delete out[k + "o"]; }
+  });
   return out;
 }
 function mergeThai(a, b){
@@ -1490,8 +1501,8 @@ function selectHomeCard(id, userPicked){
   const c = cards.find(x=>x.id===id);
   if(!c) return;
   homeCardId = id; homeRevealed = false; homeUserPicked = !!userPicked;
-  $("#homeCardThai").textContent = c.thai; fitThaiTitle($("#homeCardThai"), c.thai);
-  $("#homeCbMean").textContent = c.meaning || "";
+  renderCardLine($("#homeCardThai"), c, "title"); fitThaiTitle($("#homeCardThai"), c.thai);
+  renderCardLine($("#homeCbMean"), c, "cmean");
   $("#homeCbRead").textContent = c.reading || "";
   renderNote($("#homeCbNote"), c.note, c);
   renderCardExamples($("#homeCbExList"), c.examples || [], c.id);
@@ -1888,16 +1899,19 @@ $("#saveCard").onclick = ()=>{
   if(editingId){
     const c=cards.find(x=>x.id===editingId);
     data.examples = carryHighlights(c.examples, data.examples);   // 别把高亮编掉了
-    if(c.noteHl){                                                 // 备注的高亮：只留还在的词
-      const kept = c.noteHl.filter(w => w && (data.note || "").indexOf(w) !== -1);
-      data.noteHl = kept.length ? kept : undefined;
-      const col = {}; kept.forEach(w=>{ if(c.noteHlc && c.noteHlc[w]) col[w] = c.noteHlc[w]; });
-      data.noteHlc = Object.keys(col).length ? col : undefined;
-      const occ = {}; if((data.note || "") === (c.note || "")) kept.forEach(w=>{ if(c.noteHlo && c.noteHlo[w]) occ[w] = c.noteHlo[w]; });
-      data.noteHlo = Object.keys(occ).length ? occ : undefined;
-      if(!data.noteHlo) delete c.noteHlo;
-      if(!data.noteHl){ delete c.noteHl; delete c.noteHlc; delete c.noteHlo; delete data.noteHl; delete data.noteHlc; delete data.noteHlo; }
-    }
+    Object.keys(CARD_LINES).forEach(f=>{                          // 备注 / 标题 / 释义的高亮：只留还在的词
+      const L = CARD_LINES[f], k = L.key;
+      if(!c[k]) return;
+      const now = L.text(data) || "", before = L.text(c) || "";
+      const kept = c[k].filter(w => w && now.indexOf(w) !== -1);
+      data[k] = kept.length ? kept : undefined;
+      const col = {}; kept.forEach(w=>{ if(c[k + "c"] && c[k + "c"][w]) col[w] = c[k + "c"][w]; });
+      data[k + "c"] = Object.keys(col).length ? col : undefined;
+      const occ = {}; if(now === before) kept.forEach(w=>{ if(c[k + "o"] && c[k + "o"][w]) occ[w] = c[k + "o"][w]; });
+      data[k + "o"] = Object.keys(occ).length ? occ : undefined;
+      if(!data[k + "o"]) delete c[k + "o"];
+      if(!data[k]){ delete c[k]; delete c[k + "c"]; delete c[k + "o"]; delete data[k]; delete data[k + "c"]; delete data[k + "o"]; }
+    });
     Object.assign(c,data); c.modified=Date.now(); save();
     toast("已更新");
     if(returnToPeekIfNeeded()) return;
@@ -1987,8 +2001,8 @@ function renderReviewCard(){
   const c = queue[0];
   if(!c){ endSession(); return; }
   saveSession();           // persist progress so we can resume after a restart
-  $("#cardThai").textContent = c.thai; fitThaiTitle($("#cardThai"), c.thai);
-  $("#cbMean").textContent = c.meaning || "";
+  renderCardLine($("#cardThai"), c, "title"); fitThaiTitle($("#cardThai"), c.thai);
+  renderCardLine($("#cbMean"), c, "cmean");
   $("#cbRead").textContent = c.reading || "";
   renderNote($("#cbNote"), c.note, c);
   renderCardExamples($("#cbExList"), c.examples || [], c.id);
@@ -2082,6 +2096,17 @@ function hlThai(thai, hlList, ownId, colors, occ){
   return out;
 }
 // show the 备注 block only when the card has a note
+function cardLineField(el){
+  if(!el) return null;
+  return el.classList.contains("cb-note") ? "note" : el.classList.contains("card-thai") ? "title" : el.classList.contains("cb-mean") ? "cmean" : null;
+}
+function renderCardLine(el, card, field){
+  if(!el) return;
+  const L = CARD_LINES[field], t = (card && L.text(card)) || "";
+  if(!card || !card.id){ delete el.dataset.card; el.textContent = t || (field === "title" ? "—" : ""); return; }
+  el.dataset.card = card.id;
+  el.innerHTML = hlThai(t, card[L.key], card.id, card[L.key + "c"], card[L.key + "o"]) || (field === "title" ? "—" : "");
+}
 // 备注也能选词、高亮：高亮存在卡片的 noteHl / noteHlc 上（和例句的 hl / hlc 同样格式）
 function renderNote(box, note, card){
   if(!box) return;
@@ -2735,10 +2760,12 @@ async function longPollLoop(gen){
 let selCtx = null;   // { text, cbEx }
 function hideSelPop(){ $("#selPop").classList.remove("show"); $("#selPop").classList.remove("pal"); $("#selPop").classList.remove("rel"); selCtx=null; }
 // 例句的两行都能选：泰文行和它下面的中文翻译行（翻译里常常混着泰文）
+// 哪些行能选词：例句的泰文行 / 翻译行、备注，还有卡片顶上的标题和释义
+const SEL_LINES = ".ex-thai, .ex-mean, .cb-note, .card-thai[data-card], .cb-mean[data-card]";
 function exLineOf(node){
   if(!node) return null;
   if(node.nodeType===3) node = node.parentElement;
-  return node && node.closest ? node.closest(".ex-thai, .ex-mean, .cb-note") : null;
+  return node && node.closest ? node.closest(SEL_LINES) : null;
 }
 function exThaiOf(node){ return exLineOf(node); }   // 旧名字还有别处在用
 function onSelChange(){
@@ -2757,7 +2784,7 @@ function onSelChange(){
     // 找不到例句行，以前这里就把菜单关掉了。改为看选区实际盖住了哪些行。
     let r = null; try{ r = sel.getRangeAt(0); }catch(e){}
     if(r){
-      lines = [...document.querySelectorAll(".ex-thai, .ex-mean, .cb-note")]
+      lines = [...document.querySelectorAll(SEL_LINES)]
         .filter(el => el.offsetParent !== null && r.intersectsNode(el) && (el.textContent || "").trim());
     }
     if(lines && lines.length) exThai = lines[0];
@@ -2806,10 +2833,10 @@ function onSelChange(){
   }catch(e){ text = sel.toString(); }
   text = text.replace(/🔊/g, "").trim();
   if(!text){ hideSelPop(); return; }
-  const isNote = exThai.classList.contains("cb-note");
-  const cbEx = isNote ? exThai : exThai.closest(".cb-ex");   // 备注行：高亮挂在卡片上，用备注框自己带的 data-card
+  const cardField = cardLineField(exThai);                  // 备注 / 标题 / 释义：高亮挂在卡片上，这些行自己带 data-card
+  const cbEx = cardField ? exThai : exThai.closest(".cb-ex");
   let keep = null; try{ keep = sel.getRangeAt(0).cloneRange(); }catch(e){}
-  selCtx = { text, cbEx, range: keep, occ: occIdx, field: isNote ? "note" : exThai.classList.contains("ex-mean") ? "mean" : "thai" };
+  selCtx = { text, cbEx, range: keep, occ: occIdx, field: cardField || (exThai.classList.contains("ex-mean") ? "mean" : "thai") };
   // if the selected word is itself a headword in the vocab book (and not the
   // very card that owns this example), offer a "peek at that word" button
   const ownId = cbEx ? cbEx.dataset.card : null;
@@ -2876,8 +2903,8 @@ function flashViewed(id, scroll){
 function openPeek(card){
   if(!card) return;
   _peekReturnId = null;   // reset; the 生词 list tap re-sets it right after this call
-  $("#peekThai").textContent = card.thai || "—"; fitThaiTitle($("#peekThai"), card.thai);
-  $("#peekMean").textContent = card.meaning || "";
+  renderCardLine($("#peekThai"), card, "title"); fitThaiTitle($("#peekThai"), card.thai);
+  renderCardLine($("#peekMean"), card, "cmean");
   $("#peekRead").textContent = card.reading || "";
   renderNote($("#peekNote"), card.note, card);
   renderCardExamples($("#peekExList"), card.examples || [], card.id);
@@ -3098,7 +3125,7 @@ function _rememberSel(x, y){
 // 按下的瞬间发现旧选区不在手指下面，就先把它清掉，再让 click 去选新词。
 function _clearStaleSel(target){
   if(!_downSel || _tapInsideSel) return;
-  const line = target && target.closest ? target.closest(".ex-thai, .ex-mean, .cb-note") : null;
+  const line = target && target.closest ? target.closest(SEL_LINES) : null;
   if(!line) return;
   try{ const s = window.getSelection(); if(s && !s.isCollapsed) s.removeAllRanges(); }catch(e){}
 }
@@ -3117,7 +3144,7 @@ function _draggedSince(e){
 }
 const _THAI_CH = /[\u0E00-\u0E7F]/;
 document.addEventListener("click", e=>{
-  const line = e.target.closest ? e.target.closest(".ex-thai, .ex-mean, .cb-note") : null;
+  const line = e.target.closest ? e.target.closest(SEL_LINES) : null;
   const dragged = _draggedSince(e);
   _downPt = null;
   if(!line || e.target.closest("button")) return;
@@ -3140,7 +3167,7 @@ document.addEventListener("click", e=>{
   _downSel = null;
   // 翻译行多半是中文，用泰语分词器去切会切错 —— 只有点在泰文字符上才自动选词，
   // 其余交给浏览器自己的双击/拖选
-  if(line.classList.contains("ex-mean") || line.classList.contains("cb-note")){
+  if(line.classList.contains("ex-mean") || line.classList.contains("cb-note") || line.classList.contains("cb-mean")){
     const t = tn.nodeValue || "", off = Math.max(0, Math.min(c ? c.off : 0, t.length - 1));
     if(!_THAI_CH.test(t[off] || "")) return;
   }
@@ -3159,7 +3186,7 @@ function toggleHighlight(cbEx, text, field, color, occIdx){
   const card = cards.find(c=>c.id===cbEx.dataset.card);
   if(!card) return;
   let ex, key, line;
-  if(field === "note"){ ex = card; key = "noteHl"; line = card.note || ""; }      // 备注的高亮直接挂在卡片上
+  if(CARD_LINES[field]){ ex = card; key = CARD_LINES[field].key; line = CARD_LINES[field].text(card) || ""; }   // 备注/标题/释义：直接挂在卡片上
   else{
     const idx = parseInt(cbEx.dataset.ex, 10);
     if(!card.examples || !card.examples[idx]) return;
@@ -3203,6 +3230,7 @@ function toggleHighlight(cbEx, text, field, color, occIdx){
   card.hlAt = Date.now();   // 高亮有自己的时间戳，和文字编辑分开合并（见 _mergeCard）
   save();
   if(field === "note") renderNote(cbEx, card.note, card);
+  else if(CARD_LINES[field]) renderCardLine(cbEx, card, field);
   else renderCardExamples(cbEx.closest(".cb-exlist"), card.examples, card.id);
 }
 $("#selSpeak").onclick = ()=>{ if(selCtx) speak(selCtx.text); };
@@ -3211,9 +3239,9 @@ function _curHighlight(ctx){
   if(!ctx || !ctx.cbEx) return { on:false, c:0 };
   const card = cards.find(c=>c.id===ctx.cbEx.dataset.card);
   if(!card) return { on:false, c:0 };
-  const ex = ctx.field === "note" ? card : (card.examples && card.examples[parseInt(ctx.cbEx.dataset.ex, 10)]);
+  const ex = CARD_LINES[ctx.field] ? card : (card.examples && card.examples[parseInt(ctx.cbEx.dataset.ex, 10)]);
   if(!ex) return { on:false, c:0 };
-  const key = ctx.field === "note" ? "noteHl" : ctx.field === "mean" ? "hlm" : "hl";
+  const key = CARD_LINES[ctx.field] ? CARD_LINES[ctx.field].key : ctx.field === "mean" ? "hlm" : "hl";
   let on = Array.isArray(ex[key]) && ex[key].indexOf(ctx.text) >= 0;
   const occ = ex[key + "o"] && Array.isArray(ex[key + "o"][ctx.text]) ? ex[key + "o"][ctx.text] : null;
   if(on && occ && ctx.occ != null) on = occ.indexOf(ctx.occ) !== -1;   // 这一次出现有没有被标
