@@ -255,6 +255,26 @@ app.put('/api/sync', requireAuth, async (req, res) => {
     //    thaiAccepted:false, re-reads, merges and pushes again.
     //  · Without it (older clients): the original "incoming rev >= stored" rule.
     if (thai !== undefined) {
+      // Safety net: a card may never vanish from the server just because one
+      // client's copy lacks it. A client that deletes a card always sends a
+      // tombstone ({id,_deleted:true}) for it, so a live card whose id is absent
+      // from the incoming set altogether (neither card nor tombstone) can only
+      // mean that client never had it: an old app version, a device whose
+      // local storage was wiped and re-synced from a stale backup, or a bug.
+      // Carry such cards over into the new blob instead of letting them drop.
+      // Tombstones are not carried (clients expire them after ~120 days and
+      // re-adding would make every pull look like a change).
+      if (Array.isArray(thai)) {
+        const curQ = await pool.query('SELECT thai FROM user_data WHERE user_id = $1', [userId]);
+        const stored = curQ.rows[0] && Array.isArray(curQ.rows[0].thai) ? curQ.rows[0].thai : [];
+        const have = new Set(thai.filter(e => e && e.id).map(e => e.id));
+        const missing = stored.filter(e => e && e.id && !e._deleted && !have.has(e.id));
+        if (missing.length) {
+          thai.push(...missing);
+          out.thaiRestored = missing.length;
+          console.warn(`sync: user ${userId} pushed ${thai.length - missing.length} thai entries lacking ${missing.length} stored live card(s); kept them`);
+        }
+      }
       let r;
       if (thaiBase !== undefined) {
         const base = Number(thaiBase) || 0;

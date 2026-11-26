@@ -1043,7 +1043,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v137";
+const APP_VER = "v138";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2912,9 +2912,15 @@ function openPeek(card){
   highlightInPeek($("#searchBox") ? $("#searchBox").value.trim() : "");  // mark the searched word
   _peekCardId = card.id;
   updatePeekNav();
-  const sc = $("#peekPanel .cb-scroll"); if(sc) sc.scrollTop = 0;
+  const sc = $("#peekPanel .cb-scroll");
   $("#peekBg").classList.add("show");
   $("#peekPanel").classList.add("show");
+  // 回到顶部要在浮层显示出来之后做：display:none 的元素设 scrollTop 不生效，
+  // 上一张滚到哪这一张打开还在哪
+  if(sc) sc.scrollTop = 0;
+  // 从搜索结果打开的：直接滚到第一个命中的词那里（在标题 / 释义里命中的本来就在最上面，不用滚）
+  const hit = sc ? sc.querySelector("mark.s-hit") : null;
+  if(hit) requestAnimationFrame(()=>{ try{ if(hit.isConnected) hit.scrollIntoView({ block:"center" }); }catch(e){} });
   updateReadBtn();
   if(autoRead) speakSeq(cardAllParts(card));   // 浮层里整张一次读完
 }
