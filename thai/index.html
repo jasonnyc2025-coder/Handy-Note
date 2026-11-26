@@ -453,6 +453,9 @@
   mark.hl.c7{background:transparent;color:inherit;padding:0 1px}
   mark.hl.ul{border-bottom:5px double currentColor;padding-bottom:1px}
   mark.hl.c7.ul{border-bottom-color:#b45309}
+  /* 同一块底色被双线切成几段时，接缝处不收口，看着还是一整块 */
+  mark.hl.hl-nl{border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0;margin-left:0}
+  mark.hl.hl-nr{border-top-right-radius:0;border-bottom-right-radius:0;padding-right:0;margin-right:0}
   @media(prefers-color-scheme:dark){
     mark.hl-a{background:#8a6a1f;color:#ffe9b0}
     mark.hl-b{background:#4a3a7c;color:#e7ddff}
@@ -1043,7 +1046,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v138";
+const APP_VER = "v139";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2075,23 +2078,36 @@ function hlThai(thai, hlList, ownId, colors, occ){
     }
   });
   spans.sort((a, b) => a.s - b.s || (b.e - b.s) - (a.e - a.s));
-  const merged = [];
-  spans.forEach(sp=>{
-    const last = merged[merged.length - 1];
-    if(last && sp.s < last.e){ if(sp.e > last.e) last.e = sp.e; if(!last.c && sp.c) last.c = sp.c; }
-    else merged.push({ s:sp.s, e:sp.e, c:sp.c });
-  });
-  // 2) 拼 HTML：高亮段内部再给生词本里的词加下划线
+  // 黄紫交替只在没指定颜色的老高亮之间数，不然新加一个彩色高亮会把旁边老的换色
+  let n = 0;
+  spans.forEach((sp, i)=>{ sp.i = i; sp.base = sp.c % 10; sp.ul = sp.c >= 10; if(!sp.base) sp.alt = n++ % 2 ? 'hl-b' : 'hl-a'; });
+  // 2) 重叠的区间不再合成一段，而是分层：整句高亮里再给一个词加双线、或者
+  //    双线句子里再给一个词上色，都要看得见。把文字按所有区间的起止点切成小段，
+  //    每一小段看自己落在哪些区间里：底色听最外层（最早开始）那个有底色的区间，
+  //    双线只要有一个区间带就画。同一个底色区间被切成几段时，中间的接缝去掉
+  //    圆角和内边距，看起来仍是连着的一整块。
+  const cuts = [...new Set(spans.flatMap(sp => [sp.s, sp.e]))].sort((a, b) => a - b);
+  const runs = [];
+  for(let k = 0; k + 1 < cuts.length; k++){
+    const a = cuts[k], b = cuts[k + 1];
+    const act = spans.filter(sp => sp.s <= a && sp.e >= b);
+    if(!act.length) continue;
+    const bg = act.find(sp => sp.base !== 7) || null;          // 7 = 不要底色（只画线）
+    runs.push({ s:a, e:b, bg, ul: act.some(sp => sp.ul) });
+  }
+  // 3) 拼 HTML：高亮段内部再给生词本里的词加下划线
   const idx = _knownWordIndex(ownId);
-  let out = "", pos = 0, n = 0;
-  merged.forEach(sp=>{
-    out += esc(text.slice(pos, sp.s));
-    // 黄紫交替只在没指定颜色的老高亮之间数，不然新加一个彩色高亮会把旁边老的换色
-    // 颜色值：个位 = 底色（1..6，7 = 不要底色），≥10 = 再加一条双下划线
-    const base = sp.c % 10, ul = sp.c >= 10;
-    const cls = (base ? ('c' + base) : (n++ % 2 ? 'hl-b' : 'hl-a')) + (ul ? ' ul' : '');
-    out += '<mark class="hl ' + cls + '">' + underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
-    pos = sp.e;
+  let out = "", pos = 0;
+  runs.forEach((r, k)=>{
+    out += esc(text.slice(pos, r.s));
+    const bg = r.bg;
+    let cls = bg ? (bg.base ? 'c' + bg.base : bg.alt) : 'c7';
+    if(r.ul) cls += ' ul';
+    const prev = runs[k - 1], next = runs[k + 1];
+    if(prev && prev.e === r.s && prev.bg === bg) cls += ' hl-nl';   // 和前一段同一块底色：左边不收口
+    if(next && next.s === r.e && next.bg === bg) cls += ' hl-nr';   // 和后一段同一块底色：右边不收口
+    out += '<mark class="hl ' + cls + '">' + underlineKnown(text.slice(r.s, r.e), idx) + '</mark>';
+    pos = r.e;
   });
   out += esc(text.slice(pos));
   return out;
