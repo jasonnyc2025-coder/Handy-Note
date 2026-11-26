@@ -1019,7 +1019,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v131";
+const APP_VER = "v132";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -3047,8 +3047,17 @@ function _rememberSel(x, y){
     }
   }catch(e){ _downSel = null; }
 }
-document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); }, true);
-document.addEventListener("mousedown", e=>{ if(!_downPt){ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); } }, true);
+// 旧选区还亮着（比如刚点过 🔊 没清掉）时再点另一处的词，安卓（三星尤其）会把旧选区
+// 一路拉到新点的位置，变成跨两条例句的一大段，看起来就是"选的词跳到上面去了"。
+// 按下的瞬间发现旧选区不在手指下面，就先把它清掉，再让 click 去选新词。
+function _clearStaleSel(target){
+  if(!_downSel || _tapInsideSel) return;
+  const line = target && target.closest ? target.closest(".ex-thai, .ex-mean, .cb-note") : null;
+  if(!line) return;
+  try{ const s = window.getSelection(); if(s && !s.isCollapsed) s.removeAllRanges(); }catch(e){}
+}
+document.addEventListener("pointerdown", e=>{ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); _clearStaleSel(e.target); }, true);
+document.addEventListener("mousedown", e=>{ if(!_downPt){ _downPt = { x:e.clientX, y:e.clientY }; _rememberSel(e.clientX, e.clientY); _clearStaleSel(e.target); } }, true);
 // 安卓上在已选中的词上再点一下（或双击），系统会按它自己的分词重新选一段，词就"跳"了。
 // 快速点按（300ms 内）落在原选区里时，不让浏览器开始新选区；长按（>300ms）不拦，
 // 系统的长按选词菜单照常能用
