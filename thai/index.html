@@ -613,7 +613,7 @@
      选中泰文→加入生词/高亮/朗读 works here just like in review mode */
   #peekExList .ex-thai, #peekExList .ex-thai *,
   #peekExList .ex-mean, #peekExList .ex-mean *,
-  #peekThai, #peekThai *, #peekMean, #peekMean *,
+  #peekThai, #peekThai *, #peekMean, #peekMean *, #peekRead, #peekRead *,
   #peekNote, #peekNote *{
     -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;cursor:text}
   .peek-card .peek-body{width:100%;display:flex;flex-direction:column;flex:1;min-height:0;
@@ -1043,7 +1043,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v136";
+const APP_VER = "v137";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -1199,6 +1199,7 @@ const CARD_LINES = {
   note:  { key:"noteHl",  text:c => c.note },
   title: { key:"titleHl", text:c => c.thai },
   cmean: { key:"meanHl",  text:c => c.meaning },
+  read:  { key:"readHl",  text:c => c.reading },
 };
 function _rankThai(e){ return e._deleted ? (e._deletedAt||0) : (e.modified || e.createdAt || 0); }
 // 把 src 例句上的高亮（hl / hlm）搬到 dst 的例句上：按例句原文配对，配不上的
@@ -1503,7 +1504,7 @@ function selectHomeCard(id, userPicked){
   homeCardId = id; homeRevealed = false; homeUserPicked = !!userPicked;
   renderCardLine($("#homeCardThai"), c, "title"); fitThaiTitle($("#homeCardThai"), c.thai);
   renderCardLine($("#homeCbMean"), c, "cmean");
-  $("#homeCbRead").textContent = c.reading || "";
+  renderCardLine($("#homeCbRead"), c, "read");
   renderNote($("#homeCbNote"), c.note, c);
   renderCardExamples($("#homeCbExList"), c.examples || [], c.id);
   $("#homeCardBack").classList.remove("show");
@@ -2003,7 +2004,7 @@ function renderReviewCard(){
   saveSession();           // persist progress so we can resume after a restart
   renderCardLine($("#cardThai"), c, "title"); fitThaiTitle($("#cardThai"), c.thai);
   renderCardLine($("#cbMean"), c, "cmean");
-  $("#cbRead").textContent = c.reading || "";
+  renderCardLine($("#cbRead"), c, "read");
   renderNote($("#cbNote"), c.note, c);
   renderCardExamples($("#cbExList"), c.examples || [], c.id);
   // reset to front
@@ -2098,7 +2099,7 @@ function hlThai(thai, hlList, ownId, colors, occ){
 // show the 备注 block only when the card has a note
 function cardLineField(el){
   if(!el) return null;
-  return el.classList.contains("cb-note") ? "note" : el.classList.contains("card-thai") ? "title" : el.classList.contains("cb-mean") ? "cmean" : null;
+  return el.classList.contains("cb-note") ? "note" : el.classList.contains("card-thai") ? "title" : el.classList.contains("cb-mean") ? "cmean" : el.classList.contains("cb-read") ? "read" : null;
 }
 function renderCardLine(el, card, field){
   if(!el) return;
@@ -2761,7 +2762,7 @@ let selCtx = null;   // { text, cbEx }
 function hideSelPop(){ $("#selPop").classList.remove("show"); $("#selPop").classList.remove("pal"); $("#selPop").classList.remove("rel"); selCtx=null; }
 // 例句的两行都能选：泰文行和它下面的中文翻译行（翻译里常常混着泰文）
 // 哪些行能选词：例句的泰文行 / 翻译行、备注，还有卡片顶上的标题和释义
-const SEL_LINES = ".ex-thai, .ex-mean, .cb-note, .card-thai[data-card], .cb-mean[data-card]";
+const SEL_LINES = ".ex-thai, .ex-mean, .cb-note, .card-thai[data-card], .cb-mean[data-card], .cb-read[data-card]";
 function exLineOf(node){
   if(!node) return null;
   if(node.nodeType===3) node = node.parentElement;
@@ -2905,7 +2906,7 @@ function openPeek(card){
   _peekReturnId = null;   // reset; the 生词 list tap re-sets it right after this call
   renderCardLine($("#peekThai"), card, "title"); fitThaiTitle($("#peekThai"), card.thai);
   renderCardLine($("#peekMean"), card, "cmean");
-  $("#peekRead").textContent = card.reading || "";
+  renderCardLine($("#peekRead"), card, "read");
   renderNote($("#peekNote"), card.note, card);
   renderCardExamples($("#peekExList"), card.examples || [], card.id);
   highlightInPeek($("#searchBox") ? $("#searchBox").value.trim() : "");  // mark the searched word
@@ -3167,7 +3168,7 @@ document.addEventListener("click", e=>{
   _downSel = null;
   // 翻译行多半是中文，用泰语分词器去切会切错 —— 只有点在泰文字符上才自动选词，
   // 其余交给浏览器自己的双击/拖选
-  if(line.classList.contains("ex-mean") || line.classList.contains("cb-note") || line.classList.contains("cb-mean")){
+  if(line.classList.contains("ex-mean") || line.classList.contains("cb-note") || line.classList.contains("cb-mean") || line.classList.contains("cb-read")){
     const t = tn.nodeValue || "", off = Math.max(0, Math.min(c ? c.off : 0, t.length - 1));
     if(!_THAI_CH.test(t[off] || "")) return;
   }
