@@ -447,6 +447,12 @@
   mark.hl.c4{background:#c9e4ff;color:#143f7a}
   mark.hl.c5{background:#ffd3e2;color:#7a1f45}
   mark.hl.c6{background:#ffd9b3;color:#7a3a00}
+  /* c7 = 不要底色（只画双下划线时用）；.ul = 双下划线。
+     用 border-bottom 画而不用 text-decoration：泰文下方的元音（ุ ู）会被
+     text-decoration 压住，border 画在整个行盒底下，不打架 */
+  mark.hl.c7{background:transparent;color:inherit;padding:0 1px}
+  mark.hl.ul{border-bottom:5px double currentColor;padding-bottom:1px}
+  mark.hl.c7.ul{border-bottom-color:#b45309}
   @media(prefers-color-scheme:dark){
     mark.hl-a{background:#8a6a1f;color:#ffe9b0}
     mark.hl-b{background:#4a3a7c;color:#e7ddff}
@@ -456,6 +462,8 @@
     mark.hl.c4{background:#1f4f86;color:#d4e8ff}
     mark.hl.c5{background:#7c2f52;color:#ffd9e6}
     mark.hl.c6{background:#8a4a14;color:#ffe2c4}
+    mark.hl.c7{background:transparent;color:inherit}
+    mark.hl.c7.ul{border-bottom-color:#fbbf24}
   }
   /* 选词菜单里的调色板：点「高亮」后把按钮换成六个色块 */
   #selPop.pal > button{display:none}
@@ -494,6 +502,8 @@
   #selPop #selSpeak{font-size:21px;padding-left:24px;padding-right:24px}   /* icon-only: enlarge so it matches the 高亮 button */
   #selPop button:active{background:var(--teal);color:#fff}
   #selPop #selHl{background:#ffd54a;color:#4a3600}                        /* 高亮按钮本身带一点高亮色 */
+  /* 双下划线按钮：按钮文字自己就画着双线，一眼看出是干什么的 */
+  #selPop #selUl span{border-bottom:4px double currentColor;padding-bottom:1px;line-height:1.1}
   #selPalette .sw-x{background:#ffffff;color:#0a6f66}
   /* 调色板里显示正在上色的词：iOS 一点按钮正文里的选区就没了，不然不知道在给谁上色 */
   #selPalWord{color:#ffe08a;font-weight:800;font-size:16px;padding:0 4px;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -927,6 +937,7 @@
   <button id="selAdd">➕ 加入生词</button>
   <button id="selTrans">🌐 翻译</button>
   <button id="selHl">🖍 高亮</button>
+  <button id="selUl"><span>双下划线</span></button>
   <div id="selRelated">
     <div class="rel-head"><button class="sw-x" data-rel="back" aria-label="返回">‹</button><span id="selRelTitle"></span></div>
     <div id="selRelList"></div>
@@ -1019,7 +1030,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const STORE_KEY = "thaicards.v1";
 const TOMB_KEY = "thaicards.tombs.v1";
-const APP_VER = "v133";
+const APP_VER = "v134";
 
 /* 页面里任何没接住的报错都记下来，设置页「存储」栏能看到最近几条。
    手机上没有控制台，以前出了错只能靠猜。 */
@@ -2049,7 +2060,9 @@ function hlThai(thai, hlList, ownId, colors, occ){
   merged.forEach(sp=>{
     out += esc(text.slice(pos, sp.s));
     // 黄紫交替只在没指定颜色的老高亮之间数，不然新加一个彩色高亮会把旁边老的换色
-    const cls = sp.c ? ('c' + sp.c) : (n++ % 2 ? 'hl-b' : 'hl-a');
+    // 颜色值：个位 = 底色（1..6，7 = 不要底色），≥10 = 再加一条双下划线
+    const base = sp.c % 10, ul = sp.c >= 10;
+    const cls = (base ? ('c' + base) : (n++ % 2 ? 'hl-b' : 'hl-a')) + (ul ? ' ul' : '');
     out += '<mark class="hl ' + cls + '">' + underlineKnown(text.slice(sp.s, sp.e), idx) + '</mark>';
     pos = sp.e;
   });
@@ -2796,6 +2809,8 @@ function onSelChange(){
   if(selCtx.match){ pk.textContent = "📖 查看该词"; pk.style.display = "flex"; }
   else if(selCtx.related.length){ pk.textContent = `📚 相关卡片 ${selCtx.related.length}`; pk.style.display = "flex"; }
   else pk.style.display = "none";
+  const curH = _curHighlight(selCtx);
+  $("#selUl").querySelector("span").textContent = (curH.on && curH.c >= 10) ? "去掉双线" : "双下划线";
   $("#selPop").classList.remove("rel");
   $("#selPop").classList.add("show");   // fixed position via CSS (bottom-centered)
 }
@@ -3197,7 +3212,7 @@ $("#selHl").onclick = ()=>{
   if(!selCtx) return;
   const cur = _curHighlight(selCtx);
   $("#selHlOff").style.display = cur.on ? "" : "none";
-  $$("#selPalette .sw").forEach(b=> b.classList.toggle("on", cur.on && Number(b.dataset.c) === cur.c));
+  $$("#selPalette .sw").forEach(b=> b.classList.toggle("on", cur.on && Number(b.dataset.c) === cur.c % 10));
   $("#selPalWord").textContent = selCtx.text;
   $("#selPop").classList.add("pal");
   // iOS 一点按钮正文里的选区就被清掉，把它放回去，让人看得见是在给哪个词上色
@@ -3211,7 +3226,25 @@ $("#selPalette").onclick = e=>{
   const b = e.target.closest("button"); if(!b) return;
   e.stopPropagation();
   if(b.dataset.c === "back"){ $("#selPop").classList.remove("pal"); return; }
-  if(selCtx) toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, Number(b.dataset.c) || 0, selCtx.occ);
+  if(selCtx){
+    let c = Number(b.dataset.c) || 0;
+    const cur = _curHighlight(selCtx);
+    if(c && cur.on && cur.c >= 10) c += 10;   // 这个词已经有双下划线 → 换底色时双线留着
+    toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, c, selCtx.occ);
+  }
+  hideSelPop();
+  const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
+};
+// 「双下划线」：点一下给选中的词（只这一次出现）画双线，再点一下去掉。
+// 存法和高亮同一套（hl / hlc / hlo），颜色值 ≥10 表示带双线：
+//  17 = 只有双线没底色；11..16 = 彩色底 + 双线。旧机子没升级前最多看不到线，数据不丢。
+$("#selUl").onclick = ()=>{
+  if(!selCtx) return;
+  const cur = _curHighlight(selCtx);
+  let next;
+  if(cur.on && cur.c >= 10){ next = cur.c - 10; if(next === 7) next = 0; }   // 去掉双线；本来就没底色 → 整个去掉
+  else next = cur.on ? (cur.c % 10 || 0) + 10 : 17;                           // 有底色就加在底色上，没有就只画线
+  toggleHighlight(selCtx.cbEx, selCtx.text, selCtx.field, next, selCtx.occ);
   hideSelPop();
   const s = window.getSelection && window.getSelection(); if(s) s.removeAllRanges();
 };
