@@ -34,8 +34,12 @@ const changes = new EventEmitter();
 changes.setMaxListeners(0);
 function notifyChange(userId, section) { changes.emit('u' + userId, section); }
 
+
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
+
+// Shared staff-bonus ledger (separate staff-bonus app) — see bonus.js
+const bonus = require('./bonus')({ app, pool, jwt, JWT_SECRET, changes });
 
 // ── Public endpoints ────────────────────────────────────────────────────────
 
@@ -58,9 +62,15 @@ app.post('/api/auth/google', async (req, res) => {
     });
     const { sub, email, name, picture } = ticket.getPayload();
 
-    // Check email whitelist
+    // Check email whitelist. An address that is not on it may still sign in if
+    // it has been invited to a shared staff-bonus ledger — but then it only gets
+    // a bonus-scoped token, which every notes/thai/cards endpoint rejects.
+    let scope;
     if (ALLOWED_EMAILS && !ALLOWED_EMAILS.has(email.toLowerCase())) {
-      return res.status(403).json({ error: 'This Google account is not allowed' });
+      if (!(await bonus.isMember(email))) {
+        return res.status(403).json({ error: 'This Google account is not allowed' });
+      }
+      scope = 'bonus';
     }
 
     // Upsert user record
@@ -75,11 +85,11 @@ app.post('/api/auth/google', async (req, res) => {
     const userId = result.rows[0].id;
 
     const token = jwt.sign(
-      { userId, email, name, picture },
+      scope ? { userId, email, name, picture, scope } : { userId, email, name, picture },
       JWT_SECRET,
       { expiresIn: '365d' }
     );
-    res.json({ token, name, email, picture });
+    res.json(scope ? { token, name, email, picture, scope } : { token, name, email, picture });
   } catch (err) {
     console.error('Google auth error:', err.message);
     res.status(401).json({ error: 'Invalid Google token' });
@@ -95,10 +105,13 @@ function requireAuth(req, res, next) {
   }
   try {
     req.user = jwt.verify(auth.slice(7), JWT_SECRET);
-    next();
   } catch {
-    res.status(401).json({ error: 'Token expired or invalid — please sign in again' });
+    return res.status(401).json({ error: 'Token expired or invalid — please sign in again' });
   }
+  // Bonus-only accounts (invited to a staff-bonus ledger, not on ALLOWED_EMAILS)
+  // may not touch notes, flashcards, cards or anything else behind requireAuth.
+  if (req.user.scope === 'bonus') return res.status(403).json({ error: 'This account can only use the staff-bonus app' });
+  next();
 }
 
 // ── Sync endpoints (protected) ──────────────────────────────────────────────
@@ -731,7 +744,7 @@ app.post('/api/push/register', async (req, res) => {
     let userId = null;
     const auth = req.headers.authorization;
     if (auth && auth.startsWith('Bearer ')) {
-      try { userId = jwt.verify(auth.slice(7), JWT_SECRET).userId; } catch {}
+      try { const u = jwt.verify(auth.slice(7), JWT_SECRET); if (u.scope !== 'bonus') userId = u.userId; } catch {}
     }
     await pool.query(
       `INSERT INTO push_devices (endpoint, subscription, reminders, user_id, updated_at)

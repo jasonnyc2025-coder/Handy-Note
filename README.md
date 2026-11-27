@@ -123,6 +123,22 @@ The app expects a server at a configurable URL with these endpoints:
 
 Authentication: `Authorization: Bearer <jwt>` header.
 
+## Staff bonus ledger (for the separate staff-bonus app)
+
+The server also backs [staff-bonus](https://github.com/jasonnyc2025-coder/staff-bonus), a shared ledger of year-end bonuses and salary raises (`server/bonus.js`, migration `008_bonus.sql`).
+
+- A ledger is created automatically for a full account the first time it opens the app; the owner can invite other Google emails.
+- An invited email that is **not** in `ALLOWED_EMAILS` can still sign in, but gets a bonus-only token (`scope: "bonus"`): every notes / Thai / cards / quick-add endpoint answers 403 for it.
+- Records are stored per row (`emp:<id>`, `yr:<empId>:<year>`) with a ledger-wide rev; writes are compare-and-swap per record, and every change is logged field by field (who, when, old → new).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/bonus/books` | Ledgers this account belongs to |
+| GET | `/api/bonus/:book/sync?since=<rev>&wait=<s>` | Records changed after `since` (long-polls up to 25 s) |
+| PUT | `/api/bonus/:book/records` | `{ records: [{ id, data, deleted, baseRev }] }` → `{ rev, accepted, rejected }` |
+| GET | `/api/bonus/:book/log` | Change log (`?before=&limit=&rec=`) |
+| GET / POST / DELETE | `/api/bonus/:book/members[/:email]` | List / invite / remove members (invite and remove: owner only) |
+
 ## Deployment
 
 Bump `CACHE` in `sw.js` on every deploy so clients pick up the new version:
